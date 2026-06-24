@@ -137,13 +137,13 @@ html, body, [class*="css"] {
 [data-testid="stSidebar"] [role="radiogroup"] {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.52rem;
 }
 [data-testid="stSidebar"] [data-testid="stRadio"] label,
 [data-testid="stSidebar"] [role="radio"] {
   border-radius: 10px;
-  padding: 0.58rem 0.72rem;
-  min-height: 46px;
+  padding: 0.62rem 0.78rem;
+  min-height: 50px;
   align-items: center;
   width: 100%;
   transition: background 140ms ease, box-shadow 140ms ease;
@@ -162,18 +162,20 @@ html, body, [class*="css"] {
 [data-testid="stSidebar"] [role="radio"] [data-testid="stMarkdownContainer"] p {
   display: flex;
   align-items: center;
+  line-height: 1.1;
 }
 [data-testid="stSidebar"] [role="radio"] [data-testid="stMarkdownContainer"] p {
-  gap: 13px;
+  gap: 14px;
   margin: 0;
 }
 [data-testid="stSidebar"] [role="radio"] img {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   object-fit: contain;
-  flex: 0 0 28px;
+  flex: 0 0 32px;
   display: inline-block;
   background: transparent !important;
+  vertical-align: middle;
 }
 [data-testid="stSidebar"] [data-testid="stRadio"] label:has(input[type="radio"]:checked),
 [data-testid="stSidebar"] [aria-checked="true"] {
