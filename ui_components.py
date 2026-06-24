@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import base64
 import html
 import re
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import streamlit as st
@@ -19,6 +21,30 @@ PALETTE = {
     "blue": "#105EDD",
     "navy": "#0B3075",
 }
+
+SIDEBAR_ICON_DIR = Path(__file__).parent / "assets" / "sidebar-icons"
+SIDEBAR_NAV_ITEMS = [
+    {"label": "App overview", "icon": "App_Overview_Icon.png"},
+    {"label": "Chat / Answer", "icon": "Chat_Answer_Icon.png"},
+    {"label": "Documents", "icon": "Documents_Icon.png"},
+    {"label": "Ingestion status", "icon": "Ingestion_Status_Icon.png"},
+    {"label": "Models", "icon": "Models_Icon.png"},
+    {"label": "Example questions", "icon": "Example_Questions_Icon.png"},
+    {"label": "Settings / Debug", "icon": "Settings_Debug_Icon.png"},
+]
+
+
+@st.cache_data(show_spinner=False)
+def _load_sidebar_icon_data_uri(filename: str) -> str:
+    icon_path = SIDEBAR_ICON_DIR / filename
+    encoded = base64.b64encode(icon_path.read_bytes()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
+
+
+def _format_sidebar_nav_label(label: str) -> str:
+    icon_by_label = {item["label"]: item["icon"] for item in SIDEBAR_NAV_ITEMS}
+    icon_uri = _load_sidebar_icon_data_uri(icon_by_label[label])
+    return f"![]({icon_uri}) {label}"
 
 
 def inject_custom_css() -> None:
@@ -111,12 +137,45 @@ html, body, [class*="css"] {
 [data-testid="stSidebar"] [role="radiogroup"] {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.42rem;
 }
+[data-testid="stSidebar"] [data-testid="stRadio"] label,
 [data-testid="stSidebar"] [role="radio"] {
   border-radius: 10px;
-  padding: 0.35rem 0.55rem;
+  padding: 0.48rem 0.62rem;
+  min-height: 40px;
+  align-items: center;
+  width: 100%;
+  transition: background 140ms ease, box-shadow 140ms ease;
 }
+[data-testid="stSidebar"] [data-testid="stRadio"] label > div:first-child,
+[data-testid="stSidebar"] [role="radio"] > div:first-child {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+[data-testid="stSidebar"] [data-testid="stRadio"] input[type="radio"] {
+  display: none !important;
+}
+[data-testid="stSidebar"] [role="radio"] [data-testid="stMarkdownContainer"] p {
+  display: flex;
+  align-items: center;
+}
+[data-testid="stSidebar"] [role="radio"] [data-testid="stMarkdownContainer"] p {
+  gap: 12px;
+  margin: 0;
+}
+[data-testid="stSidebar"] [role="radio"] img {
+  width: 21px;
+  height: 21px;
+  object-fit: contain;
+  flex: 0 0 21px;
+  display: inline-block;
+  background: transparent !important;
+}
+[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input[type="radio"]:checked),
 [data-testid="stSidebar"] [aria-checked="true"] {
   background: linear-gradient(135deg, #C8472C, #E05B36);
   box-shadow: 0 12px 25px rgba(200,71,44,0.28);
@@ -661,19 +720,12 @@ def render_sidebar(stats: dict[str, Any]) -> str:
             unsafe_allow_html=True,
         )
 
-        nav_items = [
-            "App overview",
-            "Chat / Answer",
-            "Documents",
-            "Ingestion status",
-            "Models",
-            "Example questions",
-            "Settings / Debug",
-        ]
+        nav_items = [item["label"] for item in SIDEBAR_NAV_ITEMS]
         section = st.radio(
             "Navigation",
             nav_items,
             key="nav_section",
+            format_func=_format_sidebar_nav_label,
             label_visibility="collapsed",
         )
 
