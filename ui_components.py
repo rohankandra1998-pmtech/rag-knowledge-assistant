@@ -22,6 +22,7 @@ PALETTE = {
     "navy": "#0B3075",
 }
 
+APP_ICON_PATH = Path(__file__).parent / "assets" / "rag-app-icon-tight.png"
 SIDEBAR_ICON_DIR = Path(__file__).parent / "assets" / "sidebar-icons"
 SIDEBAR_NAV_ITEMS = [
     {"label": "App overview", "icon": "App_Overview_Icon.png"},
@@ -32,6 +33,12 @@ SIDEBAR_NAV_ITEMS = [
     {"label": "Example questions", "icon": "Example_Questions_Icon.png"},
     {"label": "Settings / Debug", "icon": "Settings_Debug_Icon.png"},
 ]
+
+
+@st.cache_data(show_spinner=False)
+def _load_app_icon_data_uri() -> str:
+    encoded = base64.b64encode(APP_ICON_PATH.read_bytes()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
 
 
 @st.cache_data(show_spinner=False)
@@ -95,34 +102,12 @@ html, body, [class*="css"] {
   gap: 0.8rem;
   padding: 1rem 0.55rem 1.3rem;
 }
-.bot-mark {
-  width: 56px;
-  height: 56px;
-  border-radius: 18px;
-  background: linear-gradient(145deg, #FEFEFE, #D9EAFF);
-  border: 3px solid rgba(248, 222, 60, 0.92);
-  box-shadow: 0 10px 25px rgba(0,0,0,0.22);
-  position: relative;
-}
-.bot-mark:before, .bot-mark:after {
-  content: "";
-  position: absolute;
-  width: 7px;
-  height: 7px;
-  top: 23px;
-  border-radius: 50%;
-  background: var(--navy);
-}
-.bot-mark:before { left: 17px; }
-.bot-mark:after { right: 17px; }
-.bot-antenna {
-  position: absolute;
-  left: 25px;
-  top: -13px;
-  width: 5px;
-  height: 13px;
-  background: var(--sky);
-  border-radius: 999px;
+.sidebar-logo .app-logo-img {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
+  display: block;
+  object-fit: contain;
 }
 .sidebar-title {
   font-size: 1.03rem;
@@ -709,10 +694,11 @@ div.stButton > button[kind="primary"] {
 
 def render_sidebar(stats: dict[str, Any]) -> str:
     with st.sidebar:
+        app_icon_uri = _load_app_icon_data_uri()
         st.markdown(
-            """
+            f"""
 <div class="sidebar-logo">
-  <div class="bot-mark"><span class="bot-antenna"></span></div>
+  <img class="app-logo-img" src="{app_icon_uri}" alt="RAG Knowledge Assistant logo" />
   <div>
     <div class="sidebar-title">RAG Knowledge<br/>Assistant</div>
     <div class="sidebar-subtitle">Grounded document Q&A</div>
