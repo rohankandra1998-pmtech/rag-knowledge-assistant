@@ -22,7 +22,7 @@ PALETTE = {
     "navy": "#0B3075",
 }
 
-APP_ICON_PATH = Path(__file__).parent / "assets" / "rag-app-icon.png"
+APP_ICON_PATH = Path(__file__).parent / "assets" / "rag-app-icon-tight.png"
 SIDEBAR_ICON_DIR = Path(__file__).parent / "assets" / "sidebar-icons"
 SIDEBAR_NAV_ITEMS = [
     {"label": "App overview", "icon": "App_Overview_Icon.png"},
@@ -102,13 +102,12 @@ html, body, [class*="css"] {
   gap: 0.8rem;
   padding: 1rem 0.55rem 1.3rem;
 }
-.app-logo-img {
-  width: 56px !important;
-  height: 56px !important;
-  border-radius: 18px;
-  object-fit: cover !important;
-  flex: 0 0 56px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.22);
+.sidebar-logo .app-logo-img {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
+  display: block;
+  object-fit: contain;
 }
 .sidebar-title {
   font-size: 1.03rem;
