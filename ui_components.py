@@ -137,13 +137,13 @@ html, body, [class*="css"] {
 [data-testid="stSidebar"] [role="radiogroup"] {
   display: flex;
   flex-direction: column;
-  gap: 0.42rem;
+  gap: 0.5rem;
 }
 [data-testid="stSidebar"] [data-testid="stRadio"] label,
 [data-testid="stSidebar"] [role="radio"] {
   border-radius: 10px;
-  padding: 0.48rem 0.62rem;
-  min-height: 40px;
+  padding: 0.58rem 0.72rem;
+  min-height: 46px;
   align-items: center;
   width: 100%;
   transition: background 140ms ease, box-shadow 140ms ease;
@@ -164,14 +164,14 @@ html, body, [class*="css"] {
   align-items: center;
 }
 [data-testid="stSidebar"] [role="radio"] [data-testid="stMarkdownContainer"] p {
-  gap: 12px;
+  gap: 13px;
   margin: 0;
 }
 [data-testid="stSidebar"] [role="radio"] img {
-  width: 21px;
-  height: 21px;
+  width: 28px;
+  height: 28px;
   object-fit: contain;
-  flex: 0 0 21px;
+  flex: 0 0 28px;
   display: inline-block;
   background: transparent !important;
 }
