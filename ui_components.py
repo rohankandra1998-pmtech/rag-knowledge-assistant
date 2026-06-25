@@ -439,6 +439,110 @@ html, body, [class*="css"] {
 .delta-cool { color: var(--blue); }
 .delta-gold { color: #A87400; }
 
+.ingestion-status-title {
+  color: var(--navy);
+  font-size: 1.45rem;
+  font-weight: 900;
+  line-height: 1.12;
+  margin: 0 0 1rem;
+}
+.ingestion-status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.45rem;
+  margin: 0.2rem 0 1rem;
+}
+.ingestion-status-card {
+  --accent: var(--blue);
+  --helper: var(--blue);
+  position: relative;
+  min-height: 156px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 1.15rem;
+  padding: 1.35rem 1.55rem;
+  border: 1px solid #DFE7F3;
+  border-left: 3px solid var(--accent);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.98), rgba(248,251,255,0.95)),
+    #FFFFFF;
+  box-shadow: 0 18px 45px rgba(11, 48, 117, 0.10);
+}
+.ingestion-status-card.is-warm {
+  --accent: #FF3B16;
+  --helper: #FF3B16;
+  --badge-bg: #FFF0EA;
+  --badge-border: rgba(255, 59, 22, 0.18);
+  --icon-stroke: #FF3B16;
+}
+.ingestion-status-card.is-cool {
+  --accent: #105EDD;
+  --helper: #105EDD;
+  --badge-bg: #EAF3FF;
+  --badge-border: rgba(16, 94, 221, 0.18);
+  --icon-stroke: #105EDD;
+}
+.ingestion-status-card.is-gold {
+  --accent: #F5B400;
+  --helper: #A87400;
+  --badge-bg: #FFF7DF;
+  --badge-border: rgba(245, 180, 0, 0.24);
+  --icon-stroke: #F5B400;
+}
+.ingestion-status-icon {
+  width: 70px;
+  height: 70px;
+  flex: 0 0 70px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--badge-border);
+  background: var(--badge-bg);
+  box-shadow: 0 10px 22px rgba(11, 48, 117, 0.06);
+}
+.ingestion-status-icon svg {
+  width: 38px;
+  height: 38px;
+  display: block;
+  color: var(--icon-stroke);
+  stroke: currentColor;
+}
+.ingestion-status-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.ingestion-status-label {
+  color: var(--navy);
+  font-size: 0.95rem;
+  line-height: 1.18;
+  font-weight: 800;
+}
+.ingestion-status-value {
+  color: #020A34;
+  font-size: 2.5rem;
+  line-height: 1.02;
+  font-weight: 900;
+  margin-top: 0.62rem;
+  letter-spacing: 0;
+  white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+.ingestion-status-value.is-text {
+  font-size: 2.1rem;
+}
+.ingestion-status-helper {
+  color: var(--helper);
+  font-size: 0.86rem;
+  font-weight: 800;
+  margin-top: 1.18rem;
+}
+
 .section-title {
   color: var(--navy);
   font-size: 1.1rem;
@@ -853,11 +957,14 @@ div.stButton > button[kind="primary"] {
     flex-wrap: wrap;
   }
   .hero-title { font-size: 2.05rem; }
+  .ingestion-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .workflow, .debug-grid { grid-template-columns: 1fr 1fr; }
   .chat-user { max-width: 92%; }
   .doc-table-header { flex-direction: column; }
 }
 @media (max-width: 620px) {
+  .ingestion-status-grid { grid-template-columns: 1fr; }
+  .ingestion-status-card { min-height: 150px; }
   .workflow, .debug-grid { grid-template-columns: 1fr; }
 }
 </style>
@@ -987,6 +1094,84 @@ def render_metric_card(label: str, value: str, delta: str, tone: str = "cool") -
   <div class="metric-label">{html.escape(label)}</div>
   <div class="metric-value">{html.escape(value)}</div>
   <div class="metric-delta {tone_class}">{html.escape(delta)}</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def render_ingestion_status_cards(stats: dict[str, Any]) -> None:
+    icons = {
+        "document": """
+<svg viewBox="0 0 40 40" aria-hidden="true" focusable="false" fill="none" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M13 6.5h10.2L30 13.3V33.5H13z" />
+  <path d="M23 6.8v7h6.8" />
+  <path d="M17 20h8.5" />
+  <path d="M17 25.5h9.5" />
+</svg>
+""",
+        "layers": """
+<svg viewBox="0 0 40 40" aria-hidden="true" focusable="false" fill="none" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M20 7.5 32 14.2 20 20.9 8 14.2z" />
+  <path d="m8 20 12 6.7L32 20" />
+  <path d="m8 25.8 12 6.7 12-6.7" />
+</svg>
+""",
+        "database": """
+<svg viewBox="0 0 40 40" aria-hidden="true" focusable="false" fill="none" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
+  <ellipse cx="20" cy="10.5" rx="10.5" ry="4.8" />
+  <path d="M9.5 10.5v18.8c0 2.7 4.7 4.8 10.5 4.8s10.5-2.1 10.5-4.8V10.5" />
+  <path d="M30.5 20c0 2.7-4.7 4.8-10.5 4.8S9.5 22.7 9.5 20" />
+</svg>
+""",
+    }
+    cards = [
+        {
+            "label": "Documents indexed",
+            "value": str(stats.get("total_documents", 0)),
+            "helper": "Across persistent collection",
+            "tone": "warm",
+            "icon": icons["document"],
+            "is_text": False,
+        },
+        {
+            "label": "Chunks stored",
+            "value": f'{stats.get("total_chunks", 0):,}',
+            "helper": "Semantic chunks",
+            "tone": "cool",
+            "icon": icons["layers"],
+            "is_text": False,
+        },
+        {
+            "label": "Vector DB",
+            "value": "ChromaDB",
+            "helper": "Local persistence",
+            "tone": "gold",
+            "icon": icons["database"],
+            "is_text": True,
+        },
+    ]
+
+    card_html = []
+    for card in cards:
+        value_class = "ingestion-status-value is-text" if card["is_text"] else "ingestion-status-value"
+        card_html.append(
+            f"""
+  <div class="ingestion-status-card is-{html.escape(card["tone"])}">
+    <div class="ingestion-status-icon" aria-label="{html.escape(card["label"])} icon">{card["icon"]}</div>
+    <div class="ingestion-status-copy">
+      <div class="ingestion-status-label">{html.escape(card["label"])}</div>
+      <div class="{value_class}">{html.escape(card["value"])}</div>
+      <div class="ingestion-status-helper">{html.escape(card["helper"])}</div>
+    </div>
+  </div>
+"""
+        )
+
+    st.markdown(
+        f"""
+<div class="ingestion-status-grid">
+{''.join(card_html)}
 </div>
 """,
         unsafe_allow_html=True,

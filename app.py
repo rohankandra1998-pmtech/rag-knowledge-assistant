@@ -30,6 +30,7 @@ from ui_components import (
     render_empty_state,
     render_error_state,
     render_header,
+    render_ingestion_status_cards,
     render_metric_card,
     render_overview,
     render_sidebar,
@@ -275,14 +276,8 @@ def render_documents_screen(stats: dict[str, Any]) -> None:
 
 
 def render_ingestion_status(stats: dict[str, Any]) -> None:
-    st.markdown('<div class="section-title">Ingestion status</div>', unsafe_allow_html=True)
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        render_metric_card("Documents indexed", str(stats.get("total_documents", 0)), "Across persistent collection", "warm")
-    with col2:
-        render_metric_card("Chunks stored", f'{stats.get("total_chunks", 0):,}', "Semantic chunks")
-    with col3:
-        render_metric_card("Vector DB", "ChromaDB", "Local persistence", "gold")
+    st.markdown('<div class="ingestion-status-title">Ingestion status</div>', unsafe_allow_html=True)
+    render_ingestion_status_cards(stats)
     render_document_table(stats.get("documents", []))
 
 
