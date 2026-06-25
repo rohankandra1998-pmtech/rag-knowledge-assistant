@@ -3,11 +3,13 @@ from __future__ import annotations
 import base64
 import html
 import re
+from io import BytesIO
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import streamlit as st
+from PIL import Image
 
 from rag_utils import CHAT_MODEL, EMBEDDING_MODEL
 
@@ -24,6 +26,7 @@ PALETTE = {
 
 APP_ICON_PATH = Path(__file__).parent / "assets" / "rag-app-icon-tight.png"
 SIDEBAR_ICON_DIR = Path(__file__).parent / "assets" / "sidebar-icons"
+HEADER_ICON_DIR = Path(__file__).parent / "assets" / "header-icons"
 SIDEBAR_NAV_ITEMS = [
     {"label": "App overview", "icon": "App_Overview_Icon.png"},
     {"label": "Chat / Answer", "icon": "Chat_Answer_Icon.png"},
@@ -48,6 +51,37 @@ def _load_sidebar_icon_data_uri(filename: str) -> str:
     return f"data:image/png;base64,{encoded}"
 
 
+@st.cache_data(show_spinner=False)
+def _load_header_icon_data_uri(filename: str) -> str:
+    icon_path = HEADER_ICON_DIR / filename
+    source = Image.open(icon_path).convert("RGBA")
+    alpha = Image.new("L", source.size, 0)
+    pixels = source.load()
+    alpha_pixels = alpha.load()
+    for y in range(source.height):
+        for x in range(source.width):
+            red, green, blue, _ = pixels[x, y]
+            luminance = int((red * 299 + green * 587 + blue * 114) / 1000)
+            alpha_pixels[x, y] = 255 if luminance < 160 else 0
+
+    bounds = alpha.getbbox()
+    if bounds:
+        alpha = alpha.crop(bounds)
+    side = max(alpha.size)
+    padding = max(6, int(side * 0.08))
+    normalized = Image.new("L", (side + padding * 2, side + padding * 2), 0)
+    offset = ((normalized.width - alpha.width) // 2, (normalized.height - alpha.height) // 2)
+    normalized.paste(alpha, offset)
+    normalized = normalized.resize((96, 96), Image.Resampling.LANCZOS)
+
+    icon = Image.new("RGBA", normalized.size, (255, 255, 255, 0))
+    icon.putalpha(normalized)
+    output = BytesIO()
+    icon.save(output, format="PNG")
+    encoded = base64.b64encode(output.getvalue()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
+
+
 def _format_sidebar_nav_label(label: str) -> str:
     icon_by_label = {item["label"]: item["icon"] for item in SIDEBAR_NAV_ITEMS}
     icon_uri = _load_sidebar_icon_data_uri(icon_by_label[label])
@@ -55,6 +89,43 @@ def _format_sidebar_nav_label(label: str) -> str:
 
 
 def inject_custom_css() -> None:
+    upload_icon_uri = _load_header_icon_data_uri("upload.png")
+    ingest_icon_uri = _load_header_icon_data_uri("ingest.png")
+    clear_icon_uri = _load_header_icon_data_uri("clear-chat.png")
+    st.markdown(
+        f"""
+<style>
+.st-key-header_actions .st-key-header_upload [data-testid^="stBaseButton"]::before {{
+  content: "";
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  background: currentColor;
+  -webkit-mask: url("{upload_icon_uri}") center / contain no-repeat;
+  mask: url("{upload_icon_uri}") center / contain no-repeat;
+}}
+.st-key-header_actions .st-key-header_ingest [data-testid^="stBaseButton"]::before {{
+  content: "";
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  background: currentColor;
+  -webkit-mask: url("{ingest_icon_uri}") center / contain no-repeat;
+  mask: url("{ingest_icon_uri}") center / contain no-repeat;
+}}
+.st-key-header_actions .st-key-header_clear [data-testid^="stBaseButton"]::before {{
+  content: "";
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  background: currentColor;
+  -webkit-mask: url("{clear_icon_uri}") center / contain no-repeat;
+  mask: url("{clear_icon_uri}") center / contain no-repeat;
+}}
+</style>
+""",
+        unsafe_allow_html=True,
+    )
     st.markdown(
         """
 <style>
@@ -100,7 +171,7 @@ html, body, [class*="css"] {
   display: flex;
   align-items: center;
   gap: 0.8rem;
-  padding: 1rem 0.55rem 1.3rem;
+  padding: 0.85rem 0.55rem 1.3rem;
 }
 .sidebar-logo .app-logo-img {
   width: 64px;
@@ -197,24 +268,115 @@ html, body, [class*="css"] {
   font-weight: 800;
 }
 
+.st-key-app_header_shell {
+  margin: 0.35rem 0 1.35rem;
+}
+.st-key-app_header_shell [data-testid="stHorizontalBlock"] {
+  align-items: flex-start;
+}
 .app-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
-  margin: 0.2rem 0 1.15rem;
+  margin: 0;
+}
+.app-title-block {
+  min-width: 0;
 }
 .app-title {
   color: var(--navy);
-  font-size: 2rem;
+  font-size: clamp(2.15rem, 2.7vw, 3rem);
   line-height: 1.05;
   font-weight: 900;
   margin: 0;
+  white-space: nowrap;
 }
 .app-subtitle {
   color: #405072;
   font-size: 1rem;
   margin-top: 0.35rem;
+}
+.st-key-header_actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: nowrap;
+  padding-top: 1.55rem;
+  width: 100%;
+}
+.st-key-header_actions [data-testid="stButton"] {
+  flex: 0 0 auto;
+  width: auto !important;
+}
+.st-key-header_actions div.stButton > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0 0.8rem;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: 0 12px 28px rgba(11,48,117,0.08);
+  transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease, border-color 140ms ease;
+}
+.st-key-header_actions div.stButton > button:hover {
+  transform: translateY(-1px);
+}
+.st-key-header_actions .st-key-header_upload [data-testid^="stBaseButton"],
+.st-key-header_actions .st-key-header_upload button,
+.st-key-header_actions [data-testid="stElementContainer"]:nth-of-type(1) [data-testid^="stBaseButton"] {
+  background: #FFFFFF !important;
+  border-color: #CFE1FB !important;
+  color: var(--navy) !important;
+}
+.st-key-header_actions .st-key-header_upload [data-testid^="stBaseButton"]:hover,
+.st-key-header_actions .st-key-header_upload button:hover,
+.st-key-header_actions [data-testid="stElementContainer"]:nth-of-type(1) [data-testid^="stBaseButton"]:hover {
+  background: #F6FAFF !important;
+  border-color: #BBD6FF !important;
+  color: var(--navy) !important;
+}
+.st-key-header_actions .st-key-header_ingest [data-testid^="stBaseButton"],
+.st-key-header_actions .st-key-header_ingest button,
+.st-key-header_actions [data-testid="stElementContainer"]:nth-of-type(2) [data-testid^="stBaseButton"] {
+  background: var(--blue) !important;
+  border-color: var(--blue) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 14px 28px rgba(16,94,221,0.18);
+}
+.st-key-header_actions .st-key-header_ingest [data-testid^="stBaseButton"]:hover,
+.st-key-header_actions .st-key-header_ingest button:hover,
+.st-key-header_actions [data-testid="stElementContainer"]:nth-of-type(2) [data-testid^="stBaseButton"]:hover {
+  background: #0B4FC7 !important;
+  border-color: #0B4FC7 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 16px 32px rgba(16,94,221,0.22);
+}
+.st-key-header_actions .st-key-header_clear [data-testid^="stBaseButton"],
+.st-key-header_actions .st-key-header_clear button,
+.st-key-header_actions [data-testid="stElementContainer"]:nth-of-type(3) [data-testid^="stBaseButton"] {
+  background: var(--terracotta) !important;
+  border-color: var(--terracotta) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 14px 28px rgba(200,71,44,0.18);
+}
+.st-key-header_actions .st-key-header_clear [data-testid^="stBaseButton"]:hover,
+.st-key-header_actions .st-key-header_clear button:hover,
+.st-key-header_actions [data-testid="stElementContainer"]:nth-of-type(3) [data-testid^="stBaseButton"]:hover {
+  background: #A93A24 !important;
+  border-color: #A93A24 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 16px 32px rgba(200,71,44,0.22);
+}
+.st-key-header_actions div.stButton > button p {
+  white-space: nowrap;
+  margin: 0;
 }
 
 .section-card, .hero-card, .metric-card, .answer-card, .source-card, .debug-card {
@@ -677,7 +839,19 @@ div.stButton > button[kind="primary"] {
 }
 
 @media (max-width: 980px) {
+  .st-key-app_header_shell [data-testid="stHorizontalBlock"] {
+    gap: 0.6rem;
+  }
   .app-header { flex-direction: column; }
+  .app-title {
+    font-size: 2.05rem;
+    white-space: normal;
+  }
+  .st-key-header_actions {
+    justify-content: flex-start;
+    padding-top: 0;
+    flex-wrap: wrap;
+  }
   .hero-title { font-size: 2.05rem; }
   .workflow, .debug-grid { grid-template-columns: 1fr 1fr; }
   .chat-user { max-width: 92%; }
@@ -764,24 +938,44 @@ def render_sidebar(stats: dict[str, Any]) -> str:
 
 
 def render_header() -> dict[str, bool]:
-    left, right = st.columns([1.7, 1])
-    with left:
-        st.markdown(
-            """
+    with st.container(key="app_header_shell"):
+        left, right = st.columns([1.55, 1.15], gap="large", vertical_alignment="top")
+        with left:
+            st.markdown(
+                """
 <div class="app-header">
-  <div>
+  <div class="app-title-block">
     <h1 class="app-title">RAG Knowledge Assistant</h1>
     <div class="app-subtitle">Conversational document Q&amp;A with citations</div>
   </div>
 </div>
 """,
-            unsafe_allow_html=True,
-        )
-    with right:
-        col1, col2, col3 = st.columns(3)
-        upload_clicked = col1.button("Upload PDFs", key="header_upload")
-        ingest_clicked = col2.button("Ingest", key="header_ingest", type="primary")
-        clear_clicked = col3.button("Clear chat", key="header_clear")
+                unsafe_allow_html=True,
+            )
+        with right:
+            with st.container(
+                key="header_actions",
+                horizontal=True,
+                horizontal_alignment="right",
+                vertical_alignment="top",
+                gap="small",
+            ):
+                upload_clicked = st.button(
+                    "Upload PDFs",
+                    key="header_upload",
+                    width=150,
+                )
+                ingest_clicked = st.button(
+                    "Ingest",
+                    key="header_ingest",
+                    type="primary",
+                    width=116,
+                )
+                clear_clicked = st.button(
+                    "Clear chat",
+                    key="header_clear",
+                    width=132,
+                )
     return {"upload": upload_clicked, "ingest": ingest_clicked, "clear": clear_clicked}
 
 
