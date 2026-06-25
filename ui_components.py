@@ -64,8 +64,18 @@ def _load_header_icon_data_uri(filename: str) -> str:
             luminance = int((red * 299 + green * 587 + blue * 114) / 1000)
             alpha_pixels[x, y] = 255 if luminance < 160 else 0
 
-    icon = Image.new("RGBA", source.size, (255, 255, 255, 0))
-    icon.putalpha(alpha)
+    bounds = alpha.getbbox()
+    if bounds:
+        alpha = alpha.crop(bounds)
+    side = max(alpha.size)
+    padding = max(6, int(side * 0.08))
+    normalized = Image.new("L", (side + padding * 2, side + padding * 2), 0)
+    offset = ((normalized.width - alpha.width) // 2, (normalized.height - alpha.height) // 2)
+    normalized.paste(alpha, offset)
+    normalized = normalized.resize((96, 96), Image.Resampling.LANCZOS)
+
+    icon = Image.new("RGBA", normalized.size, (255, 255, 255, 0))
+    icon.putalpha(normalized)
     output = BytesIO()
     icon.save(output, format="PNG")
     encoded = base64.b64encode(output.getvalue()).decode("ascii")
@@ -87,27 +97,27 @@ def inject_custom_css() -> None:
 <style>
 .st-key-header_actions .st-key-header_upload [data-testid^="stBaseButton"]::before {{
   content: "";
-  width: 18px;
-  height: 18px;
-  flex: 0 0 18px;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
   background: currentColor;
   -webkit-mask: url("{upload_icon_uri}") center / contain no-repeat;
   mask: url("{upload_icon_uri}") center / contain no-repeat;
 }}
 .st-key-header_actions .st-key-header_ingest [data-testid^="stBaseButton"]::before {{
   content: "";
-  width: 18px;
-  height: 18px;
-  flex: 0 0 18px;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
   background: currentColor;
   -webkit-mask: url("{ingest_icon_uri}") center / contain no-repeat;
   mask: url("{ingest_icon_uri}") center / contain no-repeat;
 }}
 .st-key-header_actions .st-key-header_clear [data-testid^="stBaseButton"]::before {{
   content: "";
-  width: 18px;
-  height: 18px;
-  flex: 0 0 18px;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
   background: currentColor;
   -webkit-mask: url("{clear_icon_uri}") center / contain no-repeat;
   mask: url("{clear_icon_uri}") center / contain no-repeat;
