@@ -711,15 +711,15 @@ html, body, [class*="css"] {
 }
 .doc-table-title {
   color: var(--navy);
-  font-size: 1.36rem;
+  font-size: 1.2rem;
   font-weight: 900;
   line-height: 1.1;
 }
 .doc-table-summary {
   color: #64708A;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   font-weight: 650;
-  margin-top: 0.22rem;
+  margin-top: 0.18rem;
 }
 .doc-table-summary strong {
   color: #405072;
@@ -732,7 +732,7 @@ html, body, [class*="css"] {
 }
 .doc-summary-dot:before {
   content: "\\2022";
-  font-size: 0.88rem;
+  font-size: 0.82rem;
 }
 .doc-table-actions {
   display: flex;
@@ -771,12 +771,12 @@ html, body, [class*="css"] {
 .doc-table-scroll {
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 0 1.1rem;
+  padding: 0 0.95rem;
   scrollbar-gutter: stable;
 }
 .doc-table-grid {
-  width: max(100%, 1180px);
-  min-width: 1180px;
+  width: max(100%, 1060px);
+  min-width: 1060px;
   border: 1px solid #E6EEF9;
   border-radius: 12px;
   overflow: hidden;
@@ -785,33 +785,33 @@ html, body, [class*="css"] {
 .doc-table-head,
 .doc-table-row {
   display: grid;
-  grid-template-columns: minmax(340px, 1fr) 70px 132px 132px 220px 132px 142px;
+  grid-template-columns: minmax(290px, 1fr) 58px 116px 112px 178px 112px 118px;
   align-items: center;
 }
 .doc-table-head {
-  min-height: 54px;
+  min-height: 48px;
   background: #F7FAFE;
   color: #405072;
-  font-size: 0.91rem;
+  font-size: 0.83rem;
   font-weight: 800;
   border-bottom: 1px solid #E3ECF8;
 }
 .doc-head-label {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.38rem;
   min-width: 0;
   white-space: nowrap;
 }
 .doc-head-label img {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   object-fit: contain;
   display: block;
 }
 .doc-head-hash {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -833,7 +833,7 @@ html, body, [class*="css"] {
   font-size: 0.9rem;
 }
 .doc-table-row {
-  min-height: 92px;
+  min-height: 80px;
   border-bottom: 1px solid #E8EFF8;
   background: #FFFFFF;
 }
@@ -852,7 +852,7 @@ html, body, [class*="css"] {
   height: 100%;
   display: flex;
   align-items: center;
-  padding: 0.68rem 0.82rem;
+  padding: 0.52rem 0.62rem;
   color: #17233F;
 }
 .doc-table-head .doc-cell,
@@ -865,26 +865,26 @@ html, body, [class*="css"] {
 }
 .doc-table-head .doc-cell:last-child,
 .doc-table-row .doc-cell:last-child {
-  padding-left: 0.55rem;
-  padding-right: 0.55rem;
+  padding-left: 0.45rem;
+  padding-right: 0.45rem;
 }
 .doc-main {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
+  gap: 0.72rem;
   min-width: 0;
 }
 .doc-file-icon {
-  width: 40px;
-  height: 44px;
-  flex: 0 0 40px;
+  width: 34px;
+  height: 38px;
+  flex: 0 0 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 .doc-file-icon img {
-  width: 40px;
-  height: 44px;
+  width: 34px;
+  height: 38px;
   object-fit: contain;
   display: block;
 }
@@ -894,26 +894,26 @@ html, body, [class*="css"] {
 .doc-file-name {
   overflow: hidden;
   color: var(--navy);
-  font-size: 0.98rem;
+  font-size: 0.91rem;
   font-weight: 900;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .doc-file-meta {
-  margin-top: 0.24rem;
+  margin-top: 0.18rem;
   color: #71809A;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 700;
 }
 .doc-num {
   color: #17233F;
-  font-size: 0.94rem;
+  font-size: 0.86rem;
   font-weight: 800;
 }
 .chunk-cell {
   display: flex;
   align-items: center;
-  gap: 0.56rem;
+  gap: 0.42rem;
 }
 .chunk-segments {
   display: inline-flex;
@@ -921,8 +921,8 @@ html, body, [class*="css"] {
   gap: 3px;
 }
 .chunk-segments span {
-  width: 13px;
-  height: 16px;
+  width: 11px;
+  height: 14px;
   border-radius: 4px;
   background: #DCEBFF;
 }
@@ -934,25 +934,25 @@ html, body, [class*="css"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.38rem;
+  gap: 0.3rem;
   width: fit-content;
   max-width: 100%;
   border-radius: 999px;
-  padding: 0.4rem 0.62rem;
-  font-size: 0.86rem;
+  padding: 0.32rem 0.5rem;
+  font-size: 0.78rem;
   font-weight: 900;
   white-space: nowrap;
 }
 .status-pill:before {
   content: "\\2713";
-  width: 15px;
-  height: 15px;
+  width: 13px;
+  height: 13px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: 2px solid currentColor;
   border-radius: 999px;
-  font-size: 0.66rem;
+  font-size: 0.58rem;
   line-height: 1;
 }
 .status-indexed {
@@ -973,15 +973,15 @@ html, body, [class*="css"] {
 }
 .hash-chip {
   display: inline-block;
-  max-width: 108px;
+  max-width: 92px;
   overflow: hidden;
   border: 1px solid #D7E6FA;
   border-radius: 10px;
   background: #FFFFFF;
   color: #405072;
-  padding: 0.34rem 0.52rem;
+  padding: 0.28rem 0.42rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -990,7 +990,7 @@ html, body, [class*="css"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.42rem;
+  gap: 0.34rem;
   width: 100%;
 }
 .tiny-action {
@@ -998,16 +998,16 @@ html, body, [class*="css"] {
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  gap: 0.18rem;
-  width: 54px;
-  min-width: 54px;
-  height: 46px;
-  min-height: 46px;
+  gap: 0.14rem;
+  width: 48px;
+  min-width: 48px;
+  height: 40px;
+  min-height: 40px;
   border: 1px solid #CFE1FB;
   border-radius: 12px;
   background: #FFFFFF;
   color: var(--blue);
-  font-size: 0.64rem;
+  font-size: 0.58rem;
   font-weight: 800;
   white-space: nowrap;
   box-shadow: 0 8px 18px rgba(16,94,221,0.06);
@@ -1016,8 +1016,8 @@ html, body, [class*="css"] {
   color: var(--blue);
 }
 .tiny-action img {
-  width: 19px;
-  height: 19px;
+  width: 17px;
+  height: 17px;
   object-fit: contain;
   display: block;
 }
@@ -1074,7 +1074,7 @@ html, body, [class*="css"] {
 .doc-date {
   color: #1E2A4A;
   font-weight: 500;
-  font-size: 0.9rem;
+  font-size: 0.84rem;
   white-space: nowrap;
 }
 .doc-empty-row {
