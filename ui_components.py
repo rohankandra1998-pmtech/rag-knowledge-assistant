@@ -785,7 +785,7 @@ html, body, [class*="css"] {
 .doc-table-head,
 .doc-table-row {
   display: grid;
-  grid-template-columns: minmax(290px, 1fr) 58px 116px 112px 178px 112px 118px;
+  grid-template-columns: minmax(290px, 1fr) 76px 126px 112px 150px 112px 136px;
   align-items: center;
 }
 .doc-table-head {
@@ -799,7 +799,7 @@ html, body, [class*="css"] {
 .doc-head-label {
   display: inline-flex;
   align-items: center;
-  gap: 0.38rem;
+  gap: 0.44rem;
   min-width: 0;
   white-space: nowrap;
 }
@@ -999,8 +999,8 @@ html, body, [class*="css"] {
   justify-content: center;
   flex-direction: column;
   gap: 0.14rem;
-  width: 48px;
-  min-width: 48px;
+  width: 54px;
+  min-width: 54px;
   height: 40px;
   min-height: 40px;
   border: 1px solid #CFE1FB;
