@@ -3,11 +3,13 @@ from __future__ import annotations
 import base64
 import html
 import re
+from io import BytesIO
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import streamlit as st
+from PIL import Image
 
 from rag_utils import CHAT_MODEL, EMBEDDING_MODEL
 
@@ -52,7 +54,21 @@ def _load_sidebar_icon_data_uri(filename: str) -> str:
 @st.cache_data(show_spinner=False)
 def _load_header_icon_data_uri(filename: str) -> str:
     icon_path = HEADER_ICON_DIR / filename
-    encoded = base64.b64encode(icon_path.read_bytes()).decode("ascii")
+    source = Image.open(icon_path).convert("RGBA")
+    alpha = Image.new("L", source.size, 0)
+    pixels = source.load()
+    alpha_pixels = alpha.load()
+    for y in range(source.height):
+        for x in range(source.width):
+            red, green, blue, _ = pixels[x, y]
+            luminance = int((red * 299 + green * 587 + blue * 114) / 1000)
+            alpha_pixels[x, y] = 255 if luminance < 160 else 0
+
+    icon = Image.new("RGBA", source.size, (255, 255, 255, 0))
+    icon.putalpha(alpha)
+    output = BytesIO()
+    icon.save(output, format="PNG")
+    encoded = base64.b64encode(output.getvalue()).decode("ascii")
     return f"data:image/png;base64,{encoded}"
 
 
@@ -63,6 +79,43 @@ def _format_sidebar_nav_label(label: str) -> str:
 
 
 def inject_custom_css() -> None:
+    upload_icon_uri = _load_header_icon_data_uri("upload.png")
+    ingest_icon_uri = _load_header_icon_data_uri("ingest.png")
+    clear_icon_uri = _load_header_icon_data_uri("clear-chat.png")
+    st.markdown(
+        f"""
+<style>
+.st-key-header_actions .st-key-header_upload [data-testid^="stBaseButton"]::before {{
+  content: "";
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  background: currentColor;
+  -webkit-mask: url("{upload_icon_uri}") center / contain no-repeat;
+  mask: url("{upload_icon_uri}") center / contain no-repeat;
+}}
+.st-key-header_actions .st-key-header_ingest [data-testid^="stBaseButton"]::before {{
+  content: "";
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  background: currentColor;
+  -webkit-mask: url("{ingest_icon_uri}") center / contain no-repeat;
+  mask: url("{ingest_icon_uri}") center / contain no-repeat;
+}}
+.st-key-header_actions .st-key-header_clear [data-testid^="stBaseButton"]::before {{
+  content: "";
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  background: currentColor;
+  -webkit-mask: url("{clear_icon_uri}") center / contain no-repeat;
+  mask: url("{clear_icon_uri}") center / contain no-repeat;
+}}
+</style>
+""",
+        unsafe_allow_html=True,
+    )
     st.markdown(
         """
 <style>
@@ -214,7 +267,7 @@ html, body, [class*="css"] {
 }
 .app-title {
   color: var(--navy);
-  font-size: clamp(2.25rem, 3.1vw, 3.25rem);
+  font-size: clamp(2.15rem, 2.7vw, 3rem);
   line-height: 1.05;
   font-weight: 900;
   margin: 0;
@@ -239,9 +292,13 @@ html, body, [class*="css"] {
   width: auto !important;
 }
 .st-key-header_actions div.stButton > button {
-  height: 2.9rem;
-  min-height: 2.9rem;
-  padding: 0 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0 0.8rem;
   border-radius: 10px;
   font-size: 0.92rem;
   font-weight: 800;
@@ -299,24 +356,8 @@ html, body, [class*="css"] {
   box-shadow: 0 16px 32px rgba(200,71,44,0.22);
 }
 .st-key-header_actions div.stButton > button p {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.55rem;
   white-space: nowrap;
   margin: 0;
-}
-.st-key-header_actions div.stButton > button img {
-  width: 18px;
-  height: 18px;
-  object-fit: contain;
-  flex: 0 0 18px;
-}
-.st-key-header_ingest button img,
-.st-key-header_clear button img,
-.st-key-header_actions [data-testid="stButton"]:nth-of-type(2) button img,
-.st-key-header_actions [data-testid="stButton"]:nth-of-type(3) button img {
-  filter: brightness(0) invert(1);
 }
 
 .section-card, .hero-card, .metric-card, .answer-card, .source-card, .debug-card {
@@ -875,7 +916,7 @@ def render_sidebar(stats: dict[str, Any]) -> str:
 
 
 def render_header() -> dict[str, bool]:
-    left, right = st.columns([1.45, 1.35], gap="large", vertical_alignment="top")
+    left, right = st.columns([1.55, 1.15], gap="large", vertical_alignment="top")
     with left:
         st.markdown(
             """
@@ -889,13 +930,6 @@ def render_header() -> dict[str, bool]:
             unsafe_allow_html=True,
         )
     with right:
-        upload_icon_uri = _load_header_icon_data_uri("upload.png")
-        ingest_icon_uri = _load_header_icon_data_uri("ingest.png")
-        clear_icon_uri = _load_header_icon_data_uri("clear-chat.png")
-        upload_label = f"![header-upload-icon]({upload_icon_uri}) Upload PDFs"
-        ingest_label = f"![header-ingest-icon]({ingest_icon_uri}) Ingest"
-        clear_label = f"![header-clear-icon]({clear_icon_uri}) Clear chat"
-
         with st.container(
             key="header_actions",
             horizontal=True,
@@ -904,20 +938,20 @@ def render_header() -> dict[str, bool]:
             gap="small",
         ):
             upload_clicked = st.button(
-                upload_label,
+                "Upload PDFs",
                 key="header_upload",
-                width=156,
+                width=150,
             )
             ingest_clicked = st.button(
-                ingest_label,
+                "Ingest",
                 key="header_ingest",
                 type="primary",
-                width=120,
+                width=116,
             )
             clear_clicked = st.button(
-                clear_label,
+                "Clear chat",
                 key="header_clear",
-                width=140,
+                width=132,
             )
     return {"upload": upload_clicked, "ingest": ingest_clicked, "clear": clear_clicked}
 
