@@ -27,6 +27,7 @@ PALETTE = {
 APP_ICON_PATH = Path(__file__).parent / "assets" / "rag-app-icon-tight.png"
 SIDEBAR_ICON_DIR = Path(__file__).parent / "assets" / "sidebar-icons"
 HEADER_ICON_DIR = Path(__file__).parent / "assets" / "header-icons"
+INGESTION_STATUS_ICON_DIR = Path(__file__).parent / "assets" / "ingestion-status"
 SIDEBAR_NAV_ITEMS = [
     {"label": "App overview", "icon": "App_Overview_Icon.png"},
     {"label": "Chat / Answer", "icon": "Chat_Answer_Icon.png"},
@@ -79,6 +80,16 @@ def _load_header_icon_data_uri(filename: str) -> str:
     output = BytesIO()
     icon.save(output, format="PNG")
     encoded = base64.b64encode(output.getvalue()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
+
+
+@st.cache_data(show_spinner=False)
+def _load_ingestion_status_icon_data_uri(filename: str) -> str:
+    icon_path = INGESTION_STATUS_ICON_DIR / filename
+    try:
+        encoded = base64.b64encode(icon_path.read_bytes()).decode("ascii")
+    except OSError:
+        return ""
     return f"data:image/png;base64,{encoded}"
 
 
@@ -438,6 +449,146 @@ html, body, [class*="css"] {
 .delta-warm { color: var(--terracotta); }
 .delta-cool { color: var(--blue); }
 .delta-gold { color: #A87400; }
+
+.ingestion-status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.45rem;
+  margin: 0.2rem 0 1rem;
+}
+.ingestion-status-card {
+  --accent: var(--blue);
+  --helper: var(--blue);
+  position: relative;
+  min-height: 156px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 1.05rem;
+  padding: 1.1rem 1.35rem 1.05rem 1.55rem;
+  border: 1px solid #DFE7F3;
+  border-left: 3px solid var(--accent);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.98), rgba(248,251,255,0.95)),
+    #FFFFFF;
+  box-shadow: 0 18px 45px rgba(11, 48, 117, 0.10);
+}
+.ingestion-status-card::before {
+  content: "";
+  position: absolute;
+  right: -52px;
+  bottom: -68px;
+  width: 210px;
+  height: 150px;
+  pointer-events: none;
+  opacity: 0.28;
+  background:
+    radial-gradient(ellipse at 32px 118px, transparent 36px, var(--pattern-strong) 37px, transparent 39px),
+    radial-gradient(ellipse at 58px 112px, transparent 52px, var(--pattern-mid) 53px, transparent 55px),
+    radial-gradient(ellipse at 84px 108px, transparent 68px, var(--pattern-soft) 69px, transparent 71px);
+}
+.ingestion-status-card::after {
+  content: "";
+  position: absolute;
+  right: -16px;
+  bottom: 13px;
+  width: 158px;
+  height: 54px;
+  pointer-events: none;
+  opacity: 0.16;
+  background:
+    linear-gradient(90deg, transparent 0 16px, var(--accent) 16px 17px, transparent 17px 62px, var(--accent) 62px 63px, transparent 63px),
+    linear-gradient(0deg, transparent 0 18px, var(--accent) 18px 19px, transparent 19px 36px, var(--accent) 36px 37px, transparent 37px),
+    radial-gradient(circle at 18px 18px, var(--accent) 0 3px, transparent 4px),
+    radial-gradient(circle at 66px 36px, var(--accent) 0 3px, transparent 4px),
+    radial-gradient(circle at 124px 19px, var(--accent) 0 3px, transparent 4px);
+}
+.ingestion-status-card.is-warm {
+  --accent: #FF3B16;
+  --helper: #FF3B16;
+  --pattern-strong: rgba(255, 59, 22, 0.26);
+  --pattern-mid: rgba(255, 59, 22, 0.20);
+  --pattern-soft: rgba(255, 59, 22, 0.15);
+  --fallback-bg: rgba(255, 59, 22, 0.09);
+  --fallback-border: rgba(255, 59, 22, 0.28);
+}
+.ingestion-status-card.is-cool {
+  --accent: #105EDD;
+  --helper: #105EDD;
+  --pattern-strong: rgba(16, 94, 221, 0.26);
+  --pattern-mid: rgba(16, 94, 221, 0.20);
+  --pattern-soft: rgba(16, 94, 221, 0.15);
+  --fallback-bg: rgba(16, 94, 221, 0.09);
+  --fallback-border: rgba(16, 94, 221, 0.28);
+}
+.ingestion-status-card.is-gold {
+  --accent: #F5B400;
+  --helper: #A87400;
+  --pattern-strong: rgba(245, 180, 0, 0.26);
+  --pattern-mid: rgba(245, 180, 0, 0.20);
+  --pattern-soft: rgba(245, 180, 0, 0.15);
+  --fallback-bg: rgba(245, 180, 0, 0.10);
+  --fallback-border: rgba(245, 180, 0, 0.30);
+}
+.ingestion-status-icon {
+  position: relative;
+  z-index: 1;
+  width: 74px;
+  height: 74px;
+  flex: 0 0 74px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+}
+.ingestion-status-icon img {
+  width: 74px;
+  height: 74px;
+  object-fit: contain;
+  display: block;
+}
+.ingestion-status-icon-fallback {
+  width: 68px;
+  height: 68px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--fallback-border);
+  background: var(--fallback-bg);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 950;
+}
+.ingestion-status-copy {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+.ingestion-status-label {
+  color: var(--navy);
+  font-size: 0.95rem;
+  line-height: 1.18;
+  font-weight: 800;
+}
+.ingestion-status-value {
+  color: #020A34;
+  font-size: 2.5rem;
+  line-height: 1.02;
+  font-weight: 900;
+  margin-top: 0.62rem;
+  letter-spacing: 0;
+}
+.ingestion-status-value.is-text {
+  font-size: 2.15rem;
+}
+.ingestion-status-helper {
+  color: var(--helper);
+  font-size: 0.86rem;
+  font-weight: 800;
+  margin-top: 1.18rem;
+}
 
 .section-title {
   color: var(--navy);
@@ -853,11 +1004,14 @@ div.stButton > button[kind="primary"] {
     flex-wrap: wrap;
   }
   .hero-title { font-size: 2.05rem; }
+  .ingestion-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .workflow, .debug-grid { grid-template-columns: 1fr 1fr; }
   .chat-user { max-width: 92%; }
   .doc-table-header { flex-direction: column; }
 }
 @media (max-width: 620px) {
+  .ingestion-status-grid { grid-template-columns: 1fr; }
+  .ingestion-status-card { min-height: 150px; }
   .workflow, .debug-grid { grid-template-columns: 1fr; }
 }
 </style>
@@ -987,6 +1141,73 @@ def render_metric_card(label: str, value: str, delta: str, tone: str = "cool") -
   <div class="metric-label">{html.escape(label)}</div>
   <div class="metric-value">{html.escape(value)}</div>
   <div class="metric-delta {tone_class}">{html.escape(delta)}</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def render_ingestion_status_cards(stats: dict[str, Any]) -> None:
+    cards = [
+        {
+            "label": "Documents indexed",
+            "value": str(stats.get("total_documents", 0)),
+            "helper": "Across persistent collection",
+            "tone": "warm",
+            "icon": "documents-indexed.png",
+            "fallback": "DOC",
+            "is_text": False,
+        },
+        {
+            "label": "Chunks stored",
+            "value": f'{stats.get("total_chunks", 0):,}',
+            "helper": "Semantic chunks",
+            "tone": "cool",
+            "icon": "chunks-stored.png",
+            "fallback": "CH",
+            "is_text": False,
+        },
+        {
+            "label": "Vector DB",
+            "value": "ChromaDB",
+            "helper": "Local persistence",
+            "tone": "gold",
+            "icon": "vector-db.png",
+            "fallback": "DB",
+            "is_text": True,
+        },
+    ]
+
+    card_html = []
+    for card in cards:
+        icon_uri = _load_ingestion_status_icon_data_uri(card["icon"])
+        if icon_uri:
+            icon_html = (
+                f'<img src="{icon_uri}" alt="{html.escape(card["label"])} icon" loading="lazy" />'
+            )
+        else:
+            icon_html = (
+                f'<span class="ingestion-status-icon-fallback">{html.escape(card["fallback"])}</span>'
+            )
+
+        value_class = "ingestion-status-value is-text" if card["is_text"] else "ingestion-status-value"
+        card_html.append(
+            f"""
+  <div class="ingestion-status-card is-{html.escape(card["tone"])}">
+    <div class="ingestion-status-icon">{icon_html}</div>
+    <div class="ingestion-status-copy">
+      <div class="ingestion-status-label">{html.escape(card["label"])}</div>
+      <div class="{value_class}">{html.escape(card["value"])}</div>
+      <div class="ingestion-status-helper">{html.escape(card["helper"])}</div>
+    </div>
+  </div>
+"""
+        )
+
+    st.markdown(
+        f"""
+<div class="ingestion-status-grid">
+{''.join(card_html)}
 </div>
 """,
         unsafe_allow_html=True,
