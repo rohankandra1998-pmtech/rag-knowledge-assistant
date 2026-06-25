@@ -685,14 +685,14 @@ html, body, [class*="css"] {
   justify-content: space-between;
   gap: 1rem;
   align-items: center;
-  padding: 1rem 1.15rem;
+  padding: 1.15rem 1.35rem 1.05rem;
   background:
     linear-gradient(90deg, #FFFFFF, #F6FAFF);
 }
 .doc-table-heading {
   display: flex;
   align-items: center;
-  gap: 0.82rem;
+  gap: 0.75rem;
   min-width: 0;
 }
 .doc-title-icon {
@@ -711,19 +711,19 @@ html, body, [class*="css"] {
 }
 .doc-table-title {
   color: var(--navy);
-  font-size: 1.26rem;
+  font-size: 1.36rem;
   font-weight: 900;
-  line-height: 1.05;
+  line-height: 1.1;
 }
 .doc-table-summary {
   color: #64708A;
   font-size: 0.88rem;
-  font-weight: 750;
-  margin-top: 0.18rem;
+  font-weight: 650;
+  margin-top: 0.22rem;
 }
 .doc-table-summary strong {
   color: #405072;
-  font-weight: 800;
+  font-weight: 750;
 }
 .doc-summary-dot {
   color: #7E8AA7;
@@ -745,53 +745,55 @@ html, body, [class*="css"] {
   border-radius: 11px;
   background: #FFFFFF;
   color: var(--blue);
-  min-width: 2.6rem;
-  height: 2.55rem;
-  padding: 0 0.76rem;
+  min-width: 42px;
+  height: 42px;
+  padding: 0 0.9rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  font-size: 0.84rem;
+  gap: 0.45rem;
+  font-size: 0.9rem;
   font-weight: 800;
   box-shadow: 0 8px 20px rgba(16,94,221,0.08);
 }
 .doc-icon-btn img {
-  width: 18px;
-  height: 18px;
+  width: 19px;
+  height: 19px;
   object-fit: contain;
   display: block;
 }
 .doc-icon-btn.icon-only {
-  width: 2.55rem;
+  width: 42px;
   padding: 0;
   border-radius: 999px;
   color: #6B7896;
 }
 .doc-table-scroll {
-  overflow-x: visible;
-  padding: 0 0.9rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0 1.1rem;
+  scrollbar-gutter: stable;
 }
 .doc-table-grid {
-  width: 100%;
-  min-width: 0;
+  width: max(100%, 1180px);
+  min-width: 1180px;
   border: 1px solid #E6EEF9;
-  border-radius: 14px;
+  border-radius: 12px;
   overflow: hidden;
   background: #FFFFFF;
 }
 .doc-table-head,
 .doc-table-row {
   display: grid;
-  grid-template-columns: minmax(290px, 2fr) 54px minmax(112px, 0.75fr) 108px minmax(174px, 1fr) 104px 112px;
+  grid-template-columns: minmax(340px, 1fr) 70px 132px 132px 220px 132px 142px;
   align-items: center;
 }
 .doc-table-head {
-  min-height: 50px;
+  min-height: 54px;
   background: #F7FAFE;
   color: #405072;
-  font-size: 0.8rem;
-  font-weight: 850;
+  font-size: 0.91rem;
+  font-weight: 800;
   border-bottom: 1px solid #E3ECF8;
 }
 .doc-head-label {
@@ -802,14 +804,14 @@ html, body, [class*="css"] {
   white-space: nowrap;
 }
 .doc-head-label img {
-  width: 17px;
-  height: 17px;
+  width: 18px;
+  height: 18px;
   object-fit: contain;
   display: block;
 }
 .doc-head-hash {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -831,7 +833,7 @@ html, body, [class*="css"] {
   font-size: 0.9rem;
 }
 .doc-table-row {
-  min-height: 84px;
+  min-height: 92px;
   border-bottom: 1px solid #E8EFF8;
   background: #FFFFFF;
 }
@@ -845,11 +847,12 @@ html, body, [class*="css"] {
   border-bottom: 0;
 }
 .doc-cell {
+  box-sizing: border-box;
   min-width: 0;
   height: 100%;
   display: flex;
   align-items: center;
-  padding: 0.62rem 0.7rem;
+  padding: 0.68rem 0.82rem;
   color: #17233F;
 }
 .doc-table-head .doc-cell,
@@ -862,26 +865,26 @@ html, body, [class*="css"] {
 }
 .doc-table-head .doc-cell:last-child,
 .doc-table-row .doc-cell:last-child {
-  padding-left: 0.45rem;
-  padding-right: 0.45rem;
+  padding-left: 0.55rem;
+  padding-right: 0.55rem;
 }
 .doc-main {
   display: flex;
   align-items: center;
-  gap: 0.78rem;
+  gap: 0.85rem;
   min-width: 0;
 }
 .doc-file-icon {
-  width: 46px;
-  height: 50px;
-  flex: 0 0 46px;
+  width: 40px;
+  height: 44px;
+  flex: 0 0 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 .doc-file-icon img {
-  width: 46px;
-  height: 50px;
+  width: 40px;
+  height: 44px;
   object-fit: contain;
   display: block;
 }
@@ -891,26 +894,26 @@ html, body, [class*="css"] {
 .doc-file-name {
   overflow: hidden;
   color: var(--navy);
-  font-size: 0.94rem;
+  font-size: 0.98rem;
   font-weight: 900;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .doc-file-meta {
-  margin-top: 0.28rem;
+  margin-top: 0.24rem;
   color: #71809A;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 700;
 }
 .doc-num {
   color: #17233F;
-  font-size: 0.98rem;
-  font-weight: 850;
+  font-size: 0.94rem;
+  font-weight: 800;
 }
 .chunk-cell {
   display: flex;
   align-items: center;
-  gap: 0.48rem;
+  gap: 0.56rem;
 }
 .chunk-segments {
   display: inline-flex;
@@ -918,8 +921,8 @@ html, body, [class*="css"] {
   gap: 3px;
 }
 .chunk-segments span {
-  width: 12px;
-  height: 15px;
+  width: 13px;
+  height: 16px;
   border-radius: 4px;
   background: #DCEBFF;
 }
@@ -935,32 +938,27 @@ html, body, [class*="css"] {
   width: fit-content;
   max-width: 100%;
   border-radius: 999px;
-  padding: 0.44rem 0.68rem;
-  font-size: 0.82rem;
+  padding: 0.4rem 0.62rem;
+  font-size: 0.86rem;
   font-weight: 900;
   white-space: nowrap;
 }
 .status-pill:before {
-  content: "✓";
-  width: 18px;
-  height: 18px;
+  content: "\\2713";
+  width: 15px;
+  height: 15px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: 2px solid currentColor;
   border-radius: 999px;
-  font-size: 0.74rem;
+  font-size: 0.66rem;
   line-height: 1;
 }
 .status-indexed {
   border: 1px solid rgba(40, 143, 71, 0.24);
   background: #EAF8EF;
   color: #1D7F3B;
-}
-.status-pill:before {
-  content: "\2713";
-  width: 17px;
-  height: 17px;
 }
 .status-failed {
   border: 1px solid rgba(200,71,44,0.25);
@@ -975,16 +973,16 @@ html, body, [class*="css"] {
 }
 .hash-chip {
   display: inline-block;
-  max-width: 104px;
+  max-width: 108px;
   overflow: hidden;
   border: 1px solid #D7E6FA;
   border-radius: 10px;
   background: #FFFFFF;
   color: #405072;
-  padding: 0.3rem 0.48rem;
+  padding: 0.34rem 0.52rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.78rem;
-  font-weight: 850;
+  font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -992,7 +990,7 @@ html, body, [class*="css"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
+  gap: 0.42rem;
   width: 100%;
 }
 .tiny-action {
@@ -1001,15 +999,15 @@ html, body, [class*="css"] {
   justify-content: center;
   flex-direction: column;
   gap: 0.18rem;
-  width: 42px;
-  min-width: 42px;
+  width: 54px;
+  min-width: 54px;
   height: 46px;
   min-height: 46px;
   border: 1px solid #CFE1FB;
   border-radius: 12px;
   background: #FFFFFF;
   color: var(--blue);
-  font-size: 0.66rem;
+  font-size: 0.64rem;
   font-weight: 800;
   white-space: nowrap;
   box-shadow: 0 8px 18px rgba(16,94,221,0.06);
@@ -1018,8 +1016,8 @@ html, body, [class*="css"] {
   color: var(--blue);
 }
 .tiny-action img {
-  width: 20px;
-  height: 20px;
+  width: 19px;
+  height: 19px;
   object-fit: contain;
   display: block;
 }
@@ -1027,28 +1025,28 @@ html, body, [class*="css"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.8rem;
-  margin: 0.9rem 1.1rem 1rem;
+  gap: 0.85rem;
+  margin: 0.9rem 1.1rem 1.05rem;
   border: 1px solid #D7E6FA;
-  border-radius: 14px;
+  border-radius: 12px;
   background: linear-gradient(90deg, #EFF7FF, #F8FBFF);
   color: #405072;
-  padding: 0.58rem 0.82rem;
-  font-size: 0.82rem;
+  padding: 0.68rem 0.9rem;
+  font-size: 0.86rem;
   font-weight: 700;
 }
 .doc-info-copy {
   display: flex;
   align-items: center;
-  gap: 0.62rem;
+  gap: 0.52rem;
   min-width: 0;
 }
 .doc-info-copy img {
-  width: 22px;
-  height: 22px;
+  width: 21px;
+  height: 21px;
   object-fit: contain;
   display: block;
-  flex: 0 0 22px;
+  flex: 0 0 21px;
 }
 .doc-view-all {
   display: inline-flex;
@@ -1060,9 +1058,9 @@ html, body, [class*="css"] {
   border-radius: 10px;
   background: #FFFFFF;
   color: var(--blue);
-  min-height: 2.3rem;
-  padding: 0 0.82rem;
-  font-size: 0.82rem;
+  min-height: 38px;
+  padding: 0 0.85rem;
+  font-size: 0.84rem;
   font-weight: 800;
   box-shadow: 0 8px 18px rgba(16,94,221,0.06);
 }
@@ -1076,6 +1074,7 @@ html, body, [class*="css"] {
 .doc-date {
   color: #1E2A4A;
   font-weight: 500;
+  font-size: 0.9rem;
   white-space: nowrap;
 }
 .doc-empty-row {
@@ -1703,7 +1702,7 @@ def render_document_table(documents: list[dict[str, Any]], title: str = "Indexed
             '<div class="doc-cell">'
             '<div class="doc-row-actions">'
             f'<span class="tiny-action">{view_icon}<span>View</span></span>'
-            f'<span class="tiny-action alt" title="Re-ingest">{sync_icon}<span>Sync</span></span>'
+            f'<span class="tiny-action alt" title="Re-ingest">{sync_icon}<span>Re-ingest</span></span>'
             '</div>'
             '</div>'
             '</div>'
