@@ -276,7 +276,7 @@ def render_documents_screen(stats: dict[str, Any]) -> None:
 
 
 def render_ingestion_status(stats: dict[str, Any]) -> None:
-    st.markdown('<div class="section-title">Ingestion status</div>', unsafe_allow_html=True)
+    st.markdown('<div class="ingestion-status-title">Ingestion status</div>', unsafe_allow_html=True)
     render_ingestion_status_cards(stats)
     render_document_table(stats.get("documents", []))
 
