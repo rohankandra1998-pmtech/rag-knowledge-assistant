@@ -683,9 +683,9 @@ html, body, [class*="css"] {
 .doc-table-header {
   display: flex;
   justify-content: space-between;
-  gap: 1.2rem;
+  gap: 1rem;
   align-items: center;
-  padding: 1.05rem 1.2rem;
+  padding: 1rem 1.15rem;
   background:
     linear-gradient(90deg, #FFFFFF, #F6FAFF);
 }
@@ -696,16 +696,16 @@ html, body, [class*="css"] {
   min-width: 0;
 }
 .doc-title-icon {
-  width: 38px;
-  height: 38px;
-  flex: 0 0 38px;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 .doc-title-icon img {
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   object-fit: contain;
   display: block;
 }
@@ -716,20 +716,28 @@ html, body, [class*="css"] {
   line-height: 1.05;
 }
 .doc-table-summary {
-  color: #5C6B8C;
-  font-size: 0.9rem;
-  font-weight: 800;
-  margin-top: 0.25rem;
+  color: #64708A;
+  font-size: 0.88rem;
+  font-weight: 750;
+  margin-top: 0.18rem;
 }
-.doc-table-summary strong { color: #405072; }
+.doc-table-summary strong {
+  color: #405072;
+  font-weight: 800;
+}
 .doc-summary-dot {
   color: #7E8AA7;
   padding: 0 0.35rem;
+  font-size: 0;
+}
+.doc-summary-dot:before {
+  content: "\\2022";
+  font-size: 0.88rem;
 }
 .doc-table-actions {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
+  gap: 0.58rem;
   flex-shrink: 0;
 }
 .doc-icon-btn {
@@ -738,34 +746,35 @@ html, body, [class*="css"] {
   background: #FFFFFF;
   color: var(--blue);
   min-width: 2.6rem;
-  height: 2.75rem;
-  padding: 0 0.82rem;
+  height: 2.55rem;
+  padding: 0 0.76rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   font-size: 0.84rem;
-  font-weight: 900;
+  font-weight: 800;
   box-shadow: 0 8px 20px rgba(16,94,221,0.08);
 }
 .doc-icon-btn img {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   object-fit: contain;
   display: block;
 }
 .doc-icon-btn.icon-only {
-  width: 2.75rem;
+  width: 2.55rem;
   padding: 0;
   border-radius: 999px;
   color: #6B7896;
 }
 .doc-table-scroll {
-  overflow-x: auto;
+  overflow-x: visible;
   padding: 0 0.9rem;
 }
 .doc-table-grid {
-  min-width: 1080px;
+  width: 100%;
+  min-width: 0;
   border: 1px solid #E6EEF9;
   border-radius: 14px;
   overflow: hidden;
@@ -774,15 +783,15 @@ html, body, [class*="css"] {
 .doc-table-head,
 .doc-table-row {
   display: grid;
-  grid-template-columns: minmax(300px, 1.8fr) 80px minmax(145px, 0.8fr) 125px minmax(180px, 1fr) 130px 145px;
+  grid-template-columns: minmax(290px, 2fr) 54px minmax(112px, 0.75fr) 108px minmax(174px, 1fr) 104px 112px;
   align-items: center;
 }
 .doc-table-head {
-  min-height: 54px;
+  min-height: 50px;
   background: #F7FAFE;
-  color: #62708B;
+  color: #405072;
   font-size: 0.8rem;
-  font-weight: 900;
+  font-weight: 850;
   border-bottom: 1px solid #E3ECF8;
 }
 .doc-head-label {
@@ -809,8 +818,20 @@ html, body, [class*="css"] {
   color: var(--blue);
   font-size: 0.72rem;
 }
+.doc-table-head .doc-cell:nth-child(6) .doc-head-hash,
+.doc-table-head .doc-cell:nth-child(7) .doc-head-hash {
+  font-size: 0;
+}
+.doc-table-head .doc-cell:nth-child(6) .doc-head-hash:before {
+  content: "#";
+  font-size: 0.72rem;
+}
+.doc-table-head .doc-cell:nth-child(7) .doc-head-hash:before {
+  content: "\\22EE";
+  font-size: 0.9rem;
+}
 .doc-table-row {
-  min-height: 96px;
+  min-height: 84px;
   border-bottom: 1px solid #E8EFF8;
   background: #FFFFFF;
 }
@@ -828,7 +849,7 @@ html, body, [class*="css"] {
   height: 100%;
   display: flex;
   align-items: center;
-  padding: 0.78rem 0.8rem;
+  padding: 0.62rem 0.7rem;
   color: #17233F;
 }
 .doc-table-head .doc-cell,
@@ -839,23 +860,28 @@ html, body, [class*="css"] {
 .doc-table-row .doc-cell:last-child {
   border-right: 0;
 }
+.doc-table-head .doc-cell:last-child,
+.doc-table-row .doc-cell:last-child {
+  padding-left: 0.45rem;
+  padding-right: 0.45rem;
+}
 .doc-main {
   display: flex;
   align-items: center;
-  gap: 0.9rem;
+  gap: 0.78rem;
   min-width: 0;
 }
 .doc-file-icon {
-  width: 52px;
-  height: 58px;
-  flex: 0 0 52px;
+  width: 46px;
+  height: 50px;
+  flex: 0 0 46px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 .doc-file-icon img {
-  width: 52px;
-  height: 58px;
+  width: 46px;
+  height: 50px;
   object-fit: contain;
   display: block;
 }
@@ -871,20 +897,20 @@ html, body, [class*="css"] {
   white-space: nowrap;
 }
 .doc-file-meta {
-  margin-top: 0.34rem;
-  color: #5F6F90;
-  font-size: 0.82rem;
-  font-weight: 800;
+  margin-top: 0.28rem;
+  color: #71809A;
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 .doc-num {
-  color: #1D2947;
-  font-size: 1rem;
-  font-weight: 900;
+  color: #17233F;
+  font-size: 0.98rem;
+  font-weight: 850;
 }
 .chunk-cell {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.48rem;
 }
 .chunk-segments {
   display: inline-flex;
@@ -892,8 +918,8 @@ html, body, [class*="css"] {
   gap: 3px;
 }
 .chunk-segments span {
-  width: 14px;
-  height: 16px;
+  width: 12px;
+  height: 15px;
   border-radius: 4px;
   background: #DCEBFF;
 }
@@ -905,12 +931,12 @@ html, body, [class*="css"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.42rem;
+  gap: 0.38rem;
   width: fit-content;
   max-width: 100%;
   border-radius: 999px;
-  padding: 0.52rem 0.78rem;
-  font-size: 0.86rem;
+  padding: 0.44rem 0.68rem;
+  font-size: 0.82rem;
   font-weight: 900;
   white-space: nowrap;
 }
@@ -931,6 +957,11 @@ html, body, [class*="css"] {
   background: #EAF8EF;
   color: #1D7F3B;
 }
+.status-pill:before {
+  content: "\2713";
+  width: 17px;
+  height: 17px;
+}
 .status-failed {
   border: 1px solid rgba(200,71,44,0.25);
   background: #FFF0EC;
@@ -944,13 +975,13 @@ html, body, [class*="css"] {
 }
 .hash-chip {
   display: inline-block;
-  max-width: 112px;
+  max-width: 104px;
   overflow: hidden;
   border: 1px solid #D7E6FA;
   border-radius: 10px;
   background: #FFFFFF;
-  color: #1D2947;
-  padding: 0.34rem 0.52rem;
+  color: #405072;
+  padding: 0.3rem 0.48rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.78rem;
   font-weight: 850;
@@ -961,7 +992,7 @@ html, body, [class*="css"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.48rem;
+  gap: 0.4rem;
   width: 100%;
 }
 .tiny-action {
@@ -969,15 +1000,17 @@ html, body, [class*="css"] {
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  gap: 0.24rem;
-  min-width: 54px;
-  min-height: 58px;
+  gap: 0.18rem;
+  width: 42px;
+  min-width: 42px;
+  height: 46px;
+  min-height: 46px;
   border: 1px solid #CFE1FB;
   border-radius: 12px;
   background: #FFFFFF;
   color: var(--blue);
-  font-size: 0.7rem;
-  font-weight: 900;
+  font-size: 0.66rem;
+  font-weight: 800;
   white-space: nowrap;
   box-shadow: 0 8px 18px rgba(16,94,221,0.06);
 }
@@ -985,8 +1018,8 @@ html, body, [class*="css"] {
   color: var(--blue);
 }
 .tiny-action img {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   object-fit: contain;
   display: block;
 }
@@ -994,28 +1027,28 @@ html, body, [class*="css"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  margin: 1rem 1.1rem 1.15rem;
+  gap: 0.8rem;
+  margin: 0.9rem 1.1rem 1rem;
   border: 1px solid #D7E6FA;
   border-radius: 14px;
   background: linear-gradient(90deg, #EFF7FF, #F8FBFF);
   color: #405072;
-  padding: 0.75rem 0.95rem;
-  font-size: 0.84rem;
-  font-weight: 800;
+  padding: 0.58rem 0.82rem;
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 .doc-info-copy {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.62rem;
   min-width: 0;
 }
 .doc-info-copy img {
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   object-fit: contain;
   display: block;
-  flex: 0 0 28px;
+  flex: 0 0 22px;
 }
 .doc-view-all {
   display: inline-flex;
@@ -1027,11 +1060,23 @@ html, body, [class*="css"] {
   border-radius: 10px;
   background: #FFFFFF;
   color: var(--blue);
-  min-height: 2.55rem;
-  padding: 0 0.9rem;
-  font-size: 0.84rem;
-  font-weight: 900;
+  min-height: 2.3rem;
+  padding: 0 0.82rem;
+  font-size: 0.82rem;
+  font-weight: 800;
   box-shadow: 0 8px 18px rgba(16,94,221,0.06);
+}
+.doc-view-all span[aria-hidden="true"] {
+  font-size: 0;
+}
+.doc-view-all span[aria-hidden="true"]:before {
+  content: "\\203A";
+  font-size: 0.96rem;
+}
+.doc-date {
+  color: #1E2A4A;
+  font-weight: 500;
+  white-space: nowrap;
 }
 .doc-empty-row {
   padding: 1.8rem;
@@ -1132,6 +1177,12 @@ div.stButton > button[kind="primary"] {
   }
   .doc-table-actions {
     justify-content: flex-start;
+  }
+  .doc-table-scroll {
+    overflow-x: auto;
+  }
+  .doc-table-grid {
+    min-width: 980px;
   }
 }
 @media (max-width: 620px) {
@@ -1592,7 +1643,7 @@ def _doc_head(label: str, icon_filename: str | None = None, fallback: str = "") 
     if icon_filename:
         icon = _indexed_docs_icon(icon_filename, f"{label} icon")
     else:
-        icon = f'<span class="doc-head-hash">{html.escape(fallback)}</span>'
+        icon = f'<span class="doc-head-hash">{fallback}</span>'
     return f'<span class="doc-head-label">{icon}<span>{html.escape(label)}</span></span>'
 
 
@@ -1623,7 +1674,11 @@ def render_document_table(documents: list[dict[str, Any]], title: str = "Indexed
         short_hash = document_hash[:12] if document_hash else "n/a"
         status_class = _status_class(status)
         file_size = _format_file_size(doc.get("file_size"))
-        file_meta = f"{extension} · {file_size}" if file_size else f"{extension} source document"
+        file_meta_html = (
+            f"{html.escape(extension)} &middot; {html.escape(file_size)}"
+            if file_size
+            else f"{html.escape(extension)} source document"
+        )
         chunk_segments = _chunk_segments(chunks, max_chunks)
 
         row_html.append(
@@ -1633,7 +1688,7 @@ def render_document_table(documents: list[dict[str, Any]], title: str = "Indexed
             f'<div class="doc-file-icon">{pdf_icon}</div>'
             '<div class="doc-file-text">'
             f'<div class="doc-file-name" title="{html.escape(filename)}">{html.escape(filename)}</div>'
-            f'<div class="doc-file-meta">{html.escape(file_meta)}</div>'
+            f'<div class="doc-file-meta">{file_meta_html}</div>'
             '</div>'
             '</div>'
             '</div>'
@@ -1643,12 +1698,12 @@ def render_document_table(documents: list[dict[str, Any]], title: str = "Indexed
             f'<div class="chunk-segments" aria-label="Chunk density">{chunk_segments}</div>'
             '</div>'
             f'<div class="doc-cell"><span class="status-pill {status_class}">{html.escape(status)}</span></div>'
-            f'<div class="doc-cell">{html.escape(timestamp)}</div>'
+            f'<div class="doc-cell doc-date">{html.escape(timestamp)}</div>'
             f'<div class="doc-cell"><span class="hash-chip" title="{html.escape(document_hash)}">{html.escape(short_hash)}</span></div>'
             '<div class="doc-cell">'
             '<div class="doc-row-actions">'
             f'<span class="tiny-action">{view_icon}<span>View</span></span>'
-            f'<span class="tiny-action alt">{sync_icon}<span>Re-ingest</span></span>'
+            f'<span class="tiny-action alt" title="Re-ingest">{sync_icon}<span>Sync</span></span>'
             '</div>'
             '</div>'
             '</div>'
@@ -1666,6 +1721,9 @@ def render_document_table(documents: list[dict[str, Any]], title: str = "Indexed
 
     document_label = "document" if total_documents == 1 else "documents"
     chunk_label = "chunk" if total_chunks == 1 else "chunks"
+    summary_dot = "&bull;"
+    actions_icon = "&vellip;"
+    chevron_icon = "&rsaquo;"
     table_markup = f"""
 <div class="doc-table-card">
   <div class="doc-table-header">
@@ -1675,9 +1733,9 @@ def render_document_table(documents: list[dict[str, Any]], title: str = "Indexed
         <div class="doc-table-title">{html.escape(title)}</div>
         <div class="doc-table-summary">
           <strong>{total_documents:,} {document_label}</strong>
-          <span class="doc-summary-dot">•</span>
+          <span class="doc-summary-dot">{summary_dot}</span>
           <strong>{total_chunks:,} {chunk_label}</strong>
-          <span class="doc-summary-dot">•</span>
+          <span class="doc-summary-dot">{summary_dot}</span>
           Last updated {html.escape(last_updated)}
         </div>
       </div>
@@ -1696,7 +1754,7 @@ def render_document_table(documents: list[dict[str, Any]], title: str = "Indexed
         <div class="doc-cell">{_doc_head("Status", "status-shield-icon.png")}</div>
         <div class="doc-cell">{_doc_head("Last ingested", "calendar-icon.png")}</div>
         <div class="doc-cell">{_doc_head("Hash", None, "#")}</div>
-        <div class="doc-cell">{_doc_head("Actions", None, "⋮")}</div>
+        <div class="doc-cell">{_doc_head("Actions", None, actions_icon)}</div>
       </div>
 {rows_markup}
     </div>
@@ -1706,7 +1764,7 @@ def render_document_table(documents: list[dict[str, Any]], title: str = "Indexed
       {lightbulb_icon}
       <span>All documents are chunked semantically and stored as high-quality embeddings for accurate retrieval.</span>
     </div>
-    <span class="doc-view-all">View all documents <span aria-hidden="true">›</span></span>
+    <span class="doc-view-all">View all documents <span aria-hidden="true">{chevron_icon}</span></span>
   </div>
 </div>
 """
