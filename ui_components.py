@@ -24,6 +24,7 @@ PALETTE = {
 
 APP_ICON_PATH = Path(__file__).parent / "assets" / "rag-app-icon-tight.png"
 SIDEBAR_ICON_DIR = Path(__file__).parent / "assets" / "sidebar-icons"
+HEADER_ICON_DIR = Path(__file__).parent / "assets" / "header-icons"
 SIDEBAR_NAV_ITEMS = [
     {"label": "App overview", "icon": "App_Overview_Icon.png"},
     {"label": "Chat / Answer", "icon": "Chat_Answer_Icon.png"},
@@ -44,6 +45,13 @@ def _load_app_icon_data_uri() -> str:
 @st.cache_data(show_spinner=False)
 def _load_sidebar_icon_data_uri(filename: str) -> str:
     icon_path = SIDEBAR_ICON_DIR / filename
+    encoded = base64.b64encode(icon_path.read_bytes()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
+
+
+@st.cache_data(show_spinner=False)
+def _load_header_icon_data_uri(filename: str) -> str:
+    icon_path = HEADER_ICON_DIR / filename
     encoded = base64.b64encode(icon_path.read_bytes()).decode("ascii")
     return f"data:image/png;base64,{encoded}"
 
@@ -206,10 +214,11 @@ html, body, [class*="css"] {
 }
 .app-title {
   color: var(--navy);
-  font-size: 2rem;
+  font-size: clamp(2.25rem, 3.1vw, 3.25rem);
   line-height: 1.05;
   font-weight: 900;
   margin: 0;
+  white-space: nowrap;
 }
 .app-subtitle {
   color: #405072;
@@ -217,28 +226,97 @@ html, body, [class*="css"] {
   margin-top: 0.35rem;
 }
 .st-key-header_actions {
+  display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: nowrap;
   padding-top: 0.35rem;
+  width: 100%;
 }
 .st-key-header_actions [data-testid="stButton"] {
-  width: auto !important;
   flex: 0 0 auto;
+  width: auto !important;
 }
 .st-key-header_actions div.stButton > button {
   height: 2.9rem;
   min-height: 2.9rem;
   padding: 0 1rem;
-  border-radius: 9px;
+  border-radius: 10px;
   font-size: 0.92rem;
   font-weight: 800;
   white-space: nowrap;
   box-shadow: 0 12px 28px rgba(11,48,117,0.08);
+  transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease, border-color 140ms ease;
 }
-.st-key-header_actions div.stButton > button[kind="primary"] {
+.st-key-header_actions div.stButton > button:hover {
+  transform: translateY(-1px);
+}
+.st-key-header_actions .st-key-header_upload [data-testid^="stBaseButton"],
+.st-key-header_actions .st-key-header_upload button,
+.st-key-header_actions [data-testid="stElementContainer"]:nth-of-type(1) [data-testid^="stBaseButton"] {
+  background: #FFFFFF !important;
+  border-color: #CFE1FB !important;
+  color: var(--navy) !important;
+}
+.st-key-header_actions .st-key-header_upload [data-testid^="stBaseButton"]:hover,
+.st-key-header_actions .st-key-header_upload button:hover,
+.st-key-header_actions [data-testid="stElementContainer"]:nth-of-type(1) [data-testid^="stBaseButton"]:hover {
+  background: #F6FAFF !important;
+  border-color: #BBD6FF !important;
+  color: var(--navy) !important;
+}
+.st-key-header_actions .st-key-header_ingest [data-testid^="stBaseButton"],
+.st-key-header_actions .st-key-header_ingest button,
+.st-key-header_actions [data-testid="stElementContainer"]:nth-of-type(2) [data-testid^="stBaseButton"] {
+  background: var(--blue) !important;
+  border-color: var(--blue) !important;
+  color: #FFFFFF !important;
   box-shadow: 0 14px 28px rgba(16,94,221,0.18);
 }
+.st-key-header_actions .st-key-header_ingest [data-testid^="stBaseButton"]:hover,
+.st-key-header_actions .st-key-header_ingest button:hover,
+.st-key-header_actions [data-testid="stElementContainer"]:nth-of-type(2) [data-testid^="stBaseButton"]:hover {
+  background: #0B4FC7 !important;
+  border-color: #0B4FC7 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 16px 32px rgba(16,94,221,0.22);
+}
+.st-key-header_actions .st-key-header_clear [data-testid^="stBaseButton"],
+.st-key-header_actions .st-key-header_clear button,
+.st-key-header_actions [data-testid="stElementContainer"]:nth-of-type(3) [data-testid^="stBaseButton"] {
+  background: var(--terracotta) !important;
+  border-color: var(--terracotta) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 14px 28px rgba(200,71,44,0.18);
+}
+.st-key-header_actions .st-key-header_clear [data-testid^="stBaseButton"]:hover,
+.st-key-header_actions .st-key-header_clear button:hover,
+.st-key-header_actions [data-testid="stElementContainer"]:nth-of-type(3) [data-testid^="stBaseButton"]:hover {
+  background: #A93A24 !important;
+  border-color: #A93A24 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 16px 32px rgba(200,71,44,0.22);
+}
 .st-key-header_actions div.stButton > button p {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
   white-space: nowrap;
+  margin: 0;
+}
+.st-key-header_actions div.stButton > button img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex: 0 0 18px;
+}
+.st-key-header_ingest button img,
+.st-key-header_clear button img,
+.st-key-header_actions [data-testid="stButton"]:nth-of-type(2) button img,
+.st-key-header_actions [data-testid="stButton"]:nth-of-type(3) button img {
+  filter: brightness(0) invert(1);
 }
 
 .section-card, .hero-card, .metric-card, .answer-card, .source-card, .debug-card {
@@ -702,9 +780,14 @@ div.stButton > button[kind="primary"] {
 
 @media (max-width: 980px) {
   .app-header { flex-direction: column; }
+  .app-title {
+    font-size: 2.05rem;
+    white-space: normal;
+  }
   .st-key-header_actions {
     justify-content: flex-start;
     padding-top: 0;
+    flex-wrap: wrap;
   }
   .hero-title { font-size: 2.05rem; }
   .workflow, .debug-grid { grid-template-columns: 1fr 1fr; }
@@ -792,7 +875,7 @@ def render_sidebar(stats: dict[str, Any]) -> str:
 
 
 def render_header() -> dict[str, bool]:
-    left, right = st.columns([1.2, 1], gap="large", vertical_alignment="top")
+    left, right = st.columns([1.45, 1.35], gap="large", vertical_alignment="top")
     with left:
         st.markdown(
             """
@@ -806,6 +889,13 @@ def render_header() -> dict[str, bool]:
             unsafe_allow_html=True,
         )
     with right:
+        upload_icon_uri = _load_header_icon_data_uri("upload.png")
+        ingest_icon_uri = _load_header_icon_data_uri("ingest.png")
+        clear_icon_uri = _load_header_icon_data_uri("clear-chat.png")
+        upload_label = f"![header-upload-icon]({upload_icon_uri}) Upload PDFs"
+        ingest_label = f"![header-ingest-icon]({ingest_icon_uri}) Ingest"
+        clear_label = f"![header-clear-icon]({clear_icon_uri}) Clear chat"
+
         with st.container(
             key="header_actions",
             horizontal=True,
@@ -814,22 +904,19 @@ def render_header() -> dict[str, bool]:
             gap="small",
         ):
             upload_clicked = st.button(
-                "Upload PDFs",
+                upload_label,
                 key="header_upload",
-                icon=":material/upload:",
                 width=156,
             )
             ingest_clicked = st.button(
-                "Ingest",
+                ingest_label,
                 key="header_ingest",
                 type="primary",
-                icon=":material/play_arrow:",
                 width=120,
             )
             clear_clicked = st.button(
-                "Clear chat",
+                clear_label,
                 key="header_clear",
-                icon=":material/delete:",
                 width=140,
             )
     return {"upload": upload_clicked, "ingest": ingest_clicked, "clear": clear_clicked}
