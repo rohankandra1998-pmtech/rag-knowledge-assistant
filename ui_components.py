@@ -202,7 +202,7 @@ html, body, [class*="css"] {
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
-  margin: 0.2rem 0 1.15rem;
+  margin: 0.35rem 0 1.35rem;
 }
 .app-title {
   color: var(--navy);
@@ -215,6 +215,30 @@ html, body, [class*="css"] {
   color: #405072;
   font-size: 1rem;
   margin-top: 0.35rem;
+}
+.st-key-header_actions {
+  justify-content: flex-end;
+  padding-top: 0.35rem;
+}
+.st-key-header_actions [data-testid="stButton"] {
+  width: auto !important;
+  flex: 0 0 auto;
+}
+.st-key-header_actions div.stButton > button {
+  height: 2.9rem;
+  min-height: 2.9rem;
+  padding: 0 1rem;
+  border-radius: 9px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: 0 12px 28px rgba(11,48,117,0.08);
+}
+.st-key-header_actions div.stButton > button[kind="primary"] {
+  box-shadow: 0 14px 28px rgba(16,94,221,0.18);
+}
+.st-key-header_actions div.stButton > button p {
+  white-space: nowrap;
 }
 
 .section-card, .hero-card, .metric-card, .answer-card, .source-card, .debug-card {
@@ -678,6 +702,10 @@ div.stButton > button[kind="primary"] {
 
 @media (max-width: 980px) {
   .app-header { flex-direction: column; }
+  .st-key-header_actions {
+    justify-content: flex-start;
+    padding-top: 0;
+  }
   .hero-title { font-size: 2.05rem; }
   .workflow, .debug-grid { grid-template-columns: 1fr 1fr; }
   .chat-user { max-width: 92%; }
@@ -764,7 +792,7 @@ def render_sidebar(stats: dict[str, Any]) -> str:
 
 
 def render_header() -> dict[str, bool]:
-    left, right = st.columns([1.7, 1])
+    left, right = st.columns([1.2, 1], gap="large", vertical_alignment="top")
     with left:
         st.markdown(
             """
@@ -778,10 +806,32 @@ def render_header() -> dict[str, bool]:
             unsafe_allow_html=True,
         )
     with right:
-        col1, col2, col3 = st.columns(3)
-        upload_clicked = col1.button("Upload PDFs", key="header_upload")
-        ingest_clicked = col2.button("Ingest", key="header_ingest", type="primary")
-        clear_clicked = col3.button("Clear chat", key="header_clear")
+        with st.container(
+            key="header_actions",
+            horizontal=True,
+            horizontal_alignment="right",
+            vertical_alignment="top",
+            gap="small",
+        ):
+            upload_clicked = st.button(
+                "Upload PDFs",
+                key="header_upload",
+                icon=":material/upload:",
+                width=156,
+            )
+            ingest_clicked = st.button(
+                "Ingest",
+                key="header_ingest",
+                type="primary",
+                icon=":material/play_arrow:",
+                width=120,
+            )
+            clear_clicked = st.button(
+                "Clear chat",
+                key="header_clear",
+                icon=":material/delete:",
+                width=140,
+            )
     return {"upload": upload_clicked, "ingest": ingest_clicked, "clear": clear_clicked}
 
 
