@@ -171,7 +171,7 @@ html, body, [class*="css"] {
   display: flex;
   align-items: center;
   gap: 0.8rem;
-  padding: 1rem 0.55rem 1.3rem;
+  padding: 0.85rem 0.55rem 1.3rem;
 }
 .sidebar-logo .app-logo-img {
   width: 64px;
@@ -268,12 +268,21 @@ html, body, [class*="css"] {
   font-weight: 800;
 }
 
+.st-key-app_header_shell {
+  margin: 0.35rem 0 1.35rem;
+}
+.st-key-app_header_shell [data-testid="stHorizontalBlock"] {
+  align-items: flex-start;
+}
 .app-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
-  margin: 0.35rem 0 1.35rem;
+  margin: 0;
+}
+.app-title-block {
+  min-width: 0;
 }
 .app-title {
   color: var(--navy);
@@ -294,7 +303,7 @@ html, body, [class*="css"] {
   align-items: center;
   gap: 0.75rem;
   flex-wrap: nowrap;
-  padding-top: 0.35rem;
+  padding-top: 1.55rem;
   width: 100%;
 }
 .st-key-header_actions [data-testid="stButton"] {
@@ -830,6 +839,9 @@ div.stButton > button[kind="primary"] {
 }
 
 @media (max-width: 980px) {
+  .st-key-app_header_shell [data-testid="stHorizontalBlock"] {
+    gap: 0.6rem;
+  }
   .app-header { flex-direction: column; }
   .app-title {
     font-size: 2.05rem;
@@ -926,43 +938,44 @@ def render_sidebar(stats: dict[str, Any]) -> str:
 
 
 def render_header() -> dict[str, bool]:
-    left, right = st.columns([1.55, 1.15], gap="large", vertical_alignment="top")
-    with left:
-        st.markdown(
-            """
+    with st.container(key="app_header_shell"):
+        left, right = st.columns([1.55, 1.15], gap="large", vertical_alignment="top")
+        with left:
+            st.markdown(
+                """
 <div class="app-header">
-  <div>
+  <div class="app-title-block">
     <h1 class="app-title">RAG Knowledge Assistant</h1>
     <div class="app-subtitle">Conversational document Q&amp;A with citations</div>
   </div>
 </div>
 """,
-            unsafe_allow_html=True,
-        )
-    with right:
-        with st.container(
-            key="header_actions",
-            horizontal=True,
-            horizontal_alignment="right",
-            vertical_alignment="top",
-            gap="small",
-        ):
-            upload_clicked = st.button(
-                "Upload PDFs",
-                key="header_upload",
-                width=150,
+                unsafe_allow_html=True,
             )
-            ingest_clicked = st.button(
-                "Ingest",
-                key="header_ingest",
-                type="primary",
-                width=116,
-            )
-            clear_clicked = st.button(
-                "Clear chat",
-                key="header_clear",
-                width=132,
-            )
+        with right:
+            with st.container(
+                key="header_actions",
+                horizontal=True,
+                horizontal_alignment="right",
+                vertical_alignment="top",
+                gap="small",
+            ):
+                upload_clicked = st.button(
+                    "Upload PDFs",
+                    key="header_upload",
+                    width=150,
+                )
+                ingest_clicked = st.button(
+                    "Ingest",
+                    key="header_ingest",
+                    type="primary",
+                    width=116,
+                )
+                clear_clicked = st.button(
+                    "Clear chat",
+                    key="header_clear",
+                    width=132,
+                )
     return {"upload": upload_clicked, "ingest": ingest_clicked, "clear": clear_clicked}
 
 
