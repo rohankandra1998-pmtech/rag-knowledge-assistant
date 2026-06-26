@@ -1178,6 +1178,12 @@ html, body, [class*="css"] {
   background: rgba(5, 9, 20, 0.58);
   backdrop-filter: blur(2px);
 }
+body.pdf-modal-open {
+  overflow: hidden;
+}
+.pdf-modal-overlay.is-hidden {
+  display: none;
+}
 .pdf-modal-dialog {
   width: min(920px, calc(100vw - 64px)) !important;
   max-width: min(920px, calc(100vw - 64px)) !important;
@@ -1238,11 +1244,16 @@ html, body, [class*="css"] {
   width: 30px;
   height: 30px;
   border-radius: 999px;
+  border: 0;
+  background: transparent;
   color: #405072;
+  cursor: pointer;
+  font-family: inherit;
   text-decoration: none !important;
   border-bottom: 0 !important;
   font-size: 1.55rem;
   line-height: 1;
+  padding: 0;
 }
 .pdf-modal-close:hover {
   background: #F2F6FC;
@@ -2453,6 +2464,13 @@ def _doc_head(label: str, icon_filename: str | None = None, fallback: str = "") 
     return f'<span class="doc-head-label">{icon}<span>{html.escape(label)}</span></span>'
 
 
+def _pdf_modal_id(document: dict[str, Any]) -> str:
+    filename = str(document.get("filename", "") or "document")
+    document_hash = str(document.get("document_hash", "") or "").strip()
+    target = quote(document_hash or filename, safe="")
+    return f"pdf-modal-{target}"
+
+
 def render_document_table(
     documents: list[dict[str, Any]],
     title: str = "Indexed documents",
@@ -2492,6 +2510,7 @@ def render_document_table(
         chunk_segments = _chunk_segments(chunks, max_chunks)
         view_target = quote(document_hash or filename, safe="")
         source_query = f"&from_section={quote(source_section, safe='')}" if source_section else ""
+        modal_id = _pdf_modal_id(doc)
 
         row_html.append(
             '<div class="doc-table-row">'
@@ -2514,8 +2533,9 @@ def render_document_table(
             f'<div class="doc-cell"><span class="hash-chip" title="{html.escape(document_hash)}">{html.escape(short_hash)}</span></div>'
             '<div class="doc-cell">'
             '<div class="doc-row-actions">'
-            f'<a class="tiny-action" href="?view_doc={view_target}{source_query}" target="_self" title="View {html.escape(filename)}">'
-            f'{view_icon}<span>View</span></a>'
+            f'<button type="button" class="tiny-action" data-pdf-modal-target="{html.escape(modal_id, quote=True)}" '
+            f'data-pdf-modal-fallback="?view_doc={view_target}{source_query}" title="View {html.escape(filename)}">'
+            f'{view_icon}<span>View</span></button>'
             f'<span class="tiny-action alt" title="Re-ingest">{sync_icon}<span>Re-ingest</span></span>'
             '</div>'
             '</div>'
@@ -2581,7 +2601,7 @@ def render_document_table(
   </div>
 </div>
 """
-    st.html(table_markup)
+    st.markdown(table_markup, unsafe_allow_html=True)
 
 
 def render_empty_state(title: str, body: str) -> None:

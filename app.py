@@ -54,6 +54,8 @@ NAV_SECTIONS = {
     "Settings / Debug",
 }
 
+CLIENT_MODAL_RENDERED_PREVIEW_LIMIT = 4
+
 st.set_page_config(
     page_title="RAG Knowledge Assistant",
     page_icon="AI",
@@ -200,6 +202,13 @@ def get_pdf_modal_document(stats: dict[str, Any]) -> dict[str, Any] | None:
         if selected in {document_hash, filename}:
             return document
     return None
+
+
+def pdf_modal_id(document: dict[str, Any]) -> str:
+    filename = str(document.get("filename", "") or "document")
+    document_hash = str(document.get("document_hash", "") or "").strip()
+    target = quote(document_hash or filename, safe="")
+    return f"pdf-modal-{target}"
 
 
 def get_query_param(name: str) -> str:
@@ -371,7 +380,11 @@ def render_pdf_viewer_script(viewer_id: str, total_pages: int) -> None:
 (function() {{
   const viewerId = {viewer_id!r};
   const totalPages = {int(max(total_pages, 1))};
-  const root = window.parent.document.querySelector('[data-pdf-viewer-id="' + viewerId + '"]');
+  const parentWindow = window.parent;
+  const parentDocument = parentWindow.document;
+  parentWindow.__ragPdfViewerRegistry = parentWindow.__ragPdfViewerRegistry || {{}};
+  parentWindow.__ragPdfViewerRegistry[viewerId] = function() {{
+  const root = parentDocument.querySelector('[data-pdf-viewer-id="' + viewerId + '"]');
   if (!root || root.dataset.viewerReady === "true") return;
   root.dataset.viewerReady = "true";
 
@@ -536,7 +549,7 @@ def render_pdf_viewer_script(viewer_id: str, total_pages: int) -> None:
     }}, 140);
   }});
 
-  window.parent.document.addEventListener("keydown", function(event) {{
+  parentDocument.addEventListener("keydown", function(event) {{
     if (event.key === "Escape" && focusMode) {{
       setFocusMode(false);
     }}
@@ -546,25 +559,39 @@ def render_pdf_viewer_script(viewer_id: str, total_pages: int) -> None:
   scroller.addEventListener("scroll", function() {{
     if (ticking) return;
     ticking = true;
-    window.parent.requestAnimationFrame(function() {{
+    parentWindow.requestAnimationFrame(function() {{
       detectActivePage();
       ticking = false;
     }});
   }}, {{ passive: true }});
 
-  window.parent.requestAnimationFrame(function() {{
+  parentWindow.requestAnimationFrame(function() {{
     captureBaseWidths();
     applyZoom(100);
     setFocusMode(false);
     detectActivePage();
   }});
+  }};
+
+  const root = parentDocument.querySelector('[data-pdf-viewer-id="' + viewerId + '"]');
+  if (root && !root.classList.contains("is-hidden")) {{
+    parentWindow.__ragPdfViewerRegistry[viewerId]();
+  }}
 }})();
 </script>
 """
     st.iframe(script, height=1, width=1)
 
 
-def render_pdf_modal_shell(document: dict[str, Any], pdf_path: Path | None) -> None:
+def render_pdf_modal_shell(
+    document: dict[str, Any],
+    pdf_path: Path | None,
+    *,
+    hidden: bool = False,
+    source_section: str | None = None,
+    notice: str | None = None,
+    render_pages: bool = True,
+) -> None:
     filename = str(document.get("filename", "") or "Untitled document")
     extension = filename.rsplit(".", 1)[-1].upper() if "." in filename else "PDF"
     pages = int(document.get("pages") or 0)
@@ -579,7 +606,12 @@ def render_pdf_modal_shell(document: dict[str, Any], pdf_path: Path | None) -> N
     chunk_label = f"{chunks:,} chunk" if chunks == 1 else f"{chunks:,} chunks"
     pdf_uri = pdf_data_uri(pdf_path) if pdf_path else ""
     escaped_pdf_uri = html.escape(pdf_uri, quote=True)
-    rendered_pages, render_warning = get_rendered_pdf_pages(pdf_path) if pdf_path else ([], "")
+    if pdf_path and render_pages:
+        rendered_pages, render_warning = get_rendered_pdf_pages(pdf_path)
+    elif pdf_path:
+        rendered_pages, render_warning = [], ""
+    else:
+        rendered_pages, render_warning = [], ""
     total_preview_pages = len(rendered_pages) or max(pages, 1)
     if rendered_pages:
         thumb_html = "".join(
@@ -616,7 +648,7 @@ def render_pdf_modal_shell(document: dict[str, Any], pdf_path: Path | None) -> N
             )
         else:
             preview_html = '<div class="pdf-missing-source">Source PDF not found in docs/ or uploaded_docs/.</div>'
-    source_section = get_query_param("from_section")
+    source_section = source_section or get_query_param("from_section")
     if source_section not in NAV_SECTIONS:
         source_section = str(st.session_state.get("nav_section", "App overview"))
     close_href = f"?section={quote(source_section, safe='')}"
@@ -625,7 +657,8 @@ def render_pdf_modal_shell(document: dict[str, Any], pdf_path: Path | None) -> N
         if pdf_path
         else '<span class="pdf-modal-action primary is-disabled">Open full PDF</span>'
     )
-    notice = st.session_state.pop("pdf_modal_notice", "")
+    if notice is None:
+        notice = st.session_state.pop("pdf_modal_notice", "")
     notice_html = f'<div class="pdf-modal-note">{html.escape(notice)}</div>' if notice else ""
     detail_icon_filenames = {
         "Document hash": "pdf_document_hash_icon.png",
@@ -663,6 +696,7 @@ def render_pdf_modal_shell(document: dict[str, Any], pdf_path: Path | None) -> N
             f'<div class="pdf-detail-value{" is-yes" if label == "Indexed" else ""}">{html.escape(str(value))}</div></div>'
         )
     detail_html = "".join(detail_rows)
+    modal_id = pdf_modal_id(document)
     viewer_id = f"pdf-viewer-{document_hash[:12] if document_hash != 'n/a' else quote(filename, safe='')}"
     viewer_icon_filenames = {
         "zoom_focus": "pdf_zoom_focus_icon.png",
@@ -711,13 +745,21 @@ def render_pdf_modal_shell(document: dict[str, Any], pdf_path: Path | None) -> N
         f'<div class="pdf-modal-note pdf-preview-note">{preview_info_icon}'
         '<span>Preview the original source PDF used for indexing and retrieval.</span></div>'
     )
+    overlay_class = "pdf-modal-overlay is-hidden" if hidden else "pdf-modal-overlay"
+    close_control_html = (
+        '<button type="button" class="pdf-modal-close" data-pdf-modal-close aria-label="Close">&times;</button>'
+        if hidden
+        else f'<a class="pdf-modal-close" href="{close_href}" target="_self" aria-label="Close">&times;</a>'
+    )
     modal_html = (
-        f'<div class="pdf-modal-overlay" data-pdf-viewer-id="{html.escape(viewer_id, quote=True)}">'
+        f'<div id="{html.escape(modal_id, quote=True)}" class="{overlay_class}" '
+        f'data-pdf-client-modal="{"true" if hidden else "false"}" '
+        f'data-pdf-viewer-id="{html.escape(viewer_id, quote=True)}" aria-hidden="{"true" if hidden else "false"}">'
         '<div class="pdf-modal-dialog"><div class="pdf-modal-shell">'
         '<div class="pdf-modal-header"><div class="pdf-modal-heading">'
         '<div class="pdf-modal-badge">PDF</div>'
         f'<div class="pdf-modal-title" title="{html.escape(filename)}">{html.escape(filename)}</div>'
-        f'</div><a class="pdf-modal-close" href="{close_href}" target="_self" aria-label="Close">&times;</a></div>'
+        f'</div>{close_control_html}</div>'
         '<div class="pdf-modal-pills">'
         f'<span class="pdf-modal-pill">{html.escape(extension)}</span>'
         f'<span class="pdf-modal-pill">{html.escape(file_size)}</span>'
@@ -747,13 +789,273 @@ def render_pdf_modal_shell(document: dict[str, Any], pdf_path: Path | None) -> N
         '</div></div></div></div>'
     )
     st.markdown(modal_html, unsafe_allow_html=True)
-    if rendered_pages:
-        render_pdf_viewer_script(viewer_id, total_preview_pages)
+    if rendered_pages and not hidden:
+        render_client_pdf_modal_controller()
 
 
 def render_pdf_preview_dialog(document: dict[str, Any]) -> None:
     pdf_path = resolve_source_pdf_path(document)
     render_pdf_modal_shell(document, pdf_path)
+
+
+def render_client_pdf_modal_controller() -> None:
+    st.iframe(
+        """
+<script>
+(() => {
+  const parentWindow = window.parent;
+  const parentDocument = parentWindow.document;
+  if (parentDocument.documentElement.dataset.pdfModalControllerReady === "true") return;
+  parentDocument.documentElement.dataset.pdfModalControllerReady = "true";
+  let lastTrigger = null;
+
+  const getOpenModals = () => Array.from(parentDocument.querySelectorAll('.pdf-modal-overlay[data-pdf-client-modal="true"]:not(.is-hidden)'));
+
+  const initPdfViewer = (root) => {
+    if (!root || root.dataset.viewerReady === "true") return;
+    const scroller = root.querySelector("[data-pdf-scroll]");
+    const images = Array.from(root.querySelectorAll("[data-pdf-page]"));
+    const thumbs = Array.from(root.querySelectorAll("[data-pdf-thumb]"));
+    if (!scroller || !images.length) return;
+    root.dataset.viewerReady = "true";
+
+    const totalPages = Math.max(1, images.length);
+    const pageLabel = root.querySelector("[data-pdf-page-label]");
+    const zoomLabel = root.querySelector("[data-pdf-zoom-label]");
+    const zoomFocus = root.querySelector("[data-pdf-zoom-focus]");
+    const zoomOut = root.querySelector("[data-pdf-zoom-out]");
+    const zoomIn = root.querySelector("[data-pdf-zoom-in]");
+    const pagePrev = root.querySelector("[data-pdf-page-prev]");
+    const pageNext = root.querySelector("[data-pdf-page-next]");
+    let activePage = 1;
+    let zoom = 100;
+    let focusMode = false;
+
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+    const setActivePage = (page) => {
+      activePage = clamp(Number(page) || 1, 1, totalPages);
+      if (pageLabel) pageLabel.textContent = "Page " + activePage + " of " + totalPages;
+      if (pagePrev) pagePrev.disabled = activePage <= 1;
+      if (pageNext) pageNext.disabled = activePage >= totalPages;
+      thumbs.forEach((thumb) => {
+        const isActive = Number(thumb.dataset.pdfThumb) === activePage;
+        thumb.classList.toggle("is-active", isActive);
+        thumb.setAttribute("aria-current", isActive ? "page" : "false");
+      });
+    };
+    const detectActivePage = () => {
+      const scrollerRect = scroller.getBoundingClientRect();
+      const center = scrollerRect.top + scrollerRect.height / 2;
+      let closest = activePage;
+      let closestDistance = Number.POSITIVE_INFINITY;
+      images.forEach((image) => {
+        const rect = image.getBoundingClientRect();
+        const distance = Math.abs(rect.top + rect.height / 2 - center);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closest = Number(image.dataset.pdfPage) || 1;
+        }
+      });
+      setActivePage(closest);
+    };
+    const scrollToPage = (page, behavior = "smooth") => {
+      const target = root.querySelector('[data-pdf-page="' + page + '"]');
+      if (!target) return;
+      const targetRect = target.getBoundingClientRect();
+      const scrollerRect = scroller.getBoundingClientRect();
+      const nextTop = scroller.scrollTop + targetRect.top - scrollerRect.top - 12;
+      scroller.scrollTo({ top: Math.max(0, nextTop), behavior });
+      setActivePage(page);
+    };
+    const captureBaseWidths = () => {
+      images.forEach((image) => {
+        if (Number(image.dataset.pdfBaseWidth || 0) > 0) return;
+        const rect = image.getBoundingClientRect();
+        image.dataset.pdfBaseWidth = String(rect.width || image.clientWidth || image.naturalWidth || 1);
+      });
+    };
+    const setFocusMode = (enabled) => {
+      focusMode = Boolean(enabled);
+      root.classList.toggle("is-focus-zoom", focusMode);
+      if (zoomFocus) {
+        zoomFocus.classList.toggle("is-active", focusMode);
+        zoomFocus.setAttribute("aria-pressed", focusMode ? "true" : "false");
+      }
+    };
+    const setZoom = (nextZoom) => {
+      captureBaseWidths();
+      zoom = clamp(nextZoom, 50, 200);
+      images.forEach((image) => {
+        const baseWidth = Number(image.dataset.pdfBaseWidth || 0) || image.getBoundingClientRect().width || 1;
+        image.style.setProperty("width", Math.max(1, Math.round(baseWidth * zoom / 100)) + "px", "important");
+        image.style.setProperty("max-width", "none", "important");
+      });
+      if (zoomLabel) zoomLabel.textContent = zoom + "%";
+      if (zoomOut) zoomOut.disabled = zoom <= 50;
+      if (zoomIn) zoomIn.disabled = zoom >= 200;
+      root.classList.toggle("is-zoomed-in", zoom > 100);
+    };
+    const applyZoom = (nextZoom) => {
+      setZoom(nextZoom);
+      parentWindow.setTimeout(() => {
+        scrollToPage(activePage, "auto");
+        detectActivePage();
+      }, 40);
+    };
+    root.__ragPdfResetViewer = () => {
+      setFocusMode(false);
+      setZoom(100);
+      scrollToPage(1, "auto");
+      parentWindow.setTimeout(() => detectActivePage(), 40);
+    };
+
+    thumbs.forEach((thumb) => {
+      thumb.addEventListener("click", (event) => {
+        event.preventDefault();
+        scrollToPage(Number(thumb.dataset.pdfThumb) || 1, "auto");
+      });
+    });
+    if (zoomOut) zoomOut.addEventListener("click", (event) => { event.preventDefault(); applyZoom(zoom - 10); });
+    if (zoomIn) zoomIn.addEventListener("click", (event) => { event.preventDefault(); applyZoom(zoom + 10); });
+    if (zoomFocus) zoomFocus.addEventListener("click", (event) => { event.preventDefault(); setFocusMode(!focusMode); });
+    if (pagePrev) pagePrev.addEventListener("click", (event) => { event.preventDefault(); scrollToPage(activePage - 1, "auto"); });
+    if (pageNext) pageNext.addEventListener("click", (event) => { event.preventDefault(); scrollToPage(activePage + 1, "auto"); });
+    scroller.addEventListener("click", (event) => {
+      if (!focusMode) return;
+      const pageImage = event.target && event.target.closest ? event.target.closest("[data-pdf-page]") : null;
+      if (!pageImage || !scroller.contains(pageImage)) return;
+      event.preventDefault();
+      const nextZoom = clamp(zoom + 25, 50, 200);
+      if (nextZoom === zoom) return;
+      setActivePage(Number(pageImage.dataset.pdfPage) || activePage);
+      setZoom(nextZoom);
+      parentWindow.setTimeout(() => detectActivePage(), 80);
+    });
+    let ticking = false;
+    scroller.addEventListener("scroll", () => {
+      if (ticking) return;
+      ticking = true;
+      parentWindow.requestAnimationFrame(() => {
+        detectActivePage();
+        ticking = false;
+      });
+    }, { passive: true });
+    parentWindow.requestAnimationFrame(() => {
+      captureBaseWidths();
+      applyZoom(100);
+      setFocusMode(false);
+      detectActivePage();
+    });
+  };
+
+  const closeModal = (modal, restoreFocus = true) => {
+    if (!modal) return;
+    modal.classList.add("is-hidden");
+    modal.setAttribute("aria-hidden", "true");
+    if (!getOpenModals().length) {
+      parentDocument.body.classList.remove("pdf-modal-open");
+    }
+    if (restoreFocus && lastTrigger && typeof lastTrigger.focus === "function") {
+      lastTrigger.focus({ preventScroll: true });
+    }
+  };
+
+  const openModal = (modal, trigger) => {
+    if (!modal) return false;
+    getOpenModals().forEach((openModalElement) => {
+      if (openModalElement !== modal) closeModal(openModalElement, false);
+    });
+    lastTrigger = trigger || null;
+    modal.classList.remove("is-hidden");
+    modal.setAttribute("aria-hidden", "false");
+    parentDocument.body.classList.add("pdf-modal-open");
+    parentWindow.requestAnimationFrame(() => {
+      initPdfViewer(modal);
+      if (typeof modal.__ragPdfResetViewer === "function") {
+        modal.__ragPdfResetViewer();
+      }
+    });
+    const closeButton = modal.querySelector("[data-pdf-modal-close], .pdf-modal-close");
+    if (closeButton && typeof closeButton.focus === "function") {
+      parentWindow.setTimeout(() => closeButton.focus({ preventScroll: true }), 30);
+    }
+    return true;
+  };
+
+  parentDocument.addEventListener("click", (event) => {
+    const trigger = event.target.closest("[data-pdf-modal-target]");
+    if (trigger) {
+      const targetId = trigger.getAttribute("data-pdf-modal-target");
+      const modal = targetId ? parentDocument.getElementById(targetId) : null;
+      if (modal && openModal(modal, trigger)) {
+        event.preventDefault();
+        return;
+      }
+      const fallback = trigger.getAttribute("data-pdf-modal-fallback");
+      if (fallback) {
+        event.preventDefault();
+        parentWindow.location.href = fallback;
+      }
+      return;
+    }
+
+    const closeButton = event.target.closest("[data-pdf-modal-close]");
+    if (closeButton) {
+      event.preventDefault();
+      closeModal(closeButton.closest(".pdf-modal-overlay"));
+      return;
+    }
+
+    const openModalOverlay = event.target.classList && event.target.classList.contains("pdf-modal-overlay")
+      ? event.target
+      : null;
+    if (
+      openModalOverlay &&
+      openModalOverlay.dataset.pdfClientModal === "true" &&
+      !openModalOverlay.classList.contains("is-hidden")
+    ) {
+      event.preventDefault();
+      closeModal(openModalOverlay);
+    }
+  });
+
+  parentDocument.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    const openModals = getOpenModals();
+    if (!openModals.length) return;
+    event.preventDefault();
+    closeModal(openModals[openModals.length - 1]);
+  });
+  parentDocument.querySelectorAll(".pdf-modal-overlay:not(.is-hidden)").forEach((modal) => initPdfViewer(modal));
+})();
+</script>
+""",
+        height=1,
+        width=1,
+    )
+
+
+def render_client_pdf_modals(documents: list[dict[str, Any]], source_section: str) -> None:
+    if not documents or get_query_param("view_doc"):
+        return
+
+    render_pages = len(documents) <= CLIENT_MODAL_RENDERED_PREVIEW_LIMIT
+    seen: set[str] = set()
+    for document in documents:
+        modal_id = pdf_modal_id(document)
+        if modal_id in seen:
+            continue
+        seen.add(modal_id)
+        pdf_path = resolve_source_pdf_path(document)
+        render_pdf_modal_shell(
+            document,
+            pdf_path,
+            hidden=True,
+            source_section=source_section,
+            notice="",
+            render_pages=render_pages,
+        )
+    render_client_pdf_modal_controller()
 
 
 def answer_question(question: str) -> None:
@@ -928,13 +1230,17 @@ def render_documents_screen(stats: dict[str, Any]) -> None:
     with metric_cols[2]:
         render_metric_card("Storage estimate", f'{stats.get("storage_estimate_mb", 0):.2f} MB', "Source PDFs only", "gold")
 
-    render_document_table(stats.get("documents", []), source_section="Documents")
+    documents = stats.get("documents", [])
+    render_document_table(documents, source_section="Documents")
+    render_client_pdf_modals(documents, "Documents")
 
 
 def render_ingestion_status(stats: dict[str, Any]) -> None:
     st.markdown('<div class="ingestion-status-title">Ingestion status</div>', unsafe_allow_html=True)
     render_ingestion_status_cards(stats)
-    render_document_table(stats.get("documents", []), source_section="Ingestion status")
+    documents = stats.get("documents", [])
+    render_document_table(documents, source_section="Ingestion status")
+    render_client_pdf_modals(documents, "Ingestion status")
 
 
 def render_models_screen() -> None:
@@ -1133,7 +1439,9 @@ def main() -> None:
             answer_question(question)
         recent_docs, recent_convos = st.columns(2)
         with recent_docs:
-            render_document_table(stats.get("documents", [])[:6], title="Recent documents", source_section="App overview")
+            recent_documents = stats.get("documents", [])[:6]
+            render_document_table(recent_documents, title="Recent documents", source_section="App overview")
+            render_client_pdf_modals(recent_documents, "App overview")
         with recent_convos:
             st.markdown('<div class="section-card"><div class="section-title">Recent conversations</div>', unsafe_allow_html=True)
             user_questions = [m["content"] for m in st.session_state.messages if m.get("role") == "user"][-6:]
