@@ -232,6 +232,162 @@ def pdf_data_uri(pdf_path: Path) -> str:
     return f"data:application/pdf;base64,{encoded}"
 
 
+@st.cache_data(show_spinner=False)
+def render_pdf_page_images(
+    pdf_path_text: str,
+    file_size: int,
+    modified_ns: int,
+    page_scale: float = 1.4,
+    thumb_scale: float = 0.22,
+) -> list[dict[str, Any]]:
+    _ = (file_size, modified_ns)
+    try:
+        import fitz
+    except Exception as exc:
+        raise RuntimeError("PyMuPDF is not available") from exc
+
+    pages: list[dict[str, Any]] = []
+    document = fitz.open(pdf_path_text)
+    try:
+        for page_index, page in enumerate(document, start=1):
+            page_pixmap = page.get_pixmap(matrix=fitz.Matrix(page_scale, page_scale), alpha=False)
+            thumb_pixmap = page.get_pixmap(matrix=fitz.Matrix(thumb_scale, thumb_scale), alpha=False)
+            page_data = base64.b64encode(page_pixmap.tobytes("png")).decode("ascii")
+            thumb_data = base64.b64encode(thumb_pixmap.tobytes("png")).decode("ascii")
+            pages.append(
+                {
+                    "page": page_index,
+                    "image_uri": f"data:image/png;base64,{page_data}",
+                    "thumb_uri": f"data:image/png;base64,{thumb_data}",
+                    "width": page_pixmap.width,
+                    "height": page_pixmap.height,
+                }
+            )
+    finally:
+        document.close()
+    return pages
+
+
+def get_rendered_pdf_pages(pdf_path: Path) -> tuple[list[dict[str, Any]], str]:
+    try:
+        stat = pdf_path.stat()
+        pages = render_pdf_page_images(str(pdf_path.resolve()), stat.st_size, stat.st_mtime_ns)
+    except Exception:
+        return [], "PDF preview rendering failed. Use Open full PDF to view the document."
+    return pages, ""
+
+
+def render_pdf_viewer_script(viewer_id: str, total_pages: int) -> None:
+    script = f"""
+<script>
+(function() {{
+  const viewerId = {viewer_id!r};
+  const totalPages = {int(max(total_pages, 1))};
+  const root = window.parent.document.querySelector('[data-pdf-viewer-id="' + viewerId + '"]');
+  if (!root || root.dataset.viewerReady === "true") return;
+  root.dataset.viewerReady = "true";
+
+  const scroller = root.querySelector("[data-pdf-scroll]");
+  const images = Array.from(root.querySelectorAll("[data-pdf-page]"));
+  const thumbs = Array.from(root.querySelectorAll("[data-pdf-thumb]"));
+  const pageLabel = root.querySelector("[data-pdf-page-label]");
+  const zoomLabel = root.querySelector("[data-pdf-zoom-label]");
+  const zoomOut = root.querySelector("[data-pdf-zoom-out]");
+  const zoomIn = root.querySelector("[data-pdf-zoom-in]");
+  if (!scroller || !images.length) return;
+
+  let activePage = 1;
+  let zoom = 100;
+
+  function clamp(value, min, max) {{
+    return Math.max(min, Math.min(max, value));
+  }}
+
+  function setActivePage(page) {{
+    activePage = clamp(Number(page) || 1, 1, totalPages);
+    if (pageLabel) pageLabel.textContent = "Page " + activePage + " of " + totalPages;
+    thumbs.forEach((thumb) => {{
+      const isActive = Number(thumb.dataset.pdfThumb) === activePage;
+      thumb.classList.toggle("is-active", isActive);
+      thumb.setAttribute("aria-current", isActive ? "page" : "false");
+    }});
+  }}
+
+  function detectActivePage() {{
+    const scrollerRect = scroller.getBoundingClientRect();
+    const center = scrollerRect.top + scrollerRect.height / 2;
+    let closest = activePage;
+    let closestDistance = Number.POSITIVE_INFINITY;
+    images.forEach((image) => {{
+      const rect = image.getBoundingClientRect();
+      const distance = Math.abs(rect.top + rect.height / 2 - center);
+      if (distance < closestDistance) {{
+        closestDistance = distance;
+        closest = Number(image.dataset.pdfPage) || 1;
+      }}
+    }});
+    setActivePage(closest);
+  }}
+
+  function scrollToPage(page, behavior) {{
+    const target = root.querySelector('[data-pdf-page="' + page + '"]');
+    if (!target) return;
+    const targetRect = target.getBoundingClientRect();
+    const scrollerRect = scroller.getBoundingClientRect();
+    const nextTop = scroller.scrollTop + targetRect.top - scrollerRect.top - 12;
+    scroller.scrollTo({{ top: Math.max(0, nextTop), behavior: behavior || "smooth" }});
+    setActivePage(page);
+  }}
+
+  function applyZoom(nextZoom) {{
+    zoom = clamp(nextZoom, 50, 200);
+    images.forEach((image) => {{
+      image.style.width = zoom + "%";
+    }});
+    if (zoomLabel) zoomLabel.textContent = zoom + "%";
+    if (zoomOut) zoomOut.disabled = zoom <= 50;
+    if (zoomIn) zoomIn.disabled = zoom >= 200;
+    window.setTimeout(function() {{ scrollToPage(activePage, "auto"); detectActivePage(); }}, 40);
+  }}
+
+  thumbs.forEach((thumb) => {{
+    thumb.addEventListener("click", function(event) {{
+      event.preventDefault();
+      scrollToPage(Number(thumb.dataset.pdfThumb) || 1, "auto");
+    }});
+  }});
+
+  if (zoomOut) {{
+    zoomOut.addEventListener("click", function(event) {{
+      event.preventDefault();
+      applyZoom(zoom - 10);
+    }});
+  }}
+  if (zoomIn) {{
+    zoomIn.addEventListener("click", function(event) {{
+      event.preventDefault();
+      applyZoom(zoom + 10);
+    }});
+  }}
+
+  let ticking = false;
+  scroller.addEventListener("scroll", function() {{
+    if (ticking) return;
+    ticking = true;
+    window.parent.requestAnimationFrame(function() {{
+      detectActivePage();
+      ticking = false;
+    }});
+  }}, {{ passive: true }});
+
+  applyZoom(100);
+  detectActivePage();
+}})();
+</script>
+"""
+    st.iframe(script, height=1, width=1)
+
+
 def render_pdf_modal_shell(document: dict[str, Any], pdf_path: Path | None) -> None:
     filename = str(document.get("filename", "") or "Untitled document")
     extension = filename.rsplit(".", 1)[-1].upper() if "." in filename else "PDF"
@@ -247,16 +403,43 @@ def render_pdf_modal_shell(document: dict[str, Any], pdf_path: Path | None) -> N
     chunk_label = f"{chunks:,} chunk" if chunks == 1 else f"{chunks:,} chunks"
     pdf_uri = pdf_data_uri(pdf_path) if pdf_path else ""
     escaped_pdf_uri = html.escape(pdf_uri, quote=True)
-    page_count = max(1, min(pages or 1, 4))
-    thumb_html = "".join(
-        f'<div class="pdf-thumb{" is-active" if page == 1 else ""}"></div><span class="pdf-thumb-page">{page}</span>'
-        for page in range(1, page_count + 1)
-    )
-    preview_html = (
-        f'<embed class="pdf-preview-iframe" src="{escaped_pdf_uri}#toolbar=0&navpanes=0&page=1" type="application/pdf" />'
-        if pdf_path
-        else '<div class="pdf-missing-source">Source PDF not found in docs/ or uploaded_docs/.</div>'
-    )
+    rendered_pages, render_warning = get_rendered_pdf_pages(pdf_path) if pdf_path else ([], "")
+    total_preview_pages = len(rendered_pages) or max(pages, 1)
+    if rendered_pages:
+        thumb_html = "".join(
+            '<div class="pdf-thumb-wrap">'
+            f'<button type="button" class="pdf-thumb{" is-active" if page["page"] == 1 else ""}" '
+            f'data-pdf-thumb="{page["page"]}" aria-label="Show page {page["page"]}" '
+            f'aria-current="{"page" if page["page"] == 1 else "false"}">'
+            f'<img src="{html.escape(page["thumb_uri"], quote=True)}" alt="Page {page["page"]} thumbnail" loading="lazy" />'
+            '</button>'
+            f'<span class="pdf-thumb-page">{page["page"]}</span>'
+            '</div>'
+            for page in rendered_pages
+        )
+        page_html = "".join(
+            f'<img class="pdf-page-image" data-pdf-page="{page["page"]}" '
+            f'src="{html.escape(page["image_uri"], quote=True)}" '
+            f'alt="Page {page["page"]}" loading="lazy" '
+            f'width="{page["width"]}" height="{page["height"]}" />'
+            for page in rendered_pages
+        )
+        preview_html = f'<div class="pdf-page-scroll" data-pdf-scroll><div class="pdf-page-stack">{page_html}</div></div>'
+    else:
+        thumb_html = "".join(
+            '<div class="pdf-thumb-wrap">'
+            f'<div class="pdf-thumb{" is-active" if page == 1 else ""}"></div>'
+            f'<span class="pdf-thumb-page">{page}</span>'
+            '</div>'
+            for page in range(1, max(1, min(total_preview_pages, 4)) + 1)
+        )
+        if pdf_path:
+            preview_html = (
+                f'<div class="pdf-preview-fallback"><div class="pdf-modal-note">{html.escape(render_warning)}</div>'
+                f'<embed class="pdf-preview-iframe" src="{escaped_pdf_uri}#toolbar=0&navpanes=0&page=1" type="application/pdf" /></div>'
+            )
+        else:
+            preview_html = '<div class="pdf-missing-source">Source PDF not found in docs/ or uploaded_docs/.</div>'
     view_target = quote(document_hash if document_hash != "n/a" else filename, safe="")
     source_section = get_query_param("from_section")
     if source_section not in NAV_SECTIONS:
@@ -291,8 +474,16 @@ def render_pdf_modal_shell(document: dict[str, Any], pdf_path: Path | None) -> N
         f'<div class="pdf-detail-value{" is-yes" if label == "Indexed" else ""}">{html.escape(str(value))}</div></div>'
         for label, value in details
     )
+    viewer_id = f"pdf-viewer-{document_hash[:12] if document_hash != 'n/a' else quote(filename, safe='')}"
+    zoom_icon = (
+        '<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">'
+        '<path d="M8.6 3.2a5.4 5.4 0 1 0 0 10.8 5.4 5.4 0 0 0 0-10.8Zm0 1.7a3.7 3.7 0 1 1 0 7.4 3.7 3.7 0 0 1 0-7.4Z" />'
+        '<path d="m12.6 12.1 4 4-1.2 1.2-4-4 1.2-1.2Z" />'
+        '</svg>'
+    )
     modal_html = (
-        '<div class="pdf-modal-overlay"><div class="pdf-modal-dialog"><div class="pdf-modal-shell">'
+        f'<div class="pdf-modal-overlay" data-pdf-viewer-id="{html.escape(viewer_id, quote=True)}">'
+        '<div class="pdf-modal-dialog"><div class="pdf-modal-shell">'
         '<div class="pdf-modal-header"><div class="pdf-modal-heading">'
         '<div class="pdf-modal-badge">PDF</div>'
         f'<div class="pdf-modal-title" title="{html.escape(filename)}">{html.escape(filename)}</div>'
@@ -308,8 +499,13 @@ def render_pdf_modal_shell(document: dict[str, Any], pdf_path: Path | None) -> N
         '<div class="pdf-modal-preview"><div class="pdf-modal-section-title">Document preview</div>'
         '<div class="pdf-preview-stage">'
         f'<div class="pdf-thumb-rail">{thumb_html}</div><div><div class="pdf-frame-shell">{preview_html}</div>'
-        f'<div class="pdf-preview-footer"><span>Page 1 of {max(pages, 1):,}</span>'
-        '<span class="pdf-preview-controls"><span>-</span><span>100%</span><span>+</span></span></div>'
+        f'<div class="pdf-preview-footer"><span data-pdf-page-label>Page 1 of {total_preview_pages:,}</span>'
+        '<span class="pdf-preview-controls" aria-label="PDF zoom controls">'
+        f'<span class="pdf-zoom-icon">{zoom_icon}</span>'
+        '<button type="button" class="pdf-zoom-button" data-pdf-zoom-out aria-label="Zoom out">-</button>'
+        '<span class="pdf-zoom-label" data-pdf-zoom-label>100%</span>'
+        '<button type="button" class="pdf-zoom-button" data-pdf-zoom-in aria-label="Zoom in">+</button>'
+        '</span></div>'
         '</div></div></div>'
         '<div class="pdf-modal-details"><div class="pdf-details-title">Document details</div>'
         f'{detail_html}<div class="pdf-modal-note">Preview the original source PDF used for indexing and retrieval.</div>{notice_html}'
@@ -318,6 +514,8 @@ def render_pdf_modal_shell(document: dict[str, Any], pdf_path: Path | None) -> N
         '</div></div></div></div>'
     )
     st.markdown(modal_html, unsafe_allow_html=True)
+    if rendered_pages:
+        render_pdf_viewer_script(viewer_id, total_preview_pages)
 
 
 def render_pdf_preview_dialog(document: dict[str, Any]) -> None:

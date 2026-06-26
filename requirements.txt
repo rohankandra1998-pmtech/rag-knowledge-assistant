@@ -3,6 +3,7 @@ openai
 chromadb
 python-dotenv
 pypdf
+pymupdf>=1.24.0
 langchain
 langchain-openai
 langchain-experimental
