@@ -7,6 +7,7 @@ from io import BytesIO
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import streamlit as st
 from PIL import Image, ImageFilter
@@ -28,6 +29,7 @@ APP_ICON_PATH = Path(__file__).parent / "assets" / "rag-app-icon-tight.png"
 SIDEBAR_ICON_DIR = Path(__file__).parent / "assets" / "sidebar-icons"
 HEADER_ICON_DIR = Path(__file__).parent / "assets" / "header-icons"
 INDEXED_DOCS_ICON_DIR = Path(__file__).parent / "assets" / "indexed-documents"
+PDF_MODAL_ICON_DIR = Path(__file__).parent / "assets" / "pdf-modal-icons"
 SIDEBAR_NAV_ITEMS = [
     {"label": "App overview", "icon": "App_Overview_Icon.png"},
     {"label": "Chat / Answer", "icon": "Chat_Answer_Icon.png"},
@@ -117,6 +119,43 @@ def _load_indexed_docs_icon_data_uri(filename: str) -> str:
     source.save(output, format="PNG")
     encoded = base64.b64encode(output.getvalue()).decode("ascii")
     return f"data:image/png;base64,{encoded}"
+
+
+@st.cache_data(show_spinner=False)
+def _load_pdf_modal_icon_data_uri(folder: str, filename: str) -> str:
+    icon_path = PDF_MODAL_ICON_DIR / folder / filename
+    try:
+        source = Image.open(icon_path).convert("RGBA")
+    except OSError:
+        return ""
+
+    pixels = source.load()
+    for y in range(source.height):
+        for x in range(source.width):
+            red, green, blue, alpha = pixels[x, y]
+            is_near_white = red > 242 and green > 242 and blue > 242 and (max(red, green, blue) - min(red, green, blue)) < 12
+            if is_near_white:
+                pixels[x, y] = (red, green, blue, 0)
+            elif alpha > 0:
+                pixels[x, y] = (red, green, blue, alpha)
+
+    bounds = source.getbbox()
+    if bounds:
+        source = source.crop(bounds)
+
+    output = BytesIO()
+    source.save(output, format="PNG", optimize=True)
+    encoded = base64.b64encode(output.getvalue()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
+
+
+def load_pdf_viewer_control_icon_data_uri(filename: str) -> str:
+    return _load_pdf_modal_icon_data_uri("viewer-controls", filename)
+
+
+@st.cache_data(show_spinner=False)
+def load_pdf_document_detail_icon_data_uri(filename: str) -> str:
+    return _load_pdf_modal_icon_data_uri("document-details", filename)
 
 
 def _format_sidebar_nav_label(label: str) -> str:
@@ -1010,7 +1049,27 @@ html, body, [class*="css"] {
   font-size: 0.58rem;
   font-weight: 800;
   white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
   box-shadow: 0 8px 18px rgba(16,94,221,0.06);
+  transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+.tiny-action:visited {
+  color: var(--blue);
+}
+.tiny-action:hover {
+  background: #F6FAFF;
+  border-color: #BBD6FF;
+  color: var(--navy);
+  text-decoration: none;
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(16,94,221,0.12);
+}
+.tiny-action:focus-visible {
+  outline: 3px solid rgba(88,172,244,0.35);
+  outline-offset: 2px;
+  border-color: var(--blue);
+  text-decoration: none;
 }
 .tiny-action.alt {
   color: var(--blue);
@@ -1091,6 +1150,559 @@ html, body, [class*="css"] {
   margin-top: 0.32rem;
   font-size: 0.86rem;
   font-weight: 750;
+}
+
+.pdf-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.2rem;
+  background: rgba(5, 9, 20, 0.58);
+  backdrop-filter: blur(2px);
+}
+.pdf-modal-dialog {
+  width: min(920px, calc(100vw - 64px)) !important;
+  max-width: min(920px, calc(100vw - 64px)) !important;
+  max-height: calc(100vh - 48px);
+  border-radius: 14px;
+  border: 1px solid rgba(215,230,250,0.9);
+  box-shadow: 0 30px 90px rgba(2,10,52,0.28);
+  overflow: hidden;
+  background: #FFFFFF;
+}
+.pdf-modal-shell {
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  background: #FFFFFF;
+  color: var(--ink);
+}
+.pdf-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.05rem 1.25rem 0.7rem;
+  border-bottom: 0;
+}
+.pdf-modal-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.78rem;
+  min-width: 0;
+}
+.pdf-modal-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 42px;
+  border-radius: 6px;
+  background: #F21E1E;
+  color: #FFFFFF;
+  font-size: 0.62rem;
+  font-weight: 900;
+  box-shadow: 0 8px 18px rgba(242,30,30,0.14);
+}
+.pdf-modal-title {
+  color: var(--navy);
+  font-size: 1.15rem;
+  font-weight: 900;
+  line-height: 1.18;
+  max-width: 540px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pdf-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  color: #405072;
+  text-decoration: none !important;
+  border-bottom: 0 !important;
+  font-size: 1.55rem;
+  line-height: 1;
+}
+.pdf-modal-close:hover {
+  background: #F2F6FC;
+  color: var(--navy);
+  text-decoration: none !important;
+  border-bottom: 0 !important;
+}
+.pdf-modal-close:focus-visible {
+  outline: 3px solid rgba(88,172,244,0.35);
+  outline-offset: 2px;
+  text-decoration: none !important;
+  border-bottom: 0 !important;
+}
+.pdf-modal-pills {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  padding: 0 1.25rem 1rem;
+  border-bottom: 1px solid #E6EEF9;
+}
+.pdf-modal-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 32px;
+  border: 1px solid #D7E6FA;
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: var(--navy);
+  padding: 0 0.72rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.pdf-modal-pill.is-indexed {
+  border-color: rgba(40,143,71,0.24);
+  background: #EAF8EF;
+  color: #1D7F3B;
+}
+.pdf-modal-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  min-height: 520px;
+}
+.pdf-modal-preview {
+  padding: 1rem 1.2rem 1rem 1.25rem;
+  border-right: 1px solid #E6EEF9;
+  background: linear-gradient(180deg, #FFFFFF, #FBFDFF);
+}
+.pdf-modal-section-title {
+  color: var(--blue);
+  font-size: 0.78rem;
+  font-weight: 900;
+  margin-bottom: 0.78rem;
+}
+.pdf-preview-stage {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 0.85rem;
+  min-height: 420px;
+}
+.pdf-thumb-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 0.18rem;
+}
+.pdf-thumb-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.32rem;
+}
+.pdf-thumb {
+  width: 58px;
+  height: 76px;
+  border: 1px solid #D7E6FA;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #FFFFFF, #F5F8FD);
+  box-shadow: 0 8px 18px rgba(11,48,117,0.06);
+  position: relative;
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+.pdf-thumb.is-active {
+  border: 2px solid var(--blue);
+  box-shadow: 0 10px 22px rgba(16,94,221,0.18);
+}
+.pdf-thumb:hover {
+  transform: translateY(-1px);
+  border-color: #BBD6FF;
+  box-shadow: 0 12px 24px rgba(16,94,221,0.13);
+}
+.pdf-thumb:focus-visible {
+  outline: 3px solid rgba(88,172,244,0.35);
+  outline-offset: 2px;
+}
+.pdf-thumb img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: top center;
+}
+.pdf-thumb:empty:before,
+.pdf-thumb:empty:after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  height: 3px;
+  border-radius: 999px;
+  background: #C9D7EC;
+}
+.pdf-thumb:empty:before { top: 24px; }
+.pdf-thumb:empty:after { top: 34px; }
+.pdf-thumb-page {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid #D7E6FA;
+  background: #FFFFFF;
+  color: #405072;
+  font-size: 0.72rem;
+  font-weight: 900;
+  box-shadow: 0 5px 12px rgba(11,48,117,0.05);
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+.pdf-thumb.is-active + .pdf-thumb-page {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: #FFFFFF;
+  box-shadow: 0 8px 16px rgba(16,94,221,0.18);
+}
+.pdf-frame-shell {
+  min-height: 420px;
+  border: 1px solid #DDE8F7;
+  border-radius: 8px;
+  background: #FFFFFF;
+  box-shadow: 0 18px 38px rgba(11,48,117,0.10);
+  overflow: hidden;
+}
+.pdf-page-scroll {
+  height: 520px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: #EAF0F8;
+  padding: 1rem;
+}
+.pdf-page-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  min-width: 100%;
+}
+.pdf-modal-overlay.is-zoomed-in .pdf-page-stack {
+  align-items: flex-start;
+}
+.pdf-page-image {
+  display: block;
+  width: 100%;
+  flex: 0 0 auto;
+  max-width: none !important;
+  height: auto;
+  border-radius: 4px;
+  background: #FFFFFF;
+  box-shadow: 0 10px 28px rgba(2,10,52,0.16);
+  transition: width 120ms ease;
+}
+.pdf-modal-overlay.is-focus-zoom .pdf-page-image {
+  cursor: zoom-in;
+}
+.pdf-preview-iframe {
+  width: 100%;
+  height: 520px;
+  border: 0;
+  display: block;
+  background: #FFFFFF;
+}
+.pdf-preview-fallback .pdf-modal-note {
+  margin: 0;
+  border-width: 0 0 1px;
+  border-radius: 0;
+}
+.pdf-missing-source {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 420px;
+  padding: 2rem;
+  color: #405072;
+  text-align: center;
+  font-size: 0.92rem;
+  font-weight: 750;
+}
+.pdf-preview-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.82rem;
+  color: #405072;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+.pdf-modal-icon {
+  display: block;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+.pdf-page-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 34px;
+}
+.pdf-page-nav-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid #D7E6FA;
+  border-radius: 7px;
+  background: #FFFFFF;
+  color: var(--navy);
+  padding: 0;
+  cursor: pointer;
+  box-shadow: 0 7px 15px rgba(11,48,117,0.06);
+  transition: background 140ms ease, border-color 140ms ease, transform 140ms ease, opacity 140ms ease;
+}
+.pdf-page-nav-button:hover:not(:disabled) {
+  background: #F6FAFF;
+  border-color: #BBD6FF;
+  transform: translateY(-1px);
+}
+.pdf-page-nav-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+.pdf-page-nav-button:focus-visible {
+  outline: 3px solid rgba(88,172,244,0.35);
+  outline-offset: 1px;
+}
+.pdf-page-nav-button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.pdf-preview-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  border: 1px solid #D7E6FA;
+  border-radius: 8px;
+  background: #FFFFFF;
+  padding: 0.28rem 0.34rem;
+  color: var(--navy);
+  box-shadow: 0 8px 18px rgba(11,48,117,0.06);
+}
+.pdf-zoom-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: #405072;
+}
+.pdf-zoom-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--navy);
+  font-size: 1rem;
+  line-height: 1;
+  font-weight: 900;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+.pdf-zoom-focus-button {
+  border-color: transparent;
+}
+.pdf-zoom-focus-button.is-active,
+.pdf-zoom-focus-button[aria-pressed="true"] {
+  background: #ECF4FF;
+  border-color: #BBD6FF;
+  box-shadow: inset 0 0 0 1px rgba(16,94,221,0.08);
+}
+.pdf-zoom-focus-button.is-active .pdf-control-icon,
+.pdf-zoom-focus-button[aria-pressed="true"] .pdf-control-icon {
+  opacity: 1;
+}
+.pdf-control-icon {
+  width: 16px;
+  height: 16px;
+  display: block;
+  object-fit: contain;
+  pointer-events: none;
+}
+.pdf-zoom-icon .pdf-control-icon {
+  width: 17px;
+  height: 17px;
+  opacity: 0.84;
+}
+.pdf-control-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 0.74rem;
+  font-weight: 900;
+  line-height: 1;
+}
+.pdf-zoom-button:hover:not(:disabled) {
+  background: #F6FAFF;
+  border-color: #BBD6FF;
+  transform: translateY(-1px);
+}
+.pdf-zoom-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+.pdf-zoom-button:focus-visible {
+  outline: 3px solid rgba(88,172,244,0.35);
+  outline-offset: 1px;
+}
+.pdf-zoom-button:disabled {
+  color: #9AA8BD;
+  cursor: not-allowed;
+}
+.pdf-zoom-label {
+  min-width: 44px;
+  color: var(--navy);
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+.pdf-modal-details {
+  padding: 1.1rem 1rem;
+  background: #FFFFFF;
+}
+.pdf-details-title {
+  color: var(--navy);
+  font-size: 0.86rem;
+  font-weight: 900;
+  margin-bottom: 0.9rem;
+}
+.pdf-detail-row {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) minmax(88px, auto);
+  gap: 0.48rem 0.65rem;
+  align-items: center;
+  padding: 0.43rem 0;
+  color: #405072;
+  font-size: 0.72rem;
+}
+.pdf-detail-icon {
+  width: 18px;
+  height: 18px;
+  opacity: 0.9;
+}
+.pdf-detail-icon.is-empty {
+  width: 18px;
+  height: 18px;
+}
+.pdf-detail-label {
+  color: #405072;
+  font-weight: 750;
+}
+.pdf-detail-value {
+  color: var(--navy);
+  font-weight: 800;
+  text-align: right;
+  word-break: break-word;
+}
+.pdf-detail-value.is-yes {
+  color: #1D7F3B;
+}
+.pdf-modal-note {
+  border: 1px solid #CFE1FB;
+  border-radius: 8px;
+  background: #ECF4FF;
+  color: #405072;
+  padding: 0.72rem;
+  font-size: 0.74rem;
+  font-weight: 650;
+  line-height: 1.45;
+  margin: 0.9rem 0 1rem;
+}
+.pdf-preview-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+.pdf-preview-note span {
+  min-width: 0;
+}
+.pdf-preview-info-icon {
+  width: 18px;
+  height: 18px;
+  margin-top: 0.02rem;
+}
+.pdf-preview-info-icon.is-empty {
+  width: 18px;
+  height: 18px;
+}
+.pdf-modal-actions-title {
+  color: var(--navy);
+  font-size: 0.78rem;
+  font-weight: 900;
+  margin-bottom: 0.55rem;
+}
+.pdf-modal-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  width: 100%;
+  border: 1px solid #CFE1FB;
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: var(--blue);
+  text-decoration: none !important;
+  border-bottom: 0 !important;
+  font-size: 0.78rem;
+  font-weight: 900;
+  margin: 0.5rem 0;
+}
+.pdf-modal-action:hover,
+.pdf-modal-action:focus,
+.pdf-modal-action:visited {
+  text-decoration: none !important;
+  border-bottom: 0 !important;
+}
+.pdf-modal-action:focus-visible {
+  outline: 3px solid rgba(88,172,244,0.35);
+  outline-offset: 2px;
+}
+.pdf-modal-action.primary {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: #FFFFFF;
+}
+.pdf-modal-action.is-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+@media (max-width: 900px) {
+  .pdf-modal-overlay {
+    align-items: flex-start;
+    padding: 1rem;
+    overflow: auto;
+  }
+  .pdf-modal-layout {
+    grid-template-columns: 1fr;
+  }
+  .pdf-modal-preview {
+    border-right: 0;
+    border-bottom: 1px solid #E6EEF9;
+  }
 }
 
 .debug-grid {
@@ -1646,7 +2258,11 @@ def _doc_head(label: str, icon_filename: str | None = None, fallback: str = "") 
     return f'<span class="doc-head-label">{icon}<span>{html.escape(label)}</span></span>'
 
 
-def render_document_table(documents: list[dict[str, Any]], title: str = "Indexed documents") -> None:
+def render_document_table(
+    documents: list[dict[str, Any]],
+    title: str = "Indexed documents",
+    source_section: str | None = None,
+) -> None:
     total_documents = len(documents)
     total_chunks = sum(int(doc.get("chunks") or 0) for doc in documents)
     max_chunks = max((int(doc.get("chunks") or 0) for doc in documents), default=0)
@@ -1679,6 +2295,8 @@ def render_document_table(documents: list[dict[str, Any]], title: str = "Indexed
             else f"{html.escape(extension)} source document"
         )
         chunk_segments = _chunk_segments(chunks, max_chunks)
+        view_target = quote(document_hash or filename, safe="")
+        source_query = f"&from_section={quote(source_section, safe='')}" if source_section else ""
 
         row_html.append(
             '<div class="doc-table-row">'
@@ -1701,7 +2319,8 @@ def render_document_table(documents: list[dict[str, Any]], title: str = "Indexed
             f'<div class="doc-cell"><span class="hash-chip" title="{html.escape(document_hash)}">{html.escape(short_hash)}</span></div>'
             '<div class="doc-cell">'
             '<div class="doc-row-actions">'
-            f'<span class="tiny-action">{view_icon}<span>View</span></span>'
+            f'<a class="tiny-action" href="?view_doc={view_target}{source_query}" target="_self" title="View {html.escape(filename)}">'
+            f'{view_icon}<span>View</span></a>'
             f'<span class="tiny-action alt" title="Re-ingest">{sync_icon}<span>Re-ingest</span></span>'
             '</div>'
             '</div>'
