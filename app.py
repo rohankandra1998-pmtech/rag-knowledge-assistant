@@ -747,7 +747,7 @@ def render_pdf_modal_shell(
     )
     overlay_class = "pdf-modal-overlay is-hidden" if hidden else "pdf-modal-overlay"
     close_control_html = (
-        '<button type="button" class="pdf-modal-close" data-pdf-modal-close aria-label="Close">&times;</button>'
+        '<a class="pdf-modal-close" href="#pdf-modal-closed" data-pdf-modal-close aria-label="Close">&times;</a>'
         if hidden
         else f'<a class="pdf-modal-close" href="{close_href}" target="_self" aria-label="Close">&times;</a>'
     )
@@ -1001,8 +1001,12 @@ def render_client_pdf_modal_controller() -> None:
 
     const closeButton = event.target.closest("[data-pdf-modal-close]");
     if (closeButton) {
+      const modal = closeButton.closest(".pdf-modal-overlay");
+      if (modal && modal.classList.contains("is-hidden") && modal.matches(":target")) {
+        return;
+      }
       event.preventDefault();
-      closeModal(closeButton.closest(".pdf-modal-overlay"));
+      closeModal(modal);
       return;
     }
 

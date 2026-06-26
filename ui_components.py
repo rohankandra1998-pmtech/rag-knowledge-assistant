@@ -1184,6 +1184,9 @@ body.pdf-modal-open {
 .pdf-modal-overlay.is-hidden {
   display: none;
 }
+.pdf-modal-overlay.is-hidden:target {
+  display: flex;
+}
 .pdf-modal-dialog {
   width: min(920px, calc(100vw - 64px)) !important;
   max-width: min(920px, calc(100vw - 64px)) !important;
@@ -2533,9 +2536,9 @@ def render_document_table(
             f'<div class="doc-cell"><span class="hash-chip" title="{html.escape(document_hash)}">{html.escape(short_hash)}</span></div>'
             '<div class="doc-cell">'
             '<div class="doc-row-actions">'
-            f'<button type="button" class="tiny-action" data-pdf-modal-target="{html.escape(modal_id, quote=True)}" '
+            f'<a class="tiny-action" href="#{html.escape(modal_id, quote=True)}" data-pdf-modal-target="{html.escape(modal_id, quote=True)}" '
             f'data-pdf-modal-fallback="?view_doc={view_target}{source_query}" title="View {html.escape(filename)}">'
-            f'{view_icon}<span>View</span></button>'
+            f'{view_icon}<span>View</span></a>'
             f'<span class="tiny-action alt" title="Re-ingest">{sync_icon}<span>Re-ingest</span></span>'
             '</div>'
             '</div>'
