@@ -122,23 +122,40 @@ def _load_indexed_docs_icon_data_uri(filename: str) -> str:
 
 
 @st.cache_data(show_spinner=False)
-def load_pdf_viewer_control_icon_data_uri(filename: str) -> str:
-    icon_path = PDF_MODAL_ICON_DIR / "viewer-controls" / filename
+def _load_pdf_modal_icon_data_uri(folder: str, filename: str) -> str:
+    icon_path = PDF_MODAL_ICON_DIR / folder / filename
     try:
-        encoded = base64.b64encode(icon_path.read_bytes()).decode("ascii")
+        source = Image.open(icon_path).convert("RGBA")
     except OSError:
         return ""
+
+    pixels = source.load()
+    for y in range(source.height):
+        for x in range(source.width):
+            red, green, blue, alpha = pixels[x, y]
+            is_near_white = red > 242 and green > 242 and blue > 242 and (max(red, green, blue) - min(red, green, blue)) < 12
+            if is_near_white:
+                pixels[x, y] = (red, green, blue, 0)
+            elif alpha > 0:
+                pixels[x, y] = (red, green, blue, alpha)
+
+    bounds = source.getbbox()
+    if bounds:
+        source = source.crop(bounds)
+
+    output = BytesIO()
+    source.save(output, format="PNG", optimize=True)
+    encoded = base64.b64encode(output.getvalue()).decode("ascii")
     return f"data:image/png;base64,{encoded}"
+
+
+def load_pdf_viewer_control_icon_data_uri(filename: str) -> str:
+    return _load_pdf_modal_icon_data_uri("viewer-controls", filename)
 
 
 @st.cache_data(show_spinner=False)
 def load_pdf_document_detail_icon_data_uri(filename: str) -> str:
-    icon_path = PDF_MODAL_ICON_DIR / "document-details" / filename
-    try:
-        encoded = base64.b64encode(icon_path.read_bytes()).decode("ascii")
-    except OSError:
-        return ""
-    return f"data:image/png;base64,{encoded}"
+    return _load_pdf_modal_icon_data_uri("document-details", filename)
 
 
 def _format_sidebar_nav_label(label: str) -> str:
@@ -1365,6 +1382,7 @@ html, body, [class*="css"] {
 .pdf-page-scroll {
   height: 520px;
   overflow: auto;
+  overscroll-behavior: contain;
   background: #EAF0F8;
   padding: 1rem;
 }
@@ -1373,12 +1391,17 @@ html, body, [class*="css"] {
   flex-direction: column;
   align-items: center;
   gap: 1rem;
+  width: 100%;
   min-width: 100%;
+}
+.pdf-modal-overlay.is-zoomed-in .pdf-page-stack {
+  align-items: flex-start;
 }
 .pdf-page-image {
   display: block;
   width: 100%;
-  max-width: none;
+  flex: 0 0 auto;
+  max-width: none !important;
   height: auto;
   border-radius: 4px;
   background: #FFFFFF;

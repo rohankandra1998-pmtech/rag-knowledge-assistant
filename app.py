@@ -347,6 +347,15 @@ def render_pdf_viewer_script(viewer_id: str, total_pages: int) -> None:
     setActivePage(page);
   }}
 
+  function captureBaseWidths() {{
+    images.forEach((image) => {{
+      if (Number(image.dataset.pdfBaseWidth || 0) > 0) return;
+      const rect = image.getBoundingClientRect();
+      const baseWidth = rect.width || image.clientWidth || image.naturalWidth || 1;
+      image.dataset.pdfBaseWidth = String(baseWidth);
+    }});
+  }}
+
   function setFocusMode(enabled) {{
     focusMode = Boolean(enabled);
     root.classList.toggle("is-focus-zoom", focusMode);
@@ -357,13 +366,17 @@ def render_pdf_viewer_script(viewer_id: str, total_pages: int) -> None:
   }}
 
   function setZoom(nextZoom) {{
+    captureBaseWidths();
     zoom = clamp(nextZoom, 50, 200);
     images.forEach((image) => {{
-      image.style.width = zoom + "%";
+      const baseWidth = Number(image.dataset.pdfBaseWidth || 0) || image.getBoundingClientRect().width || 1;
+      image.style.setProperty("width", Math.max(1, Math.round(baseWidth * zoom / 100)) + "px", "important");
+      image.style.setProperty("max-width", "none", "important");
     }});
     if (zoomLabel) zoomLabel.textContent = zoom + "%";
     if (zoomOut) zoomOut.disabled = zoom <= 50;
     if (zoomIn) zoomIn.disabled = zoom >= 200;
+    root.classList.toggle("is-zoomed-in", zoom > 100);
   }}
 
   function applyZoom(nextZoom) {{
@@ -409,31 +422,32 @@ def render_pdf_viewer_script(viewer_id: str, total_pages: int) -> None:
     }});
   }}
 
-  images.forEach((image) => {{
-    image.addEventListener("click", function(event) {{
-      if (!focusMode) return;
-      event.preventDefault();
-      const nextZoom = clamp(zoom + 25, 50, 200);
-      if (nextZoom === zoom) return;
+  scroller.addEventListener("click", function(event) {{
+    if (!focusMode) return;
+    const pageImage = event.target && event.target.closest ? event.target.closest("[data-pdf-page]") : null;
+    if (!pageImage || !scroller.contains(pageImage)) return;
+    event.preventDefault();
 
-      const imageRect = image.getBoundingClientRect();
-      const scrollerRect = scroller.getBoundingClientRect();
-      const ratioX = (event.clientX - imageRect.left) / Math.max(1, imageRect.width);
-      const ratioY = (event.clientY - imageRect.top) / Math.max(1, imageRect.height);
-      const viewportX = event.clientX - scrollerRect.left;
-      const viewportY = event.clientY - scrollerRect.top;
-      setActivePage(Number(image.dataset.pdfPage) || activePage);
-      setZoom(nextZoom);
+    const nextZoom = clamp(zoom + 25, 50, 200);
+    if (nextZoom === zoom) return;
 
-      window.parent.requestAnimationFrame(function() {{
-        const nextImageRect = image.getBoundingClientRect();
-        const nextScrollerRect = scroller.getBoundingClientRect();
-        const nextLeft = scroller.scrollLeft + nextImageRect.left - nextScrollerRect.left + nextImageRect.width * ratioX - viewportX;
-        const nextTop = scroller.scrollTop + nextImageRect.top - nextScrollerRect.top + nextImageRect.height * ratioY - viewportY;
-        scroller.scrollTo({{ left: Math.max(0, nextLeft), top: Math.max(0, nextTop), behavior: "auto" }});
-        window.setTimeout(detectActivePage, 40);
-      }});
-    }});
+    const imageRect = pageImage.getBoundingClientRect();
+    const scrollerRect = scroller.getBoundingClientRect();
+    const ratioX = (event.clientX - imageRect.left) / Math.max(1, imageRect.width);
+    const ratioY = (event.clientY - imageRect.top) / Math.max(1, imageRect.height);
+    const viewportX = event.clientX - scrollerRect.left;
+    const viewportY = event.clientY - scrollerRect.top;
+    setActivePage(Number(pageImage.dataset.pdfPage) || activePage);
+    setZoom(nextZoom);
+
+    window.setTimeout(function() {{
+      const nextImageRect = pageImage.getBoundingClientRect();
+      const nextScrollerRect = scroller.getBoundingClientRect();
+      const nextLeft = scroller.scrollLeft + nextImageRect.left - nextScrollerRect.left + nextImageRect.width * ratioX - viewportX;
+      const nextTop = scroller.scrollTop + nextImageRect.top - nextScrollerRect.top + nextImageRect.height * ratioY - viewportY;
+      scroller.scrollTo({{ left: Math.max(0, nextLeft), top: Math.max(0, nextTop), behavior: "auto" }});
+      window.setTimeout(detectActivePage, 40);
+    }}, 140);
   }});
 
   window.parent.document.addEventListener("keydown", function(event) {{
@@ -452,9 +466,12 @@ def render_pdf_viewer_script(viewer_id: str, total_pages: int) -> None:
     }});
   }}, {{ passive: true }});
 
-  applyZoom(100);
-  setFocusMode(false);
-  detectActivePage();
+  window.parent.requestAnimationFrame(function() {{
+    captureBaseWidths();
+    applyZoom(100);
+    setFocusMode(false);
+    detectActivePage();
+  }});
 }})();
 </script>
 """
@@ -513,21 +530,14 @@ def render_pdf_modal_shell(document: dict[str, Any], pdf_path: Path | None) -> N
             )
         else:
             preview_html = '<div class="pdf-missing-source">Source PDF not found in docs/ or uploaded_docs/.</div>'
-    view_target = quote(document_hash if document_hash != "n/a" else filename, safe="")
     source_section = get_query_param("from_section")
     if source_section not in NAV_SECTIONS:
         source_section = str(st.session_state.get("nav_section", "App overview"))
     close_href = f"?section={quote(source_section, safe='')}"
-    source_query = f"&from_section={quote(source_section, safe='')}"
     open_pdf_html = (
         f'<a class="pdf-modal-action primary" href="{escaped_pdf_uri}" target="_blank" download="{html.escape(filename)}">Open full PDF</a>'
         if pdf_path
         else '<span class="pdf-modal-action primary is-disabled">Open full PDF</span>'
-    )
-    reingest_html = (
-        f'<a class="pdf-modal-action" href="?view_doc={view_target}&reingest_doc={view_target}{source_query}" target="_self">Re-ingest</a>'
-        if pdf_path
-        else '<span class="pdf-modal-action is-disabled">Re-ingest</span>'
     )
     notice = st.session_state.pop("pdf_modal_notice", "")
     notice_html = f'<div class="pdf-modal-note">{html.escape(notice)}</div>' if notice else ""
@@ -647,8 +657,7 @@ def render_pdf_modal_shell(document: dict[str, Any], pdf_path: Path | None) -> N
         '</div></div></div>'
         '<div class="pdf-modal-details"><div class="pdf-details-title">Document details</div>'
         f'{detail_html}{preview_note_html}{notice_html}'
-        f'<div class="pdf-modal-actions-title">Actions</div>{open_pdf_html}{reingest_html}'
-        f'<a class="pdf-modal-action" href="{close_href}" target="_self">Close</a></div>'
+        f'<div class="pdf-modal-actions-title">Actions</div>{open_pdf_html}</div>'
         '</div></div></div></div>'
     )
     st.markdown(modal_html, unsafe_allow_html=True)
