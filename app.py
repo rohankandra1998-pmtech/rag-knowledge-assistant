@@ -31,6 +31,8 @@ from rag_utils import (
 )
 from ui_components import (
     inject_custom_css,
+    load_pdf_document_detail_icon_data_uri,
+    load_pdf_viewer_control_icon_data_uri,
     render_chat_message,
     render_document_table,
     render_empty_state,
@@ -294,6 +296,8 @@ def render_pdf_viewer_script(viewer_id: str, total_pages: int) -> None:
   const zoomLabel = root.querySelector("[data-pdf-zoom-label]");
   const zoomOut = root.querySelector("[data-pdf-zoom-out]");
   const zoomIn = root.querySelector("[data-pdf-zoom-in]");
+  const pagePrev = root.querySelector("[data-pdf-page-prev]");
+  const pageNext = root.querySelector("[data-pdf-page-next]");
   if (!scroller || !images.length) return;
 
   let activePage = 1;
@@ -306,6 +310,8 @@ def render_pdf_viewer_script(viewer_id: str, total_pages: int) -> None:
   function setActivePage(page) {{
     activePage = clamp(Number(page) || 1, 1, totalPages);
     if (pageLabel) pageLabel.textContent = "Page " + activePage + " of " + totalPages;
+    if (pagePrev) pagePrev.disabled = activePage <= 1;
+    if (pageNext) pageNext.disabled = activePage >= totalPages;
     thumbs.forEach((thumb) => {{
       const isActive = Number(thumb.dataset.pdfThumb) === activePage;
       thumb.classList.toggle("is-active", isActive);
@@ -367,6 +373,18 @@ def render_pdf_viewer_script(viewer_id: str, total_pages: int) -> None:
     zoomIn.addEventListener("click", function(event) {{
       event.preventDefault();
       applyZoom(zoom + 10);
+    }});
+  }}
+  if (pagePrev) {{
+    pagePrev.addEventListener("click", function(event) {{
+      event.preventDefault();
+      scrollToPage(activePage - 1, "auto");
+    }});
+  }}
+  if (pageNext) {{
+    pageNext.addEventListener("click", function(event) {{
+      event.preventDefault();
+      scrollToPage(activePage + 1, "auto");
     }});
   }}
 
@@ -458,6 +476,17 @@ def render_pdf_modal_shell(document: dict[str, Any], pdf_path: Path | None) -> N
     )
     notice = st.session_state.pop("pdf_modal_notice", "")
     notice_html = f'<div class="pdf-modal-note">{html.escape(notice)}</div>' if notice else ""
+    detail_icon_filenames = {
+        "Document hash": "pdf_document_hash_icon.png",
+        "Chunking strategy": "pdf_chunking_strategy_icon.png",
+        "Source collection": "pdf_source_collection_icon.png",
+        "File type": "pdf_file_type_icon.png",
+        "File size": "pdf_file_size_icon.png",
+        "Pages": "pdf_pages_icon.png",
+        "Chunks": "pdf_chunks_icon.png",
+        "Indexed": "pdf_indexed_status_icon.png",
+        "Last ingested": "pdf_last_ingested_icon.png",
+    }
     details = [
         ("Document hash", short_hash),
         ("Chunking strategy", chunking_strategy),
@@ -469,17 +498,67 @@ def render_pdf_modal_shell(document: dict[str, Any], pdf_path: Path | None) -> N
         ("Indexed", "Yes" if "index" in status.lower() else status),
         ("Last ingested", last_ingested),
     ]
-    detail_html = "".join(
-        f'<div class="pdf-detail-row"><div class="pdf-detail-label">{html.escape(label)}</div>'
-        f'<div class="pdf-detail-value{" is-yes" if label == "Indexed" else ""}">{html.escape(str(value))}</div></div>'
-        for label, value in details
-    )
+    detail_rows = []
+    for label, value in details:
+        icon_uri = load_pdf_document_detail_icon_data_uri(detail_icon_filenames[label])
+        icon_html = (
+            f'<img class="pdf-modal-icon pdf-detail-icon" src="{html.escape(icon_uri, quote=True)}" '
+            f'alt="" aria-hidden="true" loading="lazy" />'
+            if icon_uri
+            else '<span class="pdf-modal-icon pdf-detail-icon is-empty" aria-hidden="true"></span>'
+        )
+        detail_rows.append(
+            f'<div class="pdf-detail-row">{icon_html}<div class="pdf-detail-label">{html.escape(label)}</div>'
+            f'<div class="pdf-detail-value{" is-yes" if label == "Indexed" else ""}">{html.escape(str(value))}</div></div>'
+        )
+    detail_html = "".join(detail_rows)
     viewer_id = f"pdf-viewer-{document_hash[:12] if document_hash != 'n/a' else quote(filename, safe='')}"
-    zoom_icon = (
-        '<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">'
-        '<path d="M8.6 3.2a5.4 5.4 0 1 0 0 10.8 5.4 5.4 0 0 0 0-10.8Zm0 1.7a3.7 3.7 0 1 1 0 7.4 3.7 3.7 0 0 1 0-7.4Z" />'
-        '<path d="m12.6 12.1 4 4-1.2 1.2-4-4 1.2-1.2Z" />'
-        '</svg>'
+    viewer_icon_filenames = {
+        "zoom_focus": "pdf_zoom_focus_icon.png",
+        "zoom_out": "pdf_zoom_out_icon.png",
+        "zoom_in": "pdf_zoom_in_icon.png",
+        "page_prev": "pdf_page_prev_icon.png",
+        "page_next": "pdf_page_next_icon.png",
+    }
+    viewer_icons = {
+        key: load_pdf_viewer_control_icon_data_uri(filename)
+        for key, filename in viewer_icon_filenames.items()
+    }
+    zoom_focus_html = (
+        f'<img class="pdf-control-icon" src="{html.escape(viewer_icons["zoom_focus"], quote=True)}" alt="" aria-hidden="true" loading="lazy" />'
+        if viewer_icons["zoom_focus"]
+        else '<span class="pdf-control-fallback" aria-hidden="true">Z</span>'
+    )
+    zoom_out_html = (
+        f'<img class="pdf-control-icon" src="{html.escape(viewer_icons["zoom_out"], quote=True)}" alt="" aria-hidden="true" loading="lazy" />'
+        if viewer_icons["zoom_out"]
+        else '<span class="pdf-control-fallback" aria-hidden="true">-</span>'
+    )
+    zoom_in_html = (
+        f'<img class="pdf-control-icon" src="{html.escape(viewer_icons["zoom_in"], quote=True)}" alt="" aria-hidden="true" loading="lazy" />'
+        if viewer_icons["zoom_in"]
+        else '<span class="pdf-control-fallback" aria-hidden="true">+</span>'
+    )
+    page_prev_html = (
+        f'<img class="pdf-control-icon" src="{html.escape(viewer_icons["page_prev"], quote=True)}" alt="" aria-hidden="true" loading="lazy" />'
+        if viewer_icons["page_prev"]
+        else '<span class="pdf-control-fallback" aria-hidden="true">&lt;</span>'
+    )
+    page_next_html = (
+        f'<img class="pdf-control-icon" src="{html.escape(viewer_icons["page_next"], quote=True)}" alt="" aria-hidden="true" loading="lazy" />'
+        if viewer_icons["page_next"]
+        else '<span class="pdf-control-fallback" aria-hidden="true">&gt;</span>'
+    )
+    preview_info_uri = load_pdf_document_detail_icon_data_uri("pdf_preview_info_icon.png")
+    preview_info_icon = (
+        f'<img class="pdf-modal-icon pdf-preview-info-icon" src="{html.escape(preview_info_uri, quote=True)}" '
+        'alt="" aria-hidden="true" loading="lazy" />'
+        if preview_info_uri
+        else '<span class="pdf-modal-icon pdf-preview-info-icon is-empty" aria-hidden="true"></span>'
+    )
+    preview_note_html = (
+        f'<div class="pdf-modal-note pdf-preview-note">{preview_info_icon}'
+        '<span>Preview the original source PDF used for indexing and retrieval.</span></div>'
     )
     modal_html = (
         f'<div class="pdf-modal-overlay" data-pdf-viewer-id="{html.escape(viewer_id, quote=True)}">'
@@ -499,16 +578,20 @@ def render_pdf_modal_shell(document: dict[str, Any], pdf_path: Path | None) -> N
         '<div class="pdf-modal-preview"><div class="pdf-modal-section-title">Document preview</div>'
         '<div class="pdf-preview-stage">'
         f'<div class="pdf-thumb-rail">{thumb_html}</div><div><div class="pdf-frame-shell">{preview_html}</div>'
-        f'<div class="pdf-preview-footer"><span data-pdf-page-label>Page 1 of {total_preview_pages:,}</span>'
+        '<div class="pdf-preview-footer"><span class="pdf-page-nav">'
+        f'<button type="button" class="pdf-page-nav-button" data-pdf-page-prev aria-label="Previous page">{page_prev_html}</button>'
+        f'<span data-pdf-page-label>Page 1 of {total_preview_pages:,}</span>'
+        f'<button type="button" class="pdf-page-nav-button" data-pdf-page-next aria-label="Next page">{page_next_html}</button>'
+        '</span>'
         '<span class="pdf-preview-controls" aria-label="PDF zoom controls">'
-        f'<span class="pdf-zoom-icon">{zoom_icon}</span>'
-        '<button type="button" class="pdf-zoom-button" data-pdf-zoom-out aria-label="Zoom out">-</button>'
+        f'<span class="pdf-zoom-icon" role="img" aria-label="Zoom focus">{zoom_focus_html}</span>'
+        f'<button type="button" class="pdf-zoom-button" data-pdf-zoom-out aria-label="Zoom out">{zoom_out_html}</button>'
         '<span class="pdf-zoom-label" data-pdf-zoom-label>100%</span>'
-        '<button type="button" class="pdf-zoom-button" data-pdf-zoom-in aria-label="Zoom in">+</button>'
+        f'<button type="button" class="pdf-zoom-button" data-pdf-zoom-in aria-label="Zoom in">{zoom_in_html}</button>'
         '</span></div>'
         '</div></div></div>'
         '<div class="pdf-modal-details"><div class="pdf-details-title">Document details</div>'
-        f'{detail_html}<div class="pdf-modal-note">Preview the original source PDF used for indexing and retrieval.</div>{notice_html}'
+        f'{detail_html}{preview_note_html}{notice_html}'
         f'<div class="pdf-modal-actions-title">Actions</div>{open_pdf_html}{reingest_html}'
         f'<a class="pdf-modal-action" href="{close_href}" target="_self">Close</a></div>'
         '</div></div></div></div>'

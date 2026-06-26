@@ -29,6 +29,7 @@ APP_ICON_PATH = Path(__file__).parent / "assets" / "rag-app-icon-tight.png"
 SIDEBAR_ICON_DIR = Path(__file__).parent / "assets" / "sidebar-icons"
 HEADER_ICON_DIR = Path(__file__).parent / "assets" / "header-icons"
 INDEXED_DOCS_ICON_DIR = Path(__file__).parent / "assets" / "indexed-documents"
+PDF_MODAL_ICON_DIR = Path(__file__).parent / "assets" / "pdf-modal-icons"
 SIDEBAR_NAV_ITEMS = [
     {"label": "App overview", "icon": "App_Overview_Icon.png"},
     {"label": "Chat / Answer", "icon": "Chat_Answer_Icon.png"},
@@ -117,6 +118,26 @@ def _load_indexed_docs_icon_data_uri(filename: str) -> str:
     output = BytesIO()
     source.save(output, format="PNG")
     encoded = base64.b64encode(output.getvalue()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
+
+
+@st.cache_data(show_spinner=False)
+def load_pdf_viewer_control_icon_data_uri(filename: str) -> str:
+    icon_path = PDF_MODAL_ICON_DIR / "viewer-controls" / filename
+    try:
+        encoded = base64.b64encode(icon_path.read_bytes()).decode("ascii")
+    except OSError:
+        return ""
+    return f"data:image/png;base64,{encoded}"
+
+
+@st.cache_data(show_spinner=False)
+def load_pdf_document_detail_icon_data_uri(filename: str) -> str:
+    icon_path = PDF_MODAL_ICON_DIR / "document-details" / filename
+    try:
+        encoded = base64.b64encode(icon_path.read_bytes()).decode("ascii")
+    except OSError:
+        return ""
     return f"data:image/png;base64,{encoded}"
 
 
@@ -1379,6 +1400,49 @@ html, body, [class*="css"] {
   font-size: 0.78rem;
   font-weight: 750;
 }
+.pdf-modal-icon {
+  display: block;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+.pdf-page-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 34px;
+}
+.pdf-page-nav-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid #D7E6FA;
+  border-radius: 7px;
+  background: #FFFFFF;
+  color: var(--navy);
+  padding: 0;
+  cursor: pointer;
+  box-shadow: 0 7px 15px rgba(11,48,117,0.06);
+  transition: background 140ms ease, border-color 140ms ease, transform 140ms ease, opacity 140ms ease;
+}
+.pdf-page-nav-button:hover:not(:disabled) {
+  background: #F6FAFF;
+  border-color: #BBD6FF;
+  transform: translateY(-1px);
+}
+.pdf-page-nav-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+.pdf-page-nav-button:focus-visible {
+  outline: 3px solid rgba(88,172,244,0.35);
+  outline-offset: 1px;
+}
+.pdf-page-nav-button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  box-shadow: none;
+}
 .pdf-preview-controls {
   display: inline-flex;
   align-items: center;
@@ -1398,11 +1462,6 @@ html, body, [class*="css"] {
   height: 24px;
   color: #405072;
 }
-.pdf-zoom-icon svg {
-  width: 16px;
-  height: 16px;
-  fill: currentColor;
-}
 .pdf-zoom-button {
   display: inline-flex;
   align-items: center;
@@ -1418,6 +1477,28 @@ html, body, [class*="css"] {
   font-weight: 900;
   cursor: pointer;
   transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+.pdf-control-icon {
+  width: 16px;
+  height: 16px;
+  display: block;
+  object-fit: contain;
+  pointer-events: none;
+}
+.pdf-zoom-icon .pdf-control-icon {
+  width: 17px;
+  height: 17px;
+  opacity: 0.84;
+}
+.pdf-control-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 0.74rem;
+  font-weight: 900;
+  line-height: 1;
 }
 .pdf-zoom-button:hover:not(:disabled) {
   background: #F6FAFF;
@@ -1454,12 +1535,21 @@ html, body, [class*="css"] {
 }
 .pdf-detail-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(88px, auto);
-  gap: 0.8rem;
-  align-items: start;
+  grid-template-columns: 18px minmax(0, 1fr) minmax(88px, auto);
+  gap: 0.48rem 0.65rem;
+  align-items: center;
   padding: 0.43rem 0;
   color: #405072;
   font-size: 0.72rem;
+}
+.pdf-detail-icon {
+  width: 16px;
+  height: 16px;
+  opacity: 0.82;
+}
+.pdf-detail-icon.is-empty {
+  width: 16px;
+  height: 16px;
 }
 .pdf-detail-label {
   color: #405072;
@@ -1484,6 +1574,23 @@ html, body, [class*="css"] {
   font-weight: 650;
   line-height: 1.45;
   margin: 0.9rem 0 1rem;
+}
+.pdf-preview-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+.pdf-preview-note span {
+  min-width: 0;
+}
+.pdf-preview-info-icon {
+  width: 18px;
+  height: 18px;
+  margin-top: 0.02rem;
+}
+.pdf-preview-info-icon.is-empty {
+  width: 18px;
+  height: 18px;
 }
 .pdf-modal-actions-title {
   color: var(--navy);
