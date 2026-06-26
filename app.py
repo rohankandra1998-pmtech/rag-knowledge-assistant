@@ -294,6 +294,7 @@ def render_pdf_viewer_script(viewer_id: str, total_pages: int) -> None:
   const thumbs = Array.from(root.querySelectorAll("[data-pdf-thumb]"));
   const pageLabel = root.querySelector("[data-pdf-page-label]");
   const zoomLabel = root.querySelector("[data-pdf-zoom-label]");
+  const zoomFocus = root.querySelector("[data-pdf-zoom-focus]");
   const zoomOut = root.querySelector("[data-pdf-zoom-out]");
   const zoomIn = root.querySelector("[data-pdf-zoom-in]");
   const pagePrev = root.querySelector("[data-pdf-page-prev]");
@@ -302,6 +303,7 @@ def render_pdf_viewer_script(viewer_id: str, total_pages: int) -> None:
 
   let activePage = 1;
   let zoom = 100;
+  let focusMode = false;
 
   function clamp(value, min, max) {{
     return Math.max(min, Math.min(max, value));
@@ -345,7 +347,16 @@ def render_pdf_viewer_script(viewer_id: str, total_pages: int) -> None:
     setActivePage(page);
   }}
 
-  function applyZoom(nextZoom) {{
+  function setFocusMode(enabled) {{
+    focusMode = Boolean(enabled);
+    root.classList.toggle("is-focus-zoom", focusMode);
+    if (zoomFocus) {{
+      zoomFocus.classList.toggle("is-active", focusMode);
+      zoomFocus.setAttribute("aria-pressed", focusMode ? "true" : "false");
+    }}
+  }}
+
+  function setZoom(nextZoom) {{
     zoom = clamp(nextZoom, 50, 200);
     images.forEach((image) => {{
       image.style.width = zoom + "%";
@@ -353,6 +364,10 @@ def render_pdf_viewer_script(viewer_id: str, total_pages: int) -> None:
     if (zoomLabel) zoomLabel.textContent = zoom + "%";
     if (zoomOut) zoomOut.disabled = zoom <= 50;
     if (zoomIn) zoomIn.disabled = zoom >= 200;
+  }}
+
+  function applyZoom(nextZoom) {{
+    setZoom(nextZoom);
     window.setTimeout(function() {{ scrollToPage(activePage, "auto"); detectActivePage(); }}, 40);
   }}
 
@@ -375,6 +390,12 @@ def render_pdf_viewer_script(viewer_id: str, total_pages: int) -> None:
       applyZoom(zoom + 10);
     }});
   }}
+  if (zoomFocus) {{
+    zoomFocus.addEventListener("click", function(event) {{
+      event.preventDefault();
+      setFocusMode(!focusMode);
+    }});
+  }}
   if (pagePrev) {{
     pagePrev.addEventListener("click", function(event) {{
       event.preventDefault();
@@ -388,6 +409,39 @@ def render_pdf_viewer_script(viewer_id: str, total_pages: int) -> None:
     }});
   }}
 
+  images.forEach((image) => {{
+    image.addEventListener("click", function(event) {{
+      if (!focusMode) return;
+      event.preventDefault();
+      const nextZoom = clamp(zoom + 25, 50, 200);
+      if (nextZoom === zoom) return;
+
+      const imageRect = image.getBoundingClientRect();
+      const scrollerRect = scroller.getBoundingClientRect();
+      const ratioX = (event.clientX - imageRect.left) / Math.max(1, imageRect.width);
+      const ratioY = (event.clientY - imageRect.top) / Math.max(1, imageRect.height);
+      const viewportX = event.clientX - scrollerRect.left;
+      const viewportY = event.clientY - scrollerRect.top;
+      setActivePage(Number(image.dataset.pdfPage) || activePage);
+      setZoom(nextZoom);
+
+      window.parent.requestAnimationFrame(function() {{
+        const nextImageRect = image.getBoundingClientRect();
+        const nextScrollerRect = scroller.getBoundingClientRect();
+        const nextLeft = scroller.scrollLeft + nextImageRect.left - nextScrollerRect.left + nextImageRect.width * ratioX - viewportX;
+        const nextTop = scroller.scrollTop + nextImageRect.top - nextScrollerRect.top + nextImageRect.height * ratioY - viewportY;
+        scroller.scrollTo({{ left: Math.max(0, nextLeft), top: Math.max(0, nextTop), behavior: "auto" }});
+        window.setTimeout(detectActivePage, 40);
+      }});
+    }});
+  }});
+
+  window.parent.document.addEventListener("keydown", function(event) {{
+    if (event.key === "Escape" && focusMode) {{
+      setFocusMode(false);
+    }}
+  }});
+
   let ticking = false;
   scroller.addEventListener("scroll", function() {{
     if (ticking) return;
@@ -399,6 +453,7 @@ def render_pdf_viewer_script(viewer_id: str, total_pages: int) -> None:
   }}, {{ passive: true }});
 
   applyZoom(100);
+  setFocusMode(false);
   detectActivePage();
 }})();
 </script>
@@ -584,7 +639,7 @@ def render_pdf_modal_shell(document: dict[str, Any], pdf_path: Path | None) -> N
         f'<button type="button" class="pdf-page-nav-button" data-pdf-page-next aria-label="Next page">{page_next_html}</button>'
         '</span>'
         '<span class="pdf-preview-controls" aria-label="PDF zoom controls">'
-        f'<span class="pdf-zoom-icon" role="img" aria-label="Zoom focus">{zoom_focus_html}</span>'
+        f'<button type="button" class="pdf-zoom-button pdf-zoom-focus-button" data-pdf-zoom-focus aria-label="Zoom focus" aria-pressed="false">{zoom_focus_html}</button>'
         f'<button type="button" class="pdf-zoom-button" data-pdf-zoom-out aria-label="Zoom out">{zoom_out_html}</button>'
         '<span class="pdf-zoom-label" data-pdf-zoom-label>100%</span>'
         f'<button type="button" class="pdf-zoom-button" data-pdf-zoom-in aria-label="Zoom in">{zoom_in_html}</button>'
