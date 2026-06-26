@@ -928,6 +928,96 @@ def render_examples_screen() -> None:
             answer_question(question)
 
 
+def render_collection_stats_panel(stats: dict[str, Any]) -> None:
+    documents = stats.get("documents", []) or []
+    total_documents = int(stats.get("total_documents", 0) or 0)
+    total_chunks = int(stats.get("total_chunks", 0) or 0)
+    storage_mb = float(stats.get("storage_estimate_mb", 0) or 0)
+    max_chunks = max((int(document.get("chunks", 0) or 0) for document in documents), default=0)
+
+    document_rows = []
+    for document in documents[:5]:
+        filename = str(document.get("filename", "") or "Unknown document")
+        pages = int(document.get("pages", 0) or 0)
+        chunks = int(document.get("chunks", 0) or 0)
+        status = str(document.get("status", "Indexed") or "Indexed").title()
+        last_ingested = format_ingested_timestamp(document.get("last_ingested"))
+        file_size = format_file_size(document.get("file_size"))
+        details = f"{pages:,} pages &middot; {chunks:,} chunks"
+        if file_size != "Unknown":
+            details = f"{details} &middot; {html.escape(file_size)}"
+        document_rows.append(
+            f"""
+      <div class="collection-doc-row">
+        <div>
+          <div class="collection-doc-name" title="{html.escape(filename)}">{html.escape(filename)}</div>
+          <div class="collection-doc-meta">{details}</div>
+        </div>
+        <span class="collection-mini-pill">{html.escape(status)}</span>
+        <div class="collection-doc-meta">{html.escape(str(document.get("chunking_strategy", "semantic")).title())}</div>
+        <div class="collection-doc-date">{html.escape(last_ingested)}</div>
+      </div>
+"""
+        )
+
+    if document_rows:
+        documents_html = f'<div class="collection-doc-list">{"".join(document_rows)}</div>'
+    else:
+        documents_html = '<div class="collection-empty">No indexed documents yet. Upload and ingest PDFs to populate collection stats.</div>'
+
+    bar_rows = []
+    for document in documents[:5]:
+        filename = str(document.get("filename", "") or "Unknown document")
+        chunks = int(document.get("chunks", 0) or 0)
+        width = int((chunks / max_chunks) * 100) if max_chunks else 0
+        bar_rows.append(
+            f"""
+      <div class="collection-bar-row">
+        <div class="collection-bar-label" title="{html.escape(filename)}">{html.escape(filename)}</div>
+        <div class="collection-bar-track"><span class="collection-bar-fill" style="width: {width}%"></span></div>
+        <div class="collection-bar-value">{chunks:,}</div>
+      </div>
+"""
+        )
+    bars_html = "".join(bar_rows) if bar_rows else '<div class="collection-empty">Chunk distribution will appear after ingestion.</div>'
+
+    st.markdown(
+        f"""
+<div class="collection-stats-card">
+  <div class="collection-stats-header">
+    <div>
+      <div class="collection-stats-title">Collection stats</div>
+      <div class="collection-stats-copy">Current local ChromaDB index health and document coverage.</div>
+    </div>
+    <div class="collection-stats-badge">ChromaDB</div>
+  </div>
+  <div class="collection-stats-grid">
+    <div class="collection-stat-tile">
+      <div class="collection-stat-label">Documents indexed</div>
+      <div class="collection-stat-value">{total_documents:,}</div>
+      <div class="collection-stat-helper">Deduped source PDFs</div>
+    </div>
+    <div class="collection-stat-tile">
+      <div class="collection-stat-label">Chunks stored</div>
+      <div class="collection-stat-value">{total_chunks:,}</div>
+      <div class="collection-stat-helper">Retrieval-ready passages</div>
+    </div>
+    <div class="collection-stat-tile">
+      <div class="collection-stat-label">Storage estimate</div>
+      <div class="collection-stat-value">{storage_mb:.2f} MB</div>
+      <div class="collection-stat-helper">Source PDF footprint</div>
+    </div>
+  </div>
+  <div class="collection-stats-section-title">Indexed documents</div>
+  {documents_html}
+  <div class="collection-stats-section-title">Chunks by document</div>
+  <div class="collection-bars">{bars_html}</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
 def render_settings_screen(stats: dict[str, Any]) -> None:
     st.markdown('<div class="section-title">Settings / Debug</div>', unsafe_allow_html=True)
     st.markdown(
@@ -939,8 +1029,9 @@ def render_settings_screen(stats: dict[str, Any]) -> None:
 """,
         unsafe_allow_html=True,
     )
-    st.markdown("**Collection stats**")
-    st.json(stats, expanded=1)
+    render_collection_stats_panel(stats)
+    with st.expander("Raw stats payload", expanded=False):
+        st.json(stats, expanded=1)
 
     st.warning("Resetting the vector database deletes all indexed chunks. Source PDFs are not deleted.")
     confirmed = st.checkbox("I understand this will delete the local ChromaDB collection.")
