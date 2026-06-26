@@ -82,6 +82,28 @@ def add_ingestion_event(message: str) -> None:
     st.session_state.ingestion_events = st.session_state.ingestion_events[-20:]
 
 
+def invalidate_collection_stats_cache() -> None:
+    st.session_state.pop("collection_stats_cache", None)
+
+
+def get_cached_collection_stats(collection, *, force_refresh: bool = False) -> dict[str, Any]:
+    try:
+        chunk_count = int(collection.count())
+    except Exception:
+        chunk_count = -1
+
+    cache = st.session_state.get("collection_stats_cache")
+    if not force_refresh and cache and cache.get("chunk_count") == chunk_count:
+        return cache.get("stats", {})
+
+    stats = get_collection_stats(collection)
+    st.session_state.collection_stats_cache = {
+        "chunk_count": int(stats.get("total_chunks", chunk_count) or 0),
+        "stats": stats,
+    }
+    return stats
+
+
 def ingest_all_known_pdfs() -> None:
     collection = get_chroma_collection()
     status_area = st.empty()
@@ -102,7 +124,9 @@ def ingest_all_known_pdfs() -> None:
             st.warning("No PDFs found in docs/ or uploaded_docs/.")
         else:
             st.success(f"Ingestion complete: {indexed} indexed, {skipped} skipped as duplicates.")
+        invalidate_collection_stats_cache()
     except Exception as exc:
+        invalidate_collection_stats_cache()
         render_error_state("Ingestion failed", str(exc))
 
 
@@ -276,6 +300,7 @@ def handle_pdf_reingest_action(stats: dict[str, Any]) -> None:
         st.session_state.last_ingestion_results = [result]
         add_ingestion_event(f"Re-ingested {pdf_path.name}.")
         st.session_state.pdf_modal_notice = f"Re-ingested {pdf_path.name}."
+        invalidate_collection_stats_cache()
 
     try:
         st.query_params["view_doc"] = target
@@ -1063,6 +1088,7 @@ def render_settings_screen(stats: dict[str, Any]) -> None:
     confirmed = st.checkbox("I understand this will delete the local ChromaDB collection.")
     if st.button("Reset vector DB", disabled=not confirmed):
         reset_vector_db()
+        invalidate_collection_stats_cache()
         st.session_state.messages = []
         st.success("Vector database reset.")
         st.rerun()
@@ -1070,6 +1096,7 @@ def render_settings_screen(stats: dict[str, Any]) -> None:
     if st.button("Delete uploaded PDFs", disabled=not confirmed):
         shutil.rmtree(UPLOADED_DOCS_DIR, ignore_errors=True)
         Path(UPLOADED_DOCS_DIR).mkdir(parents=True, exist_ok=True)
+        invalidate_collection_stats_cache()
         st.success("uploaded_docs/ cleared.")
         st.rerun()
 
@@ -1079,7 +1106,7 @@ def main() -> None:
     inject_custom_css()
 
     collection = get_chroma_collection()
-    stats = get_collection_stats(collection)
+    stats = get_cached_collection_stats(collection)
     handle_pdf_reingest_action(stats)
     consume_navigation_query_param()
     apply_modal_source_section()
@@ -1098,7 +1125,7 @@ def main() -> None:
         st.rerun()
     if actions["ingest"]:
         ingest_all_known_pdfs()
-        stats = get_collection_stats(collection)
+        stats = get_cached_collection_stats(collection, force_refresh=True)
 
     if section == "App overview":
         question = render_overview(stats, st.session_state.messages)

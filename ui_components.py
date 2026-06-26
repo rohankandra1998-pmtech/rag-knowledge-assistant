@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import html
 import re
+from functools import lru_cache
 from io import BytesIO
 from datetime import datetime
 from pathlib import Path
@@ -29,6 +30,7 @@ APP_ICON_PATH = Path(__file__).parent / "assets" / "rag-app-icon-tight.png"
 SIDEBAR_ICON_DIR = Path(__file__).parent / "assets" / "sidebar-icons"
 HEADER_ICON_DIR = Path(__file__).parent / "assets" / "header-icons"
 INDEXED_DOCS_ICON_DIR = Path(__file__).parent / "assets" / "indexed-documents"
+INDEXED_DOCS_OPTIMIZED_ICON_DIR = Path(__file__).parent / "assets" / "indexed-documents-optimized"
 PDF_MODAL_ICON_DIR = Path(__file__).parent / "assets" / "pdf-modal-icons"
 SIDEBAR_NAV_ITEMS = [
     {"label": "App overview", "icon": "App_Overview_Icon.png"},
@@ -85,8 +87,21 @@ def _load_header_icon_data_uri(filename: str) -> str:
     return f"data:image/png;base64,{encoded}"
 
 
+@lru_cache(maxsize=None)
+def _load_png_data_uri_fast(path_text: str) -> str:
+    try:
+        encoded = base64.b64encode(Path(path_text).read_bytes()).decode("ascii")
+    except OSError:
+        return ""
+    return f"data:image/png;base64,{encoded}"
+
+
 @st.cache_data(show_spinner=False)
 def _load_indexed_docs_icon_data_uri(filename: str) -> str:
+    optimized_path = INDEXED_DOCS_OPTIMIZED_ICON_DIR / filename
+    if optimized_path.exists():
+        return _load_png_data_uri_fast(str(optimized_path))
+
     icon_path = INDEXED_DOCS_ICON_DIR / filename
     try:
         source = Image.open(icon_path).convert("RGBA")
