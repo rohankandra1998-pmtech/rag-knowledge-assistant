@@ -188,6 +188,32 @@ def get_query_param(name: str) -> str:
     return str(selected or "").strip()
 
 
+def clear_modal_query_params(*, rerun: bool = False) -> None:
+    for name in ("view_doc", "from_section", "reingest_doc", "section"):
+        try:
+            if name in st.query_params:
+                del st.query_params[name]
+        except Exception:
+            continue
+    if rerun:
+        st.rerun()
+
+
+def consume_navigation_query_param() -> None:
+    query_section = get_query_param("section")
+    if query_section in NAV_SECTIONS:
+        st.session_state.nav_section = query_section
+        clear_modal_query_params(rerun=True)
+
+
+def apply_modal_source_section() -> None:
+    if not get_query_param("view_doc"):
+        return
+    source_section = get_query_param("from_section")
+    if source_section in NAV_SECTIONS:
+        st.session_state.nav_section = source_section
+
+
 def scroll_page_to_top() -> None:
     st.iframe(
         """
@@ -1055,9 +1081,8 @@ def main() -> None:
     collection = get_chroma_collection()
     stats = get_collection_stats(collection)
     handle_pdf_reingest_action(stats)
-    query_section = get_query_param("section") or get_query_param("from_section")
-    if query_section in NAV_SECTIONS:
-        st.session_state.nav_section = query_section
+    consume_navigation_query_param()
+    apply_modal_source_section()
     section = render_sidebar(stats)
     previous_section = st.session_state.get("_rendered_nav_section")
     section_changed = previous_section != section
@@ -1107,6 +1132,8 @@ def main() -> None:
     selected_document = get_pdf_modal_document(stats)
     if selected_document:
         render_pdf_preview_dialog(selected_document)
+    elif get_query_param("view_doc"):
+        clear_modal_query_params(rerun=True)
     elif section_changed or section == "Settings / Debug":
         scroll_page_to_top()
 
