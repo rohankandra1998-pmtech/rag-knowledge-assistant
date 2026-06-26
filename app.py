@@ -188,6 +188,41 @@ def get_query_param(name: str) -> str:
     return str(selected or "").strip()
 
 
+def scroll_page_to_top() -> None:
+    st.iframe(
+        """
+<script>
+(() => {
+  const parentWindow = window.parent;
+  const parentDocument = parentWindow.document;
+  const scrollTop = () => {
+    parentWindow.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    parentDocument.documentElement.scrollTop = 0;
+    parentDocument.body.scrollTop = 0;
+    parentDocument.querySelectorAll([
+      "[data-testid='stMain']",
+      "[data-testid='stAppViewContainer']",
+      "[data-testid='stMainBlockContainer']",
+      "section.main",
+      "main"
+    ].join(",")).forEach((element) => {
+      if (typeof element.scrollTo === "function") {
+        element.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      } else {
+        element.scrollTop = 0;
+      }
+    });
+  };
+  parentWindow.requestAnimationFrame(scrollTop);
+  [50, 150, 350, 700, 1200].forEach((delay) => parentWindow.setTimeout(scrollTop, delay));
+})();
+</script>
+""",
+        height=1,
+        width=1,
+    )
+
+
 def handle_pdf_reingest_action(stats: dict[str, Any]) -> None:
     target = get_query_param("reingest_doc")
     if not target:
@@ -899,14 +934,13 @@ def render_settings_screen(stats: dict[str, Any]) -> None:
         """
 <div class="section-card">
   <div class="section-title">Environment</div>
-  <p>Secrets are loaded from .env. The app never hardcodes API keys.</p>
+  <p>Secrets are loaded server-side from .env or environment variables. API keys are never rendered in the UI.</p>
 </div>
 """,
         unsafe_allow_html=True,
     )
-    st.code("OPENAI_API_KEY=your_openai_api_key_here", language="bash")
     st.markdown("**Collection stats**")
-    st.json(stats)
+    st.json(stats, expanded=1)
 
     st.warning("Resetting the vector database deletes all indexed chunks. Source PDFs are not deleted.")
     confirmed = st.checkbox("I understand this will delete the local ChromaDB collection.")
@@ -934,6 +968,9 @@ def main() -> None:
     if query_section in NAV_SECTIONS:
         st.session_state.nav_section = query_section
     section = render_sidebar(stats)
+    previous_section = st.session_state.get("_rendered_nav_section")
+    section_changed = previous_section != section
+    st.session_state["_rendered_nav_section"] = section
     actions = render_header()
 
     if actions["upload"]:
@@ -979,6 +1016,8 @@ def main() -> None:
     selected_document = get_pdf_modal_document(stats)
     if selected_document:
         render_pdf_preview_dialog(selected_document)
+    elif section_changed or section == "Settings / Debug":
+        scroll_page_to_top()
 
 
 if __name__ == "__main__":
