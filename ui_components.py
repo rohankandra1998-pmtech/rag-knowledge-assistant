@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import html
 import re
+from functools import lru_cache
 from io import BytesIO
 from datetime import datetime
 from pathlib import Path
@@ -29,6 +30,7 @@ APP_ICON_PATH = Path(__file__).parent / "assets" / "rag-app-icon-tight.png"
 SIDEBAR_ICON_DIR = Path(__file__).parent / "assets" / "sidebar-icons"
 HEADER_ICON_DIR = Path(__file__).parent / "assets" / "header-icons"
 INDEXED_DOCS_ICON_DIR = Path(__file__).parent / "assets" / "indexed-documents"
+INDEXED_DOCS_OPTIMIZED_ICON_DIR = Path(__file__).parent / "assets" / "indexed-documents-optimized"
 PDF_MODAL_ICON_DIR = Path(__file__).parent / "assets" / "pdf-modal-icons"
 SIDEBAR_NAV_ITEMS = [
     {"label": "App overview", "icon": "App_Overview_Icon.png"},
@@ -85,8 +87,21 @@ def _load_header_icon_data_uri(filename: str) -> str:
     return f"data:image/png;base64,{encoded}"
 
 
+@lru_cache(maxsize=None)
+def _load_png_data_uri_fast(path_text: str) -> str:
+    try:
+        encoded = base64.b64encode(Path(path_text).read_bytes()).decode("ascii")
+    except OSError:
+        return ""
+    return f"data:image/png;base64,{encoded}"
+
+
 @st.cache_data(show_spinner=False)
 def _load_indexed_docs_icon_data_uri(filename: str) -> str:
+    optimized_path = INDEXED_DOCS_OPTIMIZED_ICON_DIR / filename
+    if optimized_path.exists():
+        return _load_png_data_uri_fast(str(optimized_path))
+
     icon_path = INDEXED_DOCS_ICON_DIR / filename
     try:
         source = Image.open(icon_path).convert("RGBA")
@@ -1163,6 +1178,15 @@ html, body, [class*="css"] {
   background: rgba(5, 9, 20, 0.58);
   backdrop-filter: blur(2px);
 }
+body.pdf-modal-open {
+  overflow: hidden;
+}
+.pdf-modal-overlay.is-hidden {
+  display: none;
+}
+.pdf-modal-overlay.is-hidden:target {
+  display: flex;
+}
 .pdf-modal-dialog {
   width: min(920px, calc(100vw - 64px)) !important;
   max-width: min(920px, calc(100vw - 64px)) !important;
@@ -1223,11 +1247,16 @@ html, body, [class*="css"] {
   width: 30px;
   height: 30px;
   border-radius: 999px;
+  border: 0;
+  background: transparent;
   color: #405072;
+  cursor: pointer;
+  font-family: inherit;
   text-decoration: none !important;
   border-bottom: 0 !important;
   font-size: 1.55rem;
   line-height: 1;
+  padding: 0;
 }
 .pdf-modal-close:hover {
   background: #F2F6FC;
@@ -1717,6 +1746,171 @@ html, body, [class*="css"] {
 .debug-label { font-weight: 900; color: var(--navy); font-size: 0.86rem; }
 .debug-value { color: #405072; font-size: 0.86rem; margin-top: 0.5rem; }
 
+.collection-stats-card {
+  margin: 1rem 0 1.2rem;
+  padding: 1.15rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,251,255,0.94)),
+    #FFFFFF;
+  box-shadow: var(--shadow);
+}
+.collection-stats-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.collection-stats-title {
+  color: var(--navy);
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+.collection-stats-copy {
+  color: #405072;
+  font-size: 0.9rem;
+  margin-top: 0.18rem;
+}
+.collection-stats-badge {
+  flex: 0 0 auto;
+  border: 1px solid #CFE1FB;
+  border-radius: 999px;
+  background: #F6FAFF;
+  color: var(--blue);
+  padding: 0.32rem 0.62rem;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+.collection-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.collection-stat-tile {
+  border: 1px solid #E4ECF7;
+  border-radius: 14px;
+  background: #FFFFFF;
+  padding: 0.9rem;
+}
+.collection-stat-label {
+  color: #64708A;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+.collection-stat-value {
+  color: var(--navy);
+  font-size: 1.65rem;
+  line-height: 1.05;
+  font-weight: 950;
+  margin-top: 0.25rem;
+}
+.collection-stat-helper {
+  color: #405072;
+  font-size: 0.78rem;
+  font-weight: 750;
+  margin-top: 0.35rem;
+}
+.collection-stats-section-title {
+  color: var(--navy);
+  font-size: 0.88rem;
+  font-weight: 900;
+  margin: 0.9rem 0 0.55rem;
+}
+.collection-doc-list {
+  border: 1px solid #E6EEF9;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #FFFFFF;
+}
+.collection-doc-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 86px 92px 160px;
+  gap: 0.85rem;
+  align-items: center;
+  padding: 0.78rem 0.9rem;
+  border-top: 1px solid #EDF3FB;
+}
+.collection-doc-row:first-child {
+  border-top: 0;
+}
+.collection-doc-name {
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 850;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.collection-doc-meta,
+.collection-doc-date {
+  color: #64708A;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+.collection-doc-date {
+  text-align: right;
+}
+.collection-mini-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(16,94,221,0.18);
+  border-radius: 999px;
+  background: #EAF3FF;
+  color: var(--blue);
+  padding: 0.24rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.collection-bars {
+  display: grid;
+  gap: 0.62rem;
+}
+.collection-bar-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.8fr) minmax(180px, 1.2fr) 48px;
+  gap: 0.75rem;
+  align-items: center;
+}
+.collection-bar-label {
+  color: #405072;
+  font-size: 0.82rem;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.collection-bar-track {
+  height: 9px;
+  border-radius: 999px;
+  background: #EAF1FA;
+  overflow: hidden;
+}
+.collection-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--blue), var(--sky));
+}
+.collection-bar-value {
+  color: var(--navy);
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-align: right;
+}
+.collection-empty {
+  border: 1px dashed #B7D1F8;
+  border-radius: 12px;
+  background: #F6FAFF;
+  color: #405072;
+  padding: 1rem;
+  font-weight: 750;
+}
+
 .upload-zone {
   border: 1.5px dashed #B7D1F8;
   background: linear-gradient(180deg, #FFFFFF, #F6FAFF);
@@ -1781,6 +1975,21 @@ div.stButton > button[kind="primary"] {
   .hero-title { font-size: 2.05rem; }
   .ingestion-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .workflow, .debug-grid { grid-template-columns: 1fr 1fr; }
+  .collection-stats-grid { grid-template-columns: 1fr; }
+  .collection-doc-row {
+    grid-template-columns: 1fr 86px;
+  }
+  .collection-doc-date {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+  .collection-bar-row {
+    grid-template-columns: 1fr;
+    gap: 0.35rem;
+  }
+  .collection-bar-value {
+    text-align: left;
+  }
   .chat-user { max-width: 92%; }
   .doc-table-header {
     flex-direction: column;
@@ -2258,6 +2467,13 @@ def _doc_head(label: str, icon_filename: str | None = None, fallback: str = "") 
     return f'<span class="doc-head-label">{icon}<span>{html.escape(label)}</span></span>'
 
 
+def _pdf_modal_id(document: dict[str, Any]) -> str:
+    filename = str(document.get("filename", "") or "document")
+    document_hash = str(document.get("document_hash", "") or "").strip()
+    target = quote(document_hash or filename, safe="")
+    return f"pdf-modal-{target}"
+
+
 def render_document_table(
     documents: list[dict[str, Any]],
     title: str = "Indexed documents",
@@ -2297,6 +2513,7 @@ def render_document_table(
         chunk_segments = _chunk_segments(chunks, max_chunks)
         view_target = quote(document_hash or filename, safe="")
         source_query = f"&from_section={quote(source_section, safe='')}" if source_section else ""
+        modal_id = _pdf_modal_id(doc)
 
         row_html.append(
             '<div class="doc-table-row">'
@@ -2319,7 +2536,8 @@ def render_document_table(
             f'<div class="doc-cell"><span class="hash-chip" title="{html.escape(document_hash)}">{html.escape(short_hash)}</span></div>'
             '<div class="doc-cell">'
             '<div class="doc-row-actions">'
-            f'<a class="tiny-action" href="?view_doc={view_target}{source_query}" target="_self" title="View {html.escape(filename)}">'
+            f'<a class="tiny-action" href="#{html.escape(modal_id, quote=True)}" data-pdf-modal-target="{html.escape(modal_id, quote=True)}" '
+            f'data-pdf-modal-fallback="?view_doc={view_target}{source_query}" title="View {html.escape(filename)}">'
             f'{view_icon}<span>View</span></a>'
             f'<span class="tiny-action alt" title="Re-ingest">{sync_icon}<span>Re-ingest</span></span>'
             '</div>'
@@ -2386,7 +2604,7 @@ def render_document_table(
   </div>
 </div>
 """
-    st.html(table_markup)
+    st.markdown(table_markup, unsafe_allow_html=True)
 
 
 def render_empty_state(title: str, body: str) -> None:
