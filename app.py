@@ -1197,146 +1197,200 @@ def render_client_pdf_modal_controller() -> None:
 (() => {
   const parentWindow = window.parent;
   const parentDocument = parentWindow.document;
-  if (parentDocument.documentElement.dataset.pdfModalControllerReady === "true") return;
-  parentDocument.documentElement.dataset.pdfModalControllerReady = "true";
-  let lastTrigger = null;
+  const VERSION = "2026-06-27.2";
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  parentWindow.__ragPdfModalLastTrigger = parentWindow.__ragPdfModalLastTrigger || null;
+  const VISIBLE_MODAL_SELECTOR = '.pdf-modal-overlay[data-pdf-viewer-id]:not(.is-hidden), .pdf-modal-overlay[data-pdf-viewer-id].is-hidden:target';
 
-  const getOpenModals = () => Array.from(parentDocument.querySelectorAll('.pdf-modal-overlay[data-pdf-client-modal="true"]:not(.is-hidden)'));
+  const getViewerRoot = (element) => (
+    element && element.closest ? element.closest(".pdf-modal-overlay[data-pdf-viewer-id]") : null
+  );
+  const getOpenModals = () => Array.from(
+    parentDocument.querySelectorAll(
+      '.pdf-modal-overlay[data-pdf-client-modal="true"]:not(.is-hidden), .pdf-modal-overlay[data-pdf-client-modal="true"].is-hidden:target'
+    )
+  );
+  const getParts = (root) => ({
+    scroller: root.querySelector("[data-pdf-scroll]"),
+    images: Array.from(root.querySelectorAll("[data-pdf-page]")),
+    thumbs: Array.from(root.querySelectorAll("[data-pdf-thumb]")),
+    pageLabel: root.querySelector("[data-pdf-page-label]"),
+    zoomLabel: root.querySelector("[data-pdf-zoom-label]"),
+    zoomFocus: root.querySelector("[data-pdf-zoom-focus]"),
+    zoomOut: root.querySelector("[data-pdf-zoom-out]"),
+    zoomIn: root.querySelector("[data-pdf-zoom-in]"),
+    pagePrev: root.querySelector("[data-pdf-page-prev]"),
+    pageNext: root.querySelector("[data-pdf-page-next]"),
+  });
 
-  const initPdfViewer = (root) => {
-    if (!root || root.dataset.viewerReady === "true") return;
-    const scroller = root.querySelector("[data-pdf-scroll]");
-    const images = Array.from(root.querySelectorAll("[data-pdf-page]"));
-    const thumbs = Array.from(root.querySelectorAll("[data-pdf-thumb]"));
-    if (!scroller || !images.length) return;
+  const captureBaseWidths = (root) => {
+    const { images } = getParts(root);
+    images.forEach((image) => {
+      const rect = image.getBoundingClientRect();
+      const measured = rect.width || image.clientWidth || image.naturalWidth || Number(image.getAttribute("width")) || 1;
+      if (!image.dataset.pdfBaseWidth || Number(image.dataset.pdfBaseWidth) <= 0) {
+        image.dataset.pdfBaseWidth = String(measured);
+      }
+    });
+  };
+
+  const setActivePage = (root, page) => {
+    const state = root && root.__ragPdfViewerState;
+    if (!state) return;
+    const { thumbs, pageLabel, pagePrev, pageNext } = getParts(root);
+    state.activePage = clamp(Number(page) || 1, 1, state.totalPages);
+    if (pageLabel) pageLabel.textContent = "Page " + state.activePage + " of " + state.totalPages;
+    if (pagePrev) pagePrev.disabled = state.activePage <= 1;
+    if (pageNext) pageNext.disabled = state.activePage >= state.totalPages;
+    thumbs.forEach((thumb) => {
+      const isActive = Number(thumb.dataset.pdfThumb) === state.activePage;
+      thumb.classList.toggle("is-active", isActive);
+      thumb.setAttribute("aria-current", isActive ? "page" : "false");
+    });
+  };
+
+  const detectActivePage = (root) => {
+    const state = ensureViewer(root);
+    const { scroller, images } = getParts(root);
+    if (!state || !scroller || !images.length) return;
+    const scrollerRect = scroller.getBoundingClientRect();
+    const center = scrollerRect.top + scrollerRect.height / 2;
+    let closest = state.activePage;
+    let closestDistance = Number.POSITIVE_INFINITY;
+    images.forEach((image) => {
+      const rect = image.getBoundingClientRect();
+      const distance = Math.abs(rect.top + rect.height / 2 - center);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closest = Number(image.dataset.pdfPage) || 1;
+      }
+    });
+    setActivePage(root, closest);
+  };
+
+  const scrollToPage = (root, page, behavior = "smooth") => {
+    const state = ensureViewer(root);
+    const { scroller } = getParts(root);
+    if (!state || !scroller) return;
+    const targetPage = clamp(Number(page) || 1, 1, state.totalPages);
+    const target = root.querySelector('[data-pdf-page="' + targetPage + '"]');
+    if (!target) return;
+    const targetRect = target.getBoundingClientRect();
+    const scrollerRect = scroller.getBoundingClientRect();
+    const nextTop = scroller.scrollTop + targetRect.top - scrollerRect.top - 12;
+    scroller.scrollTo({ top: Math.max(0, nextTop), behavior });
+    setActivePage(root, targetPage);
+    parentWindow.setTimeout(() => detectActivePage(root), behavior === "smooth" ? 180 : 40);
+  };
+
+  const setFocusMode = (root, enabled) => {
+    const state = root && root.__ragPdfViewerState;
+    if (!state) return;
+    const { zoomFocus } = getParts(root);
+    state.focusMode = Boolean(enabled);
+    root.classList.toggle("is-focus-zoom", state.focusMode);
+    if (zoomFocus) {
+      zoomFocus.classList.toggle("is-active", state.focusMode);
+      zoomFocus.setAttribute("aria-pressed", state.focusMode ? "true" : "false");
+    }
+  };
+
+  const setZoom = (root, nextZoom) => {
+    const state = root && root.__ragPdfViewerState;
+    if (!state) return;
+    const { images, zoomLabel, zoomOut, zoomIn } = getParts(root);
+    captureBaseWidths(root);
+    state.zoom = clamp(Number(nextZoom) || 100, 50, 200);
+    images.forEach((image) => {
+      const baseWidth = Number(image.dataset.pdfBaseWidth || 0) || image.getBoundingClientRect().width || 1;
+      image.style.setProperty("width", Math.max(1, Math.round(baseWidth * state.zoom / 100)) + "px", "important");
+      image.style.setProperty("max-width", "none", "important");
+    });
+    if (zoomLabel) zoomLabel.textContent = state.zoom + "%";
+    if (zoomOut) zoomOut.disabled = state.zoom <= 50;
+    if (zoomIn) zoomIn.disabled = state.zoom >= 200;
+    root.classList.toggle("is-zoomed-in", state.zoom > 100);
+  };
+
+  const applyZoom = (root, nextZoom) => {
+    const state = ensureViewer(root);
+    if (!state) return;
+    const activePage = state.activePage;
+    setZoom(root, nextZoom);
+    parentWindow.setTimeout(() => {
+      scrollToPage(root, activePage, "auto");
+      detectActivePage(root);
+    }, 40);
+  };
+
+  function ensureViewer(root) {
+    if (!root) return null;
+    const { scroller, images } = getParts(root);
+    if (!scroller || !images.length) return null;
+    const state = root.__ragPdfViewerState || {
+      activePage: 1,
+      zoom: 100,
+      focusMode: false,
+      scroller: null,
+      scrollTicking: false,
+      focusClickBound: false,
+    };
+    state.totalPages = Math.max(1, images.length);
+    root.__ragPdfViewerState = state;
     root.dataset.viewerReady = "true";
 
-    const totalPages = Math.max(1, images.length);
-    const pageLabel = root.querySelector("[data-pdf-page-label]");
-    const zoomLabel = root.querySelector("[data-pdf-zoom-label]");
-    const zoomFocus = root.querySelector("[data-pdf-zoom-focus]");
-    const zoomOut = root.querySelector("[data-pdf-zoom-out]");
-    const zoomIn = root.querySelector("[data-pdf-zoom-in]");
-    const pagePrev = root.querySelector("[data-pdf-page-prev]");
-    const pageNext = root.querySelector("[data-pdf-page-next]");
-    let activePage = 1;
-    let zoom = 100;
-    let focusMode = false;
+    if (state.scroller !== scroller) {
+      state.scroller = scroller;
+      scroller.addEventListener("scroll", () => {
+        const currentState = root.__ragPdfViewerState;
+        if (!currentState || currentState.scrollTicking) return;
+        currentState.scrollTicking = true;
+        parentWindow.requestAnimationFrame(() => {
+          detectActivePage(root);
+          currentState.scrollTicking = false;
+        });
+      }, { passive: true });
+    }
 
-    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-    const setActivePage = (page) => {
-      activePage = clamp(Number(page) || 1, 1, totalPages);
-      if (pageLabel) pageLabel.textContent = "Page " + activePage + " of " + totalPages;
-      if (pagePrev) pagePrev.disabled = activePage <= 1;
-      if (pageNext) pageNext.disabled = activePage >= totalPages;
-      thumbs.forEach((thumb) => {
-        const isActive = Number(thumb.dataset.pdfThumb) === activePage;
-        thumb.classList.toggle("is-active", isActive);
-        thumb.setAttribute("aria-current", isActive ? "page" : "false");
-      });
-    };
-    const detectActivePage = () => {
-      const scrollerRect = scroller.getBoundingClientRect();
-      const center = scrollerRect.top + scrollerRect.height / 2;
-      let closest = activePage;
-      let closestDistance = Number.POSITIVE_INFINITY;
-      images.forEach((image) => {
-        const rect = image.getBoundingClientRect();
-        const distance = Math.abs(rect.top + rect.height / 2 - center);
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closest = Number(image.dataset.pdfPage) || 1;
-        }
-      });
-      setActivePage(closest);
-    };
-    const scrollToPage = (page, behavior = "smooth") => {
-      const target = root.querySelector('[data-pdf-page="' + page + '"]');
-      if (!target) return;
-      const targetRect = target.getBoundingClientRect();
-      const scrollerRect = scroller.getBoundingClientRect();
-      const nextTop = scroller.scrollTop + targetRect.top - scrollerRect.top - 12;
-      scroller.scrollTo({ top: Math.max(0, nextTop), behavior });
-      setActivePage(page);
-    };
-    const captureBaseWidths = () => {
-      images.forEach((image) => {
-        if (Number(image.dataset.pdfBaseWidth || 0) > 0) return;
-        const rect = image.getBoundingClientRect();
-        image.dataset.pdfBaseWidth = String(rect.width || image.clientWidth || image.naturalWidth || 1);
-      });
-    };
-    const setFocusMode = (enabled) => {
-      focusMode = Boolean(enabled);
-      root.classList.toggle("is-focus-zoom", focusMode);
-      if (zoomFocus) {
-        zoomFocus.classList.toggle("is-active", focusMode);
-        zoomFocus.setAttribute("aria-pressed", focusMode ? "true" : "false");
-      }
-    };
-    const setZoom = (nextZoom) => {
-      captureBaseWidths();
-      zoom = clamp(nextZoom, 50, 200);
-      images.forEach((image) => {
-        const baseWidth = Number(image.dataset.pdfBaseWidth || 0) || image.getBoundingClientRect().width || 1;
-        image.style.setProperty("width", Math.max(1, Math.round(baseWidth * zoom / 100)) + "px", "important");
-        image.style.setProperty("max-width", "none", "important");
-      });
-      if (zoomLabel) zoomLabel.textContent = zoom + "%";
-      if (zoomOut) zoomOut.disabled = zoom <= 50;
-      if (zoomIn) zoomIn.disabled = zoom >= 200;
-      root.classList.toggle("is-zoomed-in", zoom > 100);
-    };
-    const applyZoom = (nextZoom) => {
-      setZoom(nextZoom);
-      parentWindow.setTimeout(() => {
-        scrollToPage(activePage, "auto");
-        detectActivePage();
-      }, 40);
-    };
-    root.__ragPdfResetViewer = () => {
-      setFocusMode(false);
-      setZoom(100);
-      scrollToPage(1, "auto");
-      parentWindow.setTimeout(() => detectActivePage(), 40);
-    };
-
-    thumbs.forEach((thumb) => {
-      thumb.addEventListener("click", (event) => {
+    if (!state.focusClickBound) {
+      state.focusClickBound = true;
+      scroller.addEventListener("click", (event) => {
+        const currentState = ensureViewer(root);
+        if (!currentState || !currentState.focusMode) return;
+        const pageImage = event.target && event.target.closest ? event.target.closest("[data-pdf-page]") : null;
+        if (!pageImage || !scroller.contains(pageImage)) return;
         event.preventDefault();
-        scrollToPage(Number(thumb.dataset.pdfThumb) || 1, "auto");
+        const nextZoom = clamp(currentState.zoom + 25, 50, 200);
+        if (nextZoom === currentState.zoom) return;
+        setActivePage(root, Number(pageImage.dataset.pdfPage) || currentState.activePage);
+        setZoom(root, nextZoom);
+        parentWindow.setTimeout(() => detectActivePage(root), 80);
       });
-    });
-    if (zoomOut) zoomOut.addEventListener("click", (event) => { event.preventDefault(); applyZoom(zoom - 10); });
-    if (zoomIn) zoomIn.addEventListener("click", (event) => { event.preventDefault(); applyZoom(zoom + 10); });
-    if (zoomFocus) zoomFocus.addEventListener("click", (event) => { event.preventDefault(); setFocusMode(!focusMode); });
-    if (pagePrev) pagePrev.addEventListener("click", (event) => { event.preventDefault(); scrollToPage(activePage - 1, "auto"); });
-    if (pageNext) pageNext.addEventListener("click", (event) => { event.preventDefault(); scrollToPage(activePage + 1, "auto"); });
-    scroller.addEventListener("click", (event) => {
-      if (!focusMode) return;
-      const pageImage = event.target && event.target.closest ? event.target.closest("[data-pdf-page]") : null;
-      if (!pageImage || !scroller.contains(pageImage)) return;
-      event.preventDefault();
-      const nextZoom = clamp(zoom + 25, 50, 200);
-      if (nextZoom === zoom) return;
-      setActivePage(Number(pageImage.dataset.pdfPage) || activePage);
-      setZoom(nextZoom);
-      parentWindow.setTimeout(() => detectActivePage(), 80);
-    });
-    let ticking = false;
-    scroller.addEventListener("scroll", () => {
-      if (ticking) return;
-      ticking = true;
-      parentWindow.requestAnimationFrame(() => {
-        detectActivePage();
-        ticking = false;
-      });
-    }, { passive: true });
-    parentWindow.requestAnimationFrame(() => {
-      captureBaseWidths();
-      applyZoom(100);
-      setFocusMode(false);
-      detectActivePage();
+    }
+
+    captureBaseWidths(root);
+    setActivePage(root, state.activePage);
+    setZoom(root, state.zoom);
+    setFocusMode(root, state.focusMode);
+    return state;
+  }
+
+  const resetViewer = (root) => {
+    const state = ensureViewer(root);
+    if (!state) return;
+    state.activePage = 1;
+    state.zoom = 100;
+    state.focusMode = false;
+    setFocusMode(root, false);
+    setZoom(root, 100);
+    scrollToPage(root, 1, "auto");
+    parentWindow.setTimeout(() => detectActivePage(root), 40);
+  };
+
+  const initVisibleViewers = () => {
+    parentDocument.querySelectorAll(VISIBLE_MODAL_SELECTOR).forEach((modal) => {
+      ensureViewer(modal);
+      parentWindow.requestAnimationFrame(() => detectActivePage(modal));
     });
   };
 
@@ -1344,9 +1398,17 @@ def render_client_pdf_modal_controller() -> None:
     if (!modal) return;
     modal.classList.add("is-hidden");
     modal.setAttribute("aria-hidden", "true");
+    if (modal.matches(":target")) {
+      parentWindow.history.replaceState(
+        null,
+        "",
+        parentWindow.location.pathname + parentWindow.location.search + "#pdf-modal-closed"
+      );
+    }
     if (!getOpenModals().length) {
       parentDocument.body.classList.remove("pdf-modal-open");
     }
+    const lastTrigger = parentWindow.__ragPdfModalLastTrigger;
     if (restoreFocus && lastTrigger && typeof lastTrigger.focus === "function") {
       lastTrigger.focus({ preventScroll: true });
     }
@@ -1357,15 +1419,12 @@ def render_client_pdf_modal_controller() -> None:
     getOpenModals().forEach((openModalElement) => {
       if (openModalElement !== modal) closeModal(openModalElement, false);
     });
-    lastTrigger = trigger || null;
+    parentWindow.__ragPdfModalLastTrigger = trigger || null;
     modal.classList.remove("is-hidden");
     modal.setAttribute("aria-hidden", "false");
     parentDocument.body.classList.add("pdf-modal-open");
     parentWindow.requestAnimationFrame(() => {
-      initPdfViewer(modal);
-      if (typeof modal.__ragPdfResetViewer === "function") {
-        modal.__ragPdfResetViewer();
-      }
+      resetViewer(modal);
     });
     const closeButton = modal.querySelector("[data-pdf-modal-close], .pdf-modal-close");
     if (closeButton && typeof closeButton.focus === "function") {
@@ -1374,13 +1433,27 @@ def render_client_pdf_modal_controller() -> None:
     return true;
   };
 
-  parentDocument.addEventListener("click", (event) => {
+  const openHashTargetModal = () => {
+    const hash = parentWindow.location.hash ? parentWindow.location.hash.slice(1) : "";
+    if (!hash || hash === "pdf-modal-closed") return;
+    const modal = parentDocument.getElementById(decodeURIComponent(hash));
+    if (!modal || !modal.matches(".pdf-modal-overlay[data-pdf-viewer-id]")) return;
+    if (modal.dataset.pdfClientModal === "true") {
+      openModal(modal, null);
+      return;
+    }
+    ensureViewer(modal);
+    parentWindow.requestAnimationFrame(() => detectActivePage(modal));
+  };
+
+  const handleClick = (event) => {
     const trigger = event.target.closest("[data-pdf-modal-target]");
     if (trigger) {
       const targetId = trigger.getAttribute("data-pdf-modal-target");
       const modal = targetId ? parentDocument.getElementById(targetId) : null;
       if (modal && openModal(modal, trigger)) {
         event.preventDefault();
+        event.stopPropagation();
         return;
       }
       const fallback = trigger.getAttribute("data-pdf-modal-fallback");
@@ -1391,13 +1464,82 @@ def render_client_pdf_modal_controller() -> None:
       return;
     }
 
+    const thumb = event.target.closest("[data-pdf-thumb]");
+    if (thumb) {
+      const root = getViewerRoot(thumb);
+      if (root) {
+        event.preventDefault();
+        event.stopPropagation();
+        scrollToPage(root, Number(thumb.dataset.pdfThumb) || 1, "auto");
+      }
+      return;
+    }
+
+    const pagePrev = event.target.closest("[data-pdf-page-prev]");
+    if (pagePrev) {
+      const root = getViewerRoot(pagePrev);
+      const state = ensureViewer(root);
+      if (state) {
+        event.preventDefault();
+        event.stopPropagation();
+        scrollToPage(root, state.activePage - 1, "auto");
+      }
+      return;
+    }
+
+    const pageNext = event.target.closest("[data-pdf-page-next]");
+    if (pageNext) {
+      const root = getViewerRoot(pageNext);
+      const state = ensureViewer(root);
+      if (state) {
+        event.preventDefault();
+        event.stopPropagation();
+        scrollToPage(root, state.activePage + 1, "auto");
+      }
+      return;
+    }
+
+    const zoomOut = event.target.closest("[data-pdf-zoom-out]");
+    if (zoomOut) {
+      const root = getViewerRoot(zoomOut);
+      const state = ensureViewer(root);
+      if (state) {
+        event.preventDefault();
+        event.stopPropagation();
+        applyZoom(root, state.zoom - 10);
+      }
+      return;
+    }
+
+    const zoomIn = event.target.closest("[data-pdf-zoom-in]");
+    if (zoomIn) {
+      const root = getViewerRoot(zoomIn);
+      const state = ensureViewer(root);
+      if (state) {
+        event.preventDefault();
+        event.stopPropagation();
+        applyZoom(root, state.zoom + 10);
+      }
+      return;
+    }
+
+    const zoomFocus = event.target.closest("[data-pdf-zoom-focus]");
+    if (zoomFocus) {
+      const root = getViewerRoot(zoomFocus);
+      const state = ensureViewer(root);
+      if (state) {
+        event.preventDefault();
+        event.stopPropagation();
+        setFocusMode(root, !state.focusMode);
+      }
+      return;
+    }
+
     const closeButton = event.target.closest("[data-pdf-modal-close]");
     if (closeButton) {
       const modal = closeButton.closest(".pdf-modal-overlay");
-      if (modal && modal.classList.contains("is-hidden") && modal.matches(":target")) {
-        return;
-      }
       event.preventDefault();
+      event.stopPropagation();
       closeModal(modal);
       return;
     }
@@ -1413,16 +1555,45 @@ def render_client_pdf_modal_controller() -> None:
       event.preventDefault();
       closeModal(openModalOverlay);
     }
-  });
+  };
 
-  parentDocument.addEventListener("keydown", (event) => {
+  const handleKeydown = (event) => {
     if (event.key !== "Escape") return;
     const openModals = getOpenModals();
     if (!openModals.length) return;
     event.preventDefault();
     closeModal(openModals[openModals.length - 1]);
-  });
-  parentDocument.querySelectorAll(".pdf-modal-overlay:not(.is-hidden)").forEach((modal) => initPdfViewer(modal));
+  };
+
+  if (parentWindow.__ragPdfModalHandlers) {
+    parentDocument.removeEventListener("click", parentWindow.__ragPdfModalHandlers.click, true);
+    parentDocument.removeEventListener("keydown", parentWindow.__ragPdfModalHandlers.keydown);
+    parentWindow.removeEventListener("hashchange", parentWindow.__ragPdfModalHandlers.hashchange);
+  }
+  parentWindow.__ragPdfModalHandlers = {
+    click: handleClick,
+    keydown: handleKeydown,
+    hashchange: openHashTargetModal,
+  };
+  parentDocument.addEventListener("click", handleClick, true);
+  parentDocument.addEventListener("keydown", handleKeydown);
+  parentWindow.addEventListener("hashchange", openHashTargetModal);
+  parentDocument.documentElement.dataset.pdfModalControllerVersion = VERSION;
+
+  parentWindow.__ragPdfModalController = {
+    ensureViewer,
+    resetViewer,
+    detectActivePage,
+    scrollToPage,
+    setZoom,
+    setActivePage,
+    closeModal,
+    openModal,
+  };
+
+  parentWindow.requestAnimationFrame(initVisibleViewers);
+  parentWindow.setTimeout(initVisibleViewers, 60);
+  parentWindow.requestAnimationFrame(openHashTargetModal);
 })();
 </script>
 """,
