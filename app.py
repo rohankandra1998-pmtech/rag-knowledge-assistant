@@ -44,6 +44,7 @@ from ui_components import (
     render_overview,
     render_sidebar,
     render_upload_badges,
+    load_header_action_icon_data_uri,
     load_upload_icon_data_uri,
 )
 
@@ -1433,6 +1434,9 @@ def render_documents_section_heading() -> None:
 
 def render_documents_upload_card() -> None:
     upload_icon = load_upload_icon_data_uri("upload_cloud_document_icon.png")
+    pdf_icon = load_upload_icon_data_uri("pdf_only_icon.png")
+    header_upload_icon = load_header_action_icon_data_uri("upload.png")
+    upload_reset = int(st.session_state.get("documents_upload_reset", 0) or 0)
     with st.container(key="documents_upload_card"):
         st.markdown(
             f"""
@@ -1441,21 +1445,63 @@ def render_documents_upload_card() -> None:
 .st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"]::before {{
   background-image: url("{upload_icon}");
 }}
+.st-key-documents_upload_submit button::before {{
+  content: "";
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  background: currentColor;
+  -webkit-mask: url("{header_upload_icon}") center / contain no-repeat;
+  mask: url("{header_upload_icon}") center / contain no-repeat;
+}}
 </style>
 """,
             unsafe_allow_html=True,
         )
-        uploaded = st.file_uploader(
-            "Drag PDFs here or browse files",
-            type=["pdf"],
-            accept_multiple_files=True,
-            label_visibility="collapsed",
-            key="documents_upload_zone",
-        )
+        upload_notice = st.session_state.pop("documents_upload_notice", "")
+        if upload_notice:
+            st.success(upload_notice)
+        with st.container(key="documents_upload_zone"):
+            uploaded = st.file_uploader(
+                "Drag PDFs here or browse files",
+                type=["pdf"],
+                accept_multiple_files=True,
+                label_visibility="collapsed",
+                key=f"documents_upload_input_{upload_reset}",
+            )
+        if uploaded:
+            total_size = sum(int(getattr(file, "size", 0) or 0) for file in uploaded)
+            first_file = uploaded[0]
+            extra_count = len(uploaded) - 1
+            name = html.escape(str(getattr(first_file, "name", "Selected PDF") or "Selected PDF"))
+            size = html.escape(format_file_size(total_size))
+            suffix = f" + {extra_count} more" if extra_count else ""
+            st.markdown(
+                f"""
+<div class="documents-upload-pending">
+  <div class="documents-upload-file">
+    <img src="{pdf_icon}" alt="" aria-hidden="true" />
+    <div>
+      <div class="documents-upload-file-name" title="{name}{html.escape(suffix)}">{name}{html.escape(suffix)}</div>
+      <div class="documents-upload-file-size">{size}</div>
+    </div>
+  </div>
+</div>
+""",
+                unsafe_allow_html=True,
+            )
+            action_col, cancel_col = st.columns([1, 0.22], gap="small")
+            with action_col:
+                if st.button("Upload PDFs", key="documents_upload_submit", use_container_width=True):
+                    saved = save_uploaded_files(uploaded)
+                    st.session_state.documents_upload_reset = upload_reset + 1
+                    st.session_state.documents_upload_notice = f"Saved {len(saved)} file(s) to uploaded_docs/."
+                    st.rerun()
+            with cancel_col:
+                if st.button("×", key="documents_upload_cancel", help="Cancel upload", use_container_width=True):
+                    st.session_state.documents_upload_reset = upload_reset + 1
+                    st.rerun()
         render_upload_badges()
-    if uploaded:
-        saved = save_uploaded_files(uploaded)
-        st.success(f"Saved {len(saved)} file(s) to uploaded_docs/.")
 
 
 def pipeline_state(step_name: str, events: list[str], results: list[dict[str, Any]]) -> str:

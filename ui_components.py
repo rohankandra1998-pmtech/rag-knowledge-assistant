@@ -142,6 +142,10 @@ def load_upload_icon_data_uri(filename: str) -> str:
     return _load_png_data_uri_fast(str(UPLOAD_ICON_DIR / filename))
 
 
+def load_header_action_icon_data_uri(filename: str) -> str:
+    return _load_header_icon_data_uri(filename)
+
+
 def render_upload_badges() -> None:
     badges = [
         ("pdf_only_icon.png", "PDF only", "is-red"),
@@ -2073,6 +2077,11 @@ body.pdf-modal-open {
 .st-key-documents_upload_zone [data-testid="stFileUploaderDropzoneInstructions"] {
   display: none !important;
 }
+.st-key-documents_upload_zone [data-testid="stFileUploaderFile"],
+.st-key-documents_upload_zone [data-testid="stFileUploaderFileData"],
+.st-key-documents_upload_zone [data-testid="stFileUploaderDeleteBtn"] {
+  display: none !important;
+}
 .st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"] button {
   position: absolute !important;
   inset: 0 !important;
@@ -2089,12 +2098,80 @@ body.pdf-modal-open {
   outline: 4px solid rgba(88,172,244,0.35) !important;
   outline-offset: -4px !important;
 }
+.documents-upload-pending {
+  margin: 0.55rem auto 0;
+  width: calc(100% - 2.5rem);
+}
+.documents-upload-file {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.62rem;
+  min-height: 50px;
+  border: 1px solid #DCE8F7;
+  border-radius: 12px;
+  background: #FFFFFF;
+  color: #405072;
+  padding: 0.55rem 0.75rem;
+  box-shadow: 0 10px 22px rgba(16,94,221,0.06);
+}
+.documents-upload-file img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  display: block;
+  flex: 0 0 28px;
+}
+.documents-upload-file-name {
+  max-width: 260px;
+  overflow: hidden;
+  color: #1E2A4A;
+  font-size: 0.86rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.documents-upload-file-size {
+  color: #71809A;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-align: center;
+}
+.st-key-documents_upload_submit button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.52rem !important;
+  background: #FFFFFF !important;
+  border-color: #BBD6FF !important;
+  color: var(--navy) !important;
+  box-shadow: 0 12px 28px rgba(16,94,221,0.10) !important;
+}
+.st-key-documents_upload_submit button:hover {
+  background: #F6FAFF !important;
+  border-color: #8EBBFF !important;
+  color: var(--blue) !important;
+}
+.st-key-documents_upload_cancel button {
+  min-width: 2.65rem !important;
+  padding: 0 !important;
+  border-color: #FFD3CA !important;
+  color: #E52D18 !important;
+  background: #FFFFFF !important;
+  font-size: 1.15rem !important;
+  box-shadow: 0 10px 22px rgba(200,71,44,0.06) !important;
+}
+.st-key-documents_upload_cancel button:hover {
+  background: #FFF5F2 !important;
+  border-color: #FFB5A8 !important;
+  color: #BA2B19 !important;
+}
 .documents-badges {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.34fr) minmax(0, 1.16fr);
-  gap: 0.6rem;
-  margin: 0.58rem auto 0.18rem;
-  width: calc(100% - 1rem);
+  grid-template-columns: minmax(112px, 0.92fr) minmax(176px, 1.32fr) minmax(164px, 1.22fr);
+  gap: 0.7rem;
+  margin: 0.42rem auto 0.1rem;
+  width: calc(100% - 2.5rem);
 }
 .documents-badge {
   display: inline-flex;
@@ -2107,8 +2184,8 @@ body.pdf-modal-open {
   border-radius: 10px;
   background: #FFFFFF;
   color: #405072;
-  padding: 0.35rem 0.5rem;
-  font-size: 0.75rem;
+  padding: 0.35rem 0.72rem;
+  font-size: 0.78rem;
   font-weight: 850;
   line-height: 1;
   white-space: nowrap;
