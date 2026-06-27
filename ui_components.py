@@ -2032,7 +2032,7 @@ body.pdf-modal-open {
 }
 .st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"] {
   position: relative;
-  min-height: 148px;
+  min-height: 178px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2053,10 +2053,10 @@ body.pdf-modal-open {
 }
 .st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"]::before {
   content: "";
-  width: 82px;
-  height: 82px;
+  width: 122px;
+  height: 96px;
   display: block;
-  margin: 0 auto 0.42rem;
+  margin: 0 auto 0.36rem;
   background-position: center;
   background-repeat: no-repeat;
   background-size: contain;
@@ -2091,29 +2091,35 @@ body.pdf-modal-open {
 }
 .documents-badges {
   display: flex;
-  gap: 0.55rem;
-  flex-wrap: wrap;
+  gap: 0.48rem;
+  flex-wrap: nowrap;
   margin-top: 0.85rem;
+  width: 100%;
 }
 .documents-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  justify-content: center;
+  gap: 0.3rem;
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 34px;
   border: 1px solid #DCE8F7;
   border-radius: 10px;
   background: #FFFFFF;
   color: #405072;
-  padding: 0.35rem 0.65rem;
-  font-size: 0.78rem;
+  padding: 0.35rem 0.42rem;
+  font-size: 0.74rem;
   font-weight: 850;
+  line-height: 1;
+  white-space: nowrap;
 }
 .documents-badge img {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   object-fit: contain;
   display: block;
-  flex: 0 0 18px;
+  flex: 0 0 16px;
 }
 .documents-badge.is-red { color: #D92013; }
 .documents-badge.is-blue { color: var(--blue); }
