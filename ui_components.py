@@ -829,8 +829,8 @@ html, body, [class*="css"] {
   scrollbar-gutter: stable;
 }
 .doc-table-grid {
-  width: max(100%, 1060px);
-  min-width: 1060px;
+  width: max(100%, 1120px);
+  min-width: 1120px;
   border: 1px solid #E6EEF9;
   border-radius: 12px;
   overflow: hidden;
@@ -839,7 +839,7 @@ html, body, [class*="css"] {
 .doc-table-head,
 .doc-table-row {
   display: grid;
-  grid-template-columns: minmax(290px, 1fr) 76px 126px 112px 150px 112px 136px;
+  grid-template-columns: minmax(290px, 1fr) 76px 126px 112px 150px 112px 174px;
   align-items: center;
 }
 .doc-table-head {
@@ -1089,11 +1089,29 @@ html, body, [class*="css"] {
 .tiny-action.alt {
   color: var(--blue);
 }
+.tiny-action.danger {
+  border-color: #FFD3CA;
+  color: #E52D18;
+}
+.tiny-action.danger:visited {
+  color: #E52D18;
+}
+.tiny-action.danger:hover {
+  background: #FFF5F2;
+  border-color: #FFB5A8;
+  color: #BA2B19;
+}
 .tiny-action img {
   width: 17px;
   height: 17px;
   object-fit: contain;
   display: block;
+}
+.tiny-action svg {
+  width: 17px;
+  height: 17px;
+  display: block;
+  stroke: currentColor;
 }
 .doc-info-strip {
   display: flex;
@@ -1932,6 +1950,408 @@ body.pdf-modal-open {
   font-weight: 900;
   margin-bottom: 0.85rem;
 }
+.documents-section-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.55rem 0 1rem;
+  overflow: hidden;
+}
+.documents-section-title {
+  color: var(--navy);
+  font-size: 1.55rem;
+  line-height: 1.1;
+  font-weight: 900;
+  flex: 0 0 auto;
+}
+.documents-section-rule {
+  height: 1px;
+  flex: 1 1 auto;
+  background: linear-gradient(90deg, #CAD8EA, rgba(202,216,234,0));
+}
+.documents-circuit {
+  position: absolute;
+  right: 0;
+  top: -18px;
+  width: min(430px, 40vw);
+  height: 92px;
+  pointer-events: none;
+  opacity: 0.42;
+  background:
+    radial-gradient(circle at 88% 28%, transparent 0 3px, rgba(16,94,221,0.4) 4px, transparent 5px),
+    radial-gradient(circle at 70% 55%, transparent 0 3px, rgba(16,94,221,0.35) 4px, transparent 5px),
+    linear-gradient(135deg, transparent 0 48%, rgba(88,172,244,0.38) 49% 51%, transparent 52%),
+    repeating-linear-gradient(0deg, transparent 0 18px, rgba(88,172,244,0.34) 19px, transparent 20px);
+  clip-path: polygon(18% 16%, 100% 16%, 100% 84%, 7% 84%, 28% 58%, 68% 58%, 78% 45%, 54% 45%, 46% 32%, 18% 32%);
+}
+.documents-upload-card,
+.documents-progress-card,
+.selected-document-card {
+  margin: 0 0 1rem;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid rgba(16,94,221,0.13);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,251,255,0.96));
+  box-shadow: 0 18px 46px rgba(11, 48, 117, 0.09);
+}
+.documents-card-title {
+  color: var(--navy);
+  font-size: 1.04rem;
+  font-weight: 900;
+  margin-bottom: 0.8rem;
+}
+.documents-upload-zone {
+  min-height: 148px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.55rem;
+  border: 1.5px dashed #6CA8FF;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #FFFFFF, #F5FAFF);
+  color: #405072;
+  text-align: center;
+  font-weight: 700;
+}
+.documents-upload-zone svg {
+  width: 72px;
+  height: 72px;
+  color: var(--blue);
+  stroke: currentColor;
+}
+.documents-upload-zone a {
+  color: var(--blue);
+  font-weight: 900;
+  text-decoration: none;
+}
+.documents-badges {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  margin-top: 0.85rem;
+}
+.documents-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 34px;
+  border: 1px solid #DCE8F7;
+  border-radius: 10px;
+  background: #FFFFFF;
+  color: #405072;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+.documents-badge.is-red { color: #D92013; }
+.documents-badge.is-blue { color: var(--blue); }
+.documents-badge.is-green { color: #1D8B42; }
+.progress-pipeline {
+  display: flex;
+  flex-direction: column;
+}
+.pipeline-row {
+  display: grid;
+  grid-template-columns: 26px minmax(150px, 1fr) minmax(92px, auto);
+  gap: 0.62rem;
+  align-items: center;
+  min-height: 44px;
+  border-bottom: 1px solid #E7EFF9;
+  color: #405072;
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+.pipeline-row:last-child { border-bottom: 0; }
+.pipeline-dot {
+  width: 21px;
+  height: 21px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #8BA2C5;
+  border-radius: 999px;
+  color: #8BA2C5;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+.pipeline-row.is-complete .pipeline-dot {
+  border-color: #0A9B3F;
+  background: #0A9B3F;
+  color: #FFFFFF;
+}
+.pipeline-row.is-active .pipeline-dot {
+  border-color: var(--blue);
+  color: var(--blue);
+  box-shadow: 0 0 0 4px rgba(16,94,221,0.10);
+}
+.pipeline-value {
+  color: var(--navy);
+  text-align: right;
+  white-space: nowrap;
+}
+.documents-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 0 0 1rem;
+}
+.documents-metric-card {
+  position: relative;
+  min-height: 128px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1.05rem 1.15rem;
+  border: 1px solid #DFE7F3;
+  border-left: 3px solid var(--accent);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(248,251,255,0.95));
+  box-shadow: 0 16px 38px rgba(11, 48, 117, 0.09);
+}
+.documents-metric-card.is-warm { --accent: #FF3B16; --helper: #FF3B16; --icon-bg: #FFF0EA; }
+.documents-metric-card.is-cool { --accent: #105EDD; --helper: #105EDD; --icon-bg: #EAF3FF; }
+.documents-metric-card.is-gold { --accent: #F5B400; --helper: #A87400; --icon-bg: #FFF7DF; }
+.documents-metric-icon {
+  width: 58px;
+  height: 58px;
+  flex: 0 0 58px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--icon-bg);
+  color: var(--accent);
+}
+.documents-metric-icon svg {
+  width: 31px;
+  height: 31px;
+  stroke: currentColor;
+}
+.documents-metric-label {
+  color: var(--navy);
+  font-size: 0.88rem;
+  font-weight: 900;
+}
+.documents-metric-value {
+  color: #020A34;
+  font-size: 2.35rem;
+  line-height: 1;
+  font-weight: 900;
+  margin-top: 0.25rem;
+}
+.documents-metric-helper {
+  color: var(--helper);
+  font-size: 0.78rem;
+  font-weight: 850;
+  margin-top: 0.65rem;
+}
+.selected-document-card {
+  position: sticky;
+  top: 1rem;
+}
+.selected-document-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+.selected-close {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #405072;
+  text-decoration: none;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+.selected-doc-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.72rem;
+  margin: 0.8rem 0 0.75rem;
+}
+.selected-pdf-mark {
+  width: 42px;
+  height: 48px;
+  flex: 0 0 42px;
+  border-radius: 8px;
+  background: #E51912;
+  color: #FFFFFF;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+.selected-doc-name {
+  color: var(--navy);
+  font-weight: 900;
+  line-height: 1.18;
+  word-break: break-word;
+}
+.selected-doc-size {
+  color: #405072;
+  font-size: 0.78rem;
+  font-weight: 750;
+  margin-top: 0.2rem;
+}
+.selected-meta-row {
+  display: grid;
+  grid-template-columns: 22px minmax(92px, 1fr) minmax(0, 1fr);
+  gap: 0.48rem;
+  align-items: center;
+  min-height: 38px;
+  border-bottom: 1px solid #E7EFF9;
+  color: #405072;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+.selected-meta-row:last-child { border-bottom: 0; }
+.selected-meta-icon {
+  color: #476289;
+  font-size: 0.95rem;
+}
+.selected-meta-value {
+  color: var(--navy);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.selected-preview {
+  margin-top: 1rem;
+  border: 1px solid #E3ECF8;
+  border-radius: 12px;
+  background: #F8FBFF;
+  overflow: hidden;
+}
+.selected-preview-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.58rem 0.75rem;
+  color: var(--navy);
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+.selected-preview img {
+  width: 100%;
+  display: block;
+  background: #FFFFFF;
+  border-top: 1px solid #E3ECF8;
+}
+.selected-preview-empty {
+  padding: 1.1rem 0.75rem;
+  color: #64708A;
+  font-size: 0.82rem;
+  font-weight: 750;
+  text-align: center;
+}
+.selected-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  margin-top: 1rem;
+  border: 1px solid #F3442C;
+  border-radius: 10px;
+  background: #FFFFFF;
+  color: #E52D18;
+  font-size: 0.9rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+.selected-delete:visited { color: #E52D18; }
+.selected-delete:hover {
+  background: #FFF5F2;
+  color: #BA2B19;
+  text-decoration: none;
+}
+.selected-delete-copy {
+  margin-top: 0.55rem;
+  color: #405072;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+.delete-confirm-panel {
+  margin: 0 0 1rem;
+  padding: 1rem;
+  border: 1px solid #FFD3CA;
+  border-radius: 16px;
+  background: #FFFFFF;
+  box-shadow: 0 18px 46px rgba(200,71,44,0.10);
+}
+.delete-confirm-title {
+  color: #020A34;
+  font-size: 1.25rem;
+  font-weight: 900;
+  margin-bottom: 0.5rem;
+}
+.delete-confirm-copy {
+  color: #405072;
+  font-size: 0.9rem;
+  line-height: 1.48;
+}
+.delete-summary-card {
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+  margin: 0.85rem 0;
+  padding: 0.75rem;
+  border: 1px solid #DCE8F7;
+  border-radius: 12px;
+  background: #FBFDFF;
+}
+.delete-check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  color: #405072;
+  font-size: 0.86rem;
+  font-weight: 750;
+  margin: 0.42rem 0;
+}
+.delete-check-dot {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #0A9B3F;
+  color: #FFFFFF;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+.delete-check-dot.info {
+  background: #FFFFFF;
+  border: 1px solid #8BA2C5;
+  color: #405072;
+}
+.delete-warning {
+  margin-top: 0.75rem;
+  color: #E52D18;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+.st-key-confirm_delete_doc button,
+.st-key-inline_confirm_delete_doc button {
+  background: #E52D18 !important;
+  border-color: #E52D18 !important;
+  color: #FFFFFF !important;
+}
+.st-key-confirm_delete_doc button:hover,
+.st-key-inline_confirm_delete_doc button:hover {
+  background: #BA2B19 !important;
+  border-color: #BA2B19 !important;
+}
 .empty-state, .error-state {
   border-radius: 16px;
   padding: 1rem;
@@ -2002,7 +2422,13 @@ div.stButton > button[kind="primary"] {
     overflow-x: auto;
   }
   .doc-table-grid {
-    min-width: 980px;
+    min-width: 1060px;
+  }
+  .documents-metric-grid {
+    grid-template-columns: 1fr;
+  }
+  .selected-document-card {
+    position: static;
   }
 }
 @media (max-width: 620px) {
@@ -2433,6 +2859,17 @@ def _indexed_docs_icon(filename: str, alt: str, class_name: str = "") -> str:
     return f'<img{class_attr} src="{icon_uri}" alt="{html.escape(alt)}" loading="lazy" />'
 
 
+def _trash_icon() -> str:
+    return (
+        '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">'
+        '<path d="M4 7h16" stroke-width="2" stroke-linecap="round"/>'
+        '<path d="M10 11v6M14 11v6" stroke-width="2" stroke-linecap="round"/>'
+        '<path d="M6 7l1 14h10l1-14" stroke-width="2" stroke-linejoin="round"/>'
+        '<path d="M9 7V4h6v3" stroke-width="2" stroke-linejoin="round"/>'
+        "</svg>"
+    )
+
+
 def _format_file_size(size_bytes: Any) -> str:
     try:
         size = int(size_bytes or 0)
@@ -2478,6 +2915,8 @@ def render_document_table(
     documents: list[dict[str, Any]],
     title: str = "Indexed documents",
     source_section: str | None = None,
+    enable_delete: bool = False,
+    info_copy: str = "All documents are chunked semantically and stored as high-quality embeddings for accurate retrieval.",
 ) -> None:
     total_documents = len(documents)
     total_chunks = sum(int(doc.get("chunks") or 0) for doc in documents)
@@ -2491,6 +2930,7 @@ def render_document_table(
     pdf_icon = _indexed_docs_icon("pdf-file-icon.png", "PDF file")
     view_icon = _indexed_docs_icon("view-eye-icon.png", "View")
     sync_icon = _indexed_docs_icon("sync-icon.png", "Re-ingest")
+    trash_icon = _trash_icon()
     lightbulb_icon = _indexed_docs_icon("lightbulb-info-icon.png", "Info")
 
     row_html = []
@@ -2513,7 +2953,16 @@ def render_document_table(
         chunk_segments = _chunk_segments(chunks, max_chunks)
         view_target = quote(document_hash or filename, safe="")
         source_query = f"&from_section={quote(source_section, safe='')}" if source_section else ""
+        selected_query = f"&selected_doc={view_target}" if document_hash else ""
+        reingest_href = f"?reingest_doc={view_target}{source_query}{selected_query}"
+        delete_href = f"?delete_doc={view_target}{selected_query}" if enable_delete else ""
         modal_id = _pdf_modal_id(doc)
+        delete_action_html = (
+            f'<a class="tiny-action danger" href="{delete_href}" title="Delete {html.escape(filename)}">'
+            f'{trash_icon}<span>Delete</span></a>'
+            if enable_delete
+            else ""
+        )
 
         row_html.append(
             '<div class="doc-table-row">'
@@ -2538,8 +2987,10 @@ def render_document_table(
             '<div class="doc-row-actions">'
             f'<a class="tiny-action" href="#{html.escape(modal_id, quote=True)}" data-pdf-modal-target="{html.escape(modal_id, quote=True)}" '
             f'data-pdf-modal-fallback="?view_doc={view_target}{source_query}" title="View {html.escape(filename)}">'
-            f'{view_icon}<span>View</span></a>'
-            f'<span class="tiny-action alt" title="Re-ingest">{sync_icon}<span>Re-ingest</span></span>'
+            f'{view_icon}<span>Preview</span></a>'
+            f'<a class="tiny-action alt" href="{reingest_href}" title="Re-ingest {html.escape(filename)}">'
+            f'{sync_icon}<span>Re-ingest</span></a>'
+            f'{delete_action_html}'
             '</div>'
             '</div>'
             '</div>'
@@ -2598,7 +3049,7 @@ def render_document_table(
   <div class="doc-info-strip">
     <div class="doc-info-copy">
       {lightbulb_icon}
-      <span>All documents are chunked semantically and stored as high-quality embeddings for accurate retrieval.</span>
+      <span>{html.escape(info_copy)}</span>
     </div>
     <span class="doc-view-all">View all documents <span aria-hidden="true">{chevron_icon}</span></span>
   </div>

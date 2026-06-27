@@ -17,6 +17,7 @@ from rag_utils import (
     EMBEDDING_MODEL,
     UPLOADED_DOCS_DIR,
     build_token_usage_summary,
+    delete_document_by_hash,
     generate_answer,
     get_chroma_collection,
     get_collection_stats,
@@ -190,6 +191,106 @@ def resolve_source_pdf_path(document: dict[str, Any]) -> Path | None:
     return filename_matches[0] if filename_matches else None
 
 
+def get_document_location_label(document: dict[str, Any]) -> str:
+    pdf_path = resolve_source_pdf_path(document)
+    if not pdf_path:
+        return "Source unavailable"
+
+    try:
+        resolved_path = pdf_path.resolve()
+        uploaded_root = Path(UPLOADED_DOCS_DIR).resolve()
+        docs_root = Path(DOCS_DIR).resolve()
+        if resolved_path.is_relative_to(uploaded_root):
+            return "uploaded_docs/"
+        if resolved_path.is_relative_to(docs_root):
+            return "docs/"
+    except Exception:
+        pass
+
+    return "Source unavailable"
+
+
+def find_uploaded_pdfs_by_hash(document_hash: str) -> list[Path]:
+    if not document_hash:
+        return []
+
+    matches: list[Path] = []
+    uploaded_dir = Path(UPLOADED_DOCS_DIR)
+    if not uploaded_dir.exists():
+        return matches
+
+    for candidate in sorted(uploaded_dir.glob("*.pdf")):
+        try:
+            if get_document_hash(candidate) == document_hash:
+                matches.append(candidate)
+        except Exception:
+            continue
+    return matches
+
+
+def find_document_by_hash(stats: dict[str, Any], target: str) -> dict[str, Any] | None:
+    target = unquote(target or "").strip()
+    if not target:
+        return None
+    for document in stats.get("documents", []):
+        document_hash = str(document.get("document_hash", "") or "").strip()
+        filename = str(document.get("filename", "") or "").strip()
+        if target in {document_hash, filename}:
+            return document
+    return None
+
+
+def clear_document_query_params(*names: str, rerun: bool = False) -> None:
+    for name in names:
+        try:
+            if name in st.query_params:
+                del st.query_params[name]
+        except Exception:
+            continue
+    if rerun:
+        st.rerun()
+
+
+def delete_document_from_knowledge_base(document: dict[str, Any], collection) -> dict[str, Any]:
+    filename = str(document.get("filename", "") or "document")
+    document_hash = str(document.get("document_hash", "") or "").strip()
+    if not document_hash:
+        return {
+            "filename": filename,
+            "document_hash": "",
+            "deleted_chunks": 0,
+            "deleted_files": [],
+            "source_file_deleted": False,
+            "status": "failed",
+            "reason": "Missing document hash.",
+        }
+
+    deleted_chunks = delete_document_by_hash(collection, document_hash)
+    deleted_files: list[str] = []
+    for pdf_path in find_uploaded_pdfs_by_hash(document_hash):
+        try:
+            pdf_path.unlink()
+            deleted_files.append(str(pdf_path))
+        except Exception:
+            continue
+
+    source_file_deleted = bool(deleted_files)
+    source_copy = "removed uploaded source" if source_file_deleted else "kept source file"
+    chunk_copy = f"{deleted_chunks:,} indexed chunk" + ("" if deleted_chunks == 1 else "s")
+    add_ingestion_event(f"Deleted {filename}: {source_copy} and {chunk_copy}.")
+    invalidate_collection_stats_cache()
+
+    return {
+        "filename": filename,
+        "document_hash": document_hash,
+        "deleted_chunks": deleted_chunks,
+        "deleted_files": deleted_files,
+        "source_file_deleted": source_file_deleted,
+        "status": "deleted",
+        "reason": "Deleted uploaded source and indexed chunks." if source_file_deleted else "Deleted indexed chunks; source file was retained.",
+    }
+
+
 def get_pdf_modal_document(stats: dict[str, Any]) -> dict[str, Any] | None:
     selected = get_query_param("view_doc")
     if not selected:
@@ -288,40 +389,163 @@ def handle_pdf_reingest_action(stats: dict[str, Any]) -> None:
         return
     source_section = get_query_param("from_section")
 
-    document = next(
-        (
-            item
-            for item in stats.get("documents", [])
-            if unquote(target) in {str(item.get("document_hash", "")), str(item.get("filename", ""))}
-        ),
-        None,
-    )
+    document = find_document_by_hash(stats, target)
     if not document:
-        st.query_params.clear()
+        clear_document_query_params("reingest_doc", "selected_doc", rerun=True)
         return
 
     pdf_path = resolve_source_pdf_path(document)
     if not pdf_path:
         st.session_state.pdf_modal_notice = "Source PDF not found in docs/ or uploaded_docs/."
+        st.session_state.document_action_notice = ("error", "Source PDF not found in docs/ or uploaded_docs/.")
     else:
         collection = get_chroma_collection()
+        old_hash = str(document.get("document_hash", "") or "").strip()
+        purged_chunks = delete_document_by_hash(collection, old_hash)
         result = ingest_pdf(pdf_path, collection=collection, force=True)
         st.session_state.last_ingestion_results = [result]
-        add_ingestion_event(f"Re-ingested {pdf_path.name}.")
+        add_ingestion_event(f"Re-ingested {pdf_path.name}: purged {purged_chunks:,} old chunks before indexing.")
         st.session_state.pdf_modal_notice = f"Re-ingested {pdf_path.name}."
+        st.session_state.document_action_notice = ("success", f"Re-ingested {pdf_path.name}.")
         invalidate_collection_stats_cache()
 
     try:
-        st.query_params["view_doc"] = target
-        if source_section in NAV_SECTIONS:
-            st.query_params["from_section"] = source_section
-        del st.query_params["reingest_doc"]
+        if "reingest_doc" in st.query_params:
+            del st.query_params["reingest_doc"]
+        if source_section == "Documents":
+            if pdf_path:
+                st.query_params["selected_doc"] = result.get("document_hash") or target
+            if "view_doc" in st.query_params:
+                del st.query_params["view_doc"]
+            if "from_section" in st.query_params:
+                del st.query_params["from_section"]
+        else:
+            st.query_params["view_doc"] = result.get("document_hash") if pdf_path else target
+            if source_section in NAV_SECTIONS:
+                st.query_params["from_section"] = source_section
     except Exception:
-        st.query_params.clear()
-        st.query_params["view_doc"] = target
-        if source_section in NAV_SECTIONS:
-            st.query_params["from_section"] = source_section
+        clear_document_query_params("reingest_doc")
+        if source_section == "Documents":
+            st.query_params["selected_doc"] = result.get("document_hash") if pdf_path else target
+        else:
+            st.query_params["view_doc"] = result.get("document_hash") if pdf_path else target
+            if source_section in NAV_SECTIONS:
+                st.query_params["from_section"] = source_section
     st.rerun()
+
+
+def confirm_delete_document(document: dict[str, Any], collection) -> None:
+    document_hash = str(document.get("document_hash", "") or "").strip()
+    result = delete_document_from_knowledge_base(document, collection)
+    if result.get("status") == "deleted":
+        filename = result.get("filename", "Document")
+        chunks = int(result.get("deleted_chunks", 0) or 0)
+        if result.get("source_file_deleted"):
+            message = f"Deleted {filename}: removed uploaded source and {chunks:,} indexed chunks."
+        else:
+            message = f"Deleted {filename}: purged {chunks:,} indexed chunks and retained the source file."
+        st.session_state.document_action_notice = ("success", message)
+    else:
+        st.session_state.document_action_notice = ("error", result.get("reason", "Document could not be deleted."))
+
+    clear_document_query_params("delete_doc", "view_doc", "from_section")
+    try:
+        if get_query_param("selected_doc") == document_hash:
+            del st.query_params["selected_doc"]
+    except Exception:
+        pass
+    st.rerun()
+
+
+def delete_confirmation_markup(document: dict[str, Any]) -> str:
+    filename = str(document.get("filename", "") or "document")
+    pages = int(document.get("pages") or 0)
+    chunks = int(document.get("chunks") or 0)
+    document_hash = str(document.get("document_hash", "") or "")
+    short_hash = document_hash[:12] if document_hash else "n/a"
+    location = get_document_location_label(document)
+    uploaded_matches = find_uploaded_pdfs_by_hash(document_hash)
+    source_is_uploaded = bool(uploaded_matches)
+
+    if source_is_uploaded:
+        body = (
+            f"This will remove {filename} from uploaded_docs/ and delete all indexed ChromaDB chunks "
+            "for this SHA-256 hash. The assistant will no longer retrieve it."
+        )
+        source_title = "Remove source PDF"
+        source_body = "Delete the file from uploaded_docs/."
+    else:
+        body = (
+            f"This will delete all indexed ChromaDB chunks for {filename}. The source PDF is not in "
+            "uploaded_docs/, so the source file will be kept. The assistant will no longer retrieve it."
+        )
+        source_title = "Source PDF retained"
+        source_body = f"Keep the source file in {location}."
+
+    page_label = f"{pages:,} page" + ("" if pages == 1 else "s")
+    chunk_label = f"{chunks:,} chunk" + ("" if chunks == 1 else "s")
+    return f"""
+<div class="delete-confirm-panel">
+  <div class="delete-confirm-title">Delete document?</div>
+  <div class="delete-confirm-copy">{html.escape(body)}</div>
+  <div class="delete-summary-card">
+    <div class="selected-pdf-mark">PDF</div>
+    <div>
+      <div class="selected-doc-name">{html.escape(filename)}</div>
+      <div class="selected-doc-size">{html.escape(page_label)} &bull; {html.escape(chunk_label)} &bull; {html.escape(short_hash)}</div>
+    </div>
+  </div>
+  <div class="delete-check-row"><span class="delete-check-dot">&#10003;</span><div><strong>{html.escape(source_title)}</strong><br>{html.escape(source_body)}</div></div>
+  <div class="delete-check-row"><span class="delete-check-dot">&#10003;</span><div><strong>Purge vector chunks</strong><br>Delete all chunks in ChromaDB for this document hash.</div></div>
+  <div class="delete-check-row"><span class="delete-check-dot info">i</span><div><strong>Chat history is not deleted</strong><br>Your conversations remain intact.</div></div>
+  <div class="delete-warning">This cannot be undone from the app.</div>
+</div>
+"""
+
+
+def render_delete_confirmation_controls(document: dict[str, Any], collection, key_prefix: str) -> None:
+    cancel_col, delete_col = st.columns([1, 1.35])
+    with cancel_col:
+        if st.button("Cancel", key=f"{key_prefix}_cancel_delete_doc", use_container_width=True):
+            clear_document_query_params("delete_doc", rerun=True)
+    with delete_col:
+        if st.button(
+            "Delete document",
+            key=f"{key_prefix}_confirm_delete_doc",
+            type="primary",
+            use_container_width=True,
+        ):
+            confirm_delete_document(document, collection)
+
+
+def render_delete_confirmation_inline(document: dict[str, Any], collection, key_prefix: str = "inline") -> None:
+    st.markdown(delete_confirmation_markup(document), unsafe_allow_html=True)
+    render_delete_confirmation_controls(document, collection, key_prefix)
+
+
+def handle_document_delete_action(stats: dict[str, Any]) -> None:
+    target = get_query_param("delete_doc")
+    if not target:
+        return
+
+    document = find_document_by_hash(stats, target)
+    if not document:
+        st.session_state.document_action_notice = ("error", "Document is no longer available.")
+        clear_document_query_params("delete_doc", "selected_doc", rerun=True)
+        return
+
+    dialog = getattr(st, "dialog", None)
+    if not callable(dialog):
+        return
+
+    collection = get_chroma_collection()
+
+    @dialog("Delete document?")
+    def _delete_document_dialog() -> None:
+        st.markdown(delete_confirmation_markup(document), unsafe_allow_html=True)
+        render_delete_confirmation_controls(document, collection, "dialog")
+
+    _delete_document_dialog()
 
 
 def pdf_data_uri(pdf_path: Path) -> str:
@@ -1180,62 +1404,275 @@ def render_chat_screen(stats: dict[str, Any]) -> None:
         answer_question(prompt)
 
 
-def render_documents_screen(stats: dict[str, Any]) -> None:
+def format_storage_estimate(value_mb: Any) -> str:
+    try:
+        size_mb = float(value_mb or 0)
+    except (TypeError, ValueError):
+        size_mb = 0.0
+    if size_mb <= 0:
+        return "0 KB"
+    if size_mb < 1:
+        return f"{max(1, round(size_mb * 1024)):,} KB"
+    return f"{size_mb:.1f} MB"
+
+
+def render_documents_section_heading() -> None:
     st.markdown(
         """
-<div class="hero-card">
-  <h2 class="hero-title">Ingestion &amp; document management</h2>
-  <div class="hero-copy">Upload, ingest, and manage your PDFs. The system extracts text, chunks it semantically, and stores embeddings for retrieval.</div>
+<div class="documents-section-head">
+  <div class="documents-section-title">Documents</div>
+  <div class="documents-section-rule"></div>
+  <div class="documents-circuit" aria-hidden="true"></div>
 </div>
 """,
         unsafe_allow_html=True,
     )
 
-    upload_col, status_col = st.columns([1, 1.35])
-    with upload_col:
+
+def render_documents_upload_card() -> None:
+    st.markdown(
+        """
+<div class="documents-upload-card">
+  <div class="documents-card-title">Upload PDFs</div>
+  <div class="documents-upload-zone">
+    <svg viewBox="0 0 96 72" fill="none" aria-hidden="true">
+      <path d="M32 54H22C12 54 6 48 6 39c0-8 6-15 14-16C23 11 34 4 47 7c10 2 18 10 20 20h3c11 0 20 8 20 19 0 5-2 10-6 14" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M48 61V33M36 45l12-12 12 12" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M70 37h13l7 7v20H70V37Z" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M83 37v8h7" stroke-width="4" stroke-linejoin="round"/>
+    </svg>
+    <div>Drag PDFs here or <a>browse files</a></div>
+  </div>
+  <div class="documents-badges">
+    <span class="documents-badge is-red">PDF only</span>
+    <span class="documents-badge is-blue">Persistent upload</span>
+    <span class="documents-badge is-green">Duplicate-safe</span>
+  </div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+    uploaded = st.file_uploader(
+        "Upload PDFs",
+        type=["pdf"],
+        accept_multiple_files=True,
+        label_visibility="collapsed",
+    )
+    if uploaded:
+        saved = save_uploaded_files(uploaded)
+        st.success(f"Saved {len(saved)} file(s) to uploaded_docs/.")
+
+
+def pipeline_state(step_name: str, events: list[str], results: list[dict[str, Any]]) -> str:
+    if results:
+        latest_status = str(results[-1].get("status", "")).lower()
+        if latest_status in {"indexed", "skipped"}:
+            return "complete"
+        if latest_status == "failed":
+            return "pending"
+    event_text = " ".join(events).lower()
+    if step_name.lower() in event_text:
+        return "active"
+    return "pending"
+
+
+def render_ingestion_progress_card() -> None:
+    events = [str(event) for event in st.session_state.ingestion_events[-8:]]
+    results = list(st.session_state.last_ingestion_results or [])
+    latest = results[-1] if results else {}
+    indexed = str(latest.get("status", "")).lower() == "indexed"
+    pages = int(latest.get("pages") or 0)
+    chunks = int(latest.get("chunks") or 0)
+
+    rows = [
+        ("Extract pages", "complete" if pages else pipeline_state("extracting", events, results), f"{pages:,} pages" if pages else "Idle"),
+        ("Semantic chunking", "complete" if chunks else pipeline_state("chunking", events, results), f"{chunks:,} chunks" if chunks else "Idle"),
+        ("Embedding chunks", "complete" if indexed else pipeline_state("embedding", events, results), "Completed" if indexed else "Pending"),
+        ("ChromaDB sync", "complete" if indexed else pipeline_state("indexed", events, results), "Completed" if indexed else "Pending"),
+    ]
+    row_html = []
+    for label, state, value in rows:
+        state_class = {"complete": "is-complete", "active": "is-active"}.get(state, "")
+        dot = "&#10003;" if state == "complete" else ""
+        row_html.append(
+            f'<div class="pipeline-row {state_class}"><span class="pipeline-dot">{dot}</span>'
+            f'<span>{html.escape(label)}</span><span class="pipeline-value">{html.escape(value)}</span></div>'
+        )
+
+    st.markdown(
+        f"""
+<div class="documents-progress-card">
+  <div class="documents-card-title">Ingestion progress</div>
+  <div class="progress-pipeline">{''.join(row_html)}</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def render_documents_metric_cards(stats: dict[str, Any]) -> None:
+    total_documents = int(stats.get("total_documents", 0) or 0)
+    total_chunks = int(stats.get("total_chunks", 0) or 0)
+    storage = format_storage_estimate(stats.get("storage_estimate_mb", 0))
+    cards = [
+        ("Total Documents", f"{total_documents:,}", "Deduped by SHA-256", "warm", "M4 6h12l4 4v8H4V6Zm12 0v4h4"),
+        ("Total Chunks", f"{total_chunks:,}", "Stored in ChromaDB", "cool", "M12 3 3 7.5 12 12l9-4.5L12 3Zm3 10.5 6-3v6L12 21l-9-4.5v-6l6 3"),
+        ("Storage Estimate", storage, "Source PDFs only", "gold", "M5 7c0-2 3-4 7-4s7 2 7 4-3 4-7 4-7-2-7-4Zm0 0v10c0 2 3 4 7 4s7-2 7-4V7"),
+    ]
+    card_html = []
+    for label, value, helper, tone, path_data in cards:
+        card_html.append(
+            f"""
+<div class="documents-metric-card is-{tone}">
+  <div class="documents-metric-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="{path_data}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div>
+    <div class="documents-metric-label">{html.escape(label)}</div>
+    <div class="documents-metric-value">{html.escape(value)}</div>
+    <div class="documents-metric-helper">{html.escape(helper)}</div>
+  </div>
+</div>
+"""
+        )
+    st.markdown(f'<div class="documents-metric-grid">{"".join(card_html)}</div>', unsafe_allow_html=True)
+
+
+def get_selected_document(stats: dict[str, Any]) -> dict[str, Any] | None:
+    selected = get_query_param("selected_doc")
+    if selected:
+        document = find_document_by_hash(stats, selected)
+        if document:
+            return document
+    documents = stats.get("documents", [])
+    return documents[0] if documents else None
+
+
+def render_selected_document_panel(document: dict[str, Any] | None) -> None:
+    if not document:
         st.markdown(
             """
-<div class="upload-zone">
-  <div class="upload-glyph">PDF</div>
-  <strong>Drag and drop PDFs here</strong>
-  <p>Files are saved to uploaded_docs/ for persistent local ingestion.</p>
+<div class="selected-document-card">
+  <div class="selected-document-header"><div class="documents-card-title">Selected document</div></div>
+  <div class="selected-preview-empty">No indexed documents yet.</div>
 </div>
 """,
             unsafe_allow_html=True,
         )
-        uploaded = st.file_uploader(
-            "Upload PDFs",
-            type=["pdf"],
-            accept_multiple_files=True,
-            label_visibility="collapsed",
-        )
-        if uploaded:
-            saved = save_uploaded_files(uploaded)
-            st.success(f"Saved {len(saved)} file(s) to uploaded_docs/.")
-        if st.button("Ingest uploaded and docs folder", type="primary", use_container_width=True):
-            ingest_all_known_pdfs()
+        return
 
-    with status_col:
-        st.markdown('<div class="section-card"><div class="section-title">Ingestion progress</div>', unsafe_allow_html=True)
-        events = st.session_state.ingestion_events[-6:]
-        if not events:
-            st.caption("No ingestion events yet.")
-        for event in events:
-            st.info(event)
-        if st.session_state.last_ingestion_results:
-            st.dataframe(st.session_state.last_ingestion_results, hide_index=True, use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+    filename = str(document.get("filename", "") or "document")
+    file_size = format_file_size(document.get("file_size"))
+    pages = int(document.get("pages") or 0)
+    chunks = int(document.get("chunks") or 0)
+    status = str(document.get("status", "Indexed") or "Indexed").title()
+    last_ingested = format_ingested_timestamp(document.get("last_ingested"))
+    document_hash = str(document.get("document_hash", "") or "")
+    short_hash = document_hash[:12] if document_hash else "n/a"
+    chunking = str(document.get("chunking_strategy", "Semantic") or "Semantic").title()
+    location = get_document_location_label(document)
+    target = quote(document_hash or filename, safe="")
+    delete_href = f"?delete_doc={target}&selected_doc={target}"
+    pdf_path = resolve_source_pdf_path(document)
+    preview_html = '<div class="selected-preview-empty">Source PDF unavailable.</div>'
+    if pdf_path:
+        try:
+            stat = pdf_path.stat()
+            pages_rendered = render_pdf_page_images(str(pdf_path), stat.st_size, stat.st_mtime_ns, thumb_scale=0.42)
+            if pages_rendered:
+                preview_html = f'<img src="{pages_rendered[0]["thumb_uri"]}" alt="First page preview of {html.escape(filename)}" />'
+        except Exception:
+            preview_html = '<div class="selected-preview-empty">Preview unavailable.</div>'
 
-    metric_cols = st.columns(3)
-    with metric_cols[0]:
-        render_metric_card("Total documents", str(stats.get("total_documents", 0)), "Deduped by SHA-256", "warm")
-    with metric_cols[1]:
-        render_metric_card("Total chunks", f'{stats.get("total_chunks", 0):,}', "Stored in ChromaDB")
-    with metric_cols[2]:
-        render_metric_card("Storage estimate", f'{stats.get("storage_estimate_mb", 0):.2f} MB', "Source PDFs only", "gold")
+    metadata_rows = [
+        ("folder", "Location", location),
+        ("page", "Pages", f"{pages:,}"),
+        ("stack", "Chunks", f"{chunks:,} ({chunking})"),
+        ("check", "Status", status),
+        ("date", "Last ingested", last_ingested),
+        ("hash", "Hash (SHA-256)", short_hash),
+        ("split", "Chunking", chunking),
+        ("box", "Vector store", "ChromaDB"),
+    ]
+    row_html = "".join(
+        f'<div class="selected-meta-row"><span class="selected-meta-icon">{html.escape(icon[:1].upper())}</span>'
+        f'<span>{html.escape(label)}</span><span class="selected-meta-value" title="{html.escape(value)}">{html.escape(value)}</span></div>'
+        for icon, label, value in metadata_rows
+    )
+
+    st.markdown(
+        f"""
+<div class="selected-document-card">
+  <div class="selected-document-header">
+    <div class="documents-card-title">Selected document</div>
+    <a class="selected-close" href="?" title="Clear selected document">&times;</a>
+  </div>
+  <div class="selected-doc-identity">
+    <div class="selected-pdf-mark">PDF</div>
+    <div>
+      <div class="selected-doc-name">{html.escape(filename)}</div>
+      <div class="selected-doc-size">{html.escape(file_size)}</div>
+    </div>
+  </div>
+  <div>{row_html}</div>
+  <div class="selected-preview">
+    <div class="selected-preview-head"><span>Page preview</span><span>1 / {max(1, pages):,}</span></div>
+    {preview_html}
+  </div>
+  <a class="selected-delete" href="{delete_href}">{_trash_svg_inline()}<span>Delete document</span></a>
+  <div class="selected-delete-copy">Removes the source PDF and indexed chunks.</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def _trash_svg_inline() -> str:
+    return (
+        '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">'
+        '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3" '
+        'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    )
+
+
+def render_documents_screen(stats: dict[str, Any]) -> None:
+    render_documents_section_heading()
+
+    notice = st.session_state.pop("document_action_notice", None)
+    if notice:
+        level, message = notice
+        if level == "success":
+            st.success(message)
+        elif level == "error":
+            st.error(message)
+        else:
+            st.info(message)
+
+    delete_target = get_query_param("delete_doc")
+    dialog_available = callable(getattr(st, "dialog", None))
+    delete_document = find_document_by_hash(stats, delete_target) if delete_target else None
+    if delete_document and not dialog_available:
+        render_delete_confirmation_inline(delete_document, get_chroma_collection())
 
     documents = stats.get("documents", [])
-    render_document_table(documents, source_section="Documents")
+    main_col, selected_col = st.columns([3.15, 1], gap="large")
+    with main_col:
+        upload_col, status_col = st.columns([1.12, 1.08], gap="medium")
+        with upload_col:
+            render_documents_upload_card()
+        with status_col:
+            render_ingestion_progress_card()
+
+        render_documents_metric_cards(stats)
+        render_document_table(
+            documents,
+            title="Document library",
+            source_section="Documents",
+            enable_delete=True,
+            info_copy="Deleting a document removes its uploaded PDF and all ChromaDB chunks for that SHA-256 hash.",
+        )
+
+    with selected_col:
+        render_selected_document_panel(get_selected_document(stats))
+
     render_client_pdf_modals(documents, "Documents")
 
 
@@ -1418,6 +1855,7 @@ def main() -> None:
     collection = get_chroma_collection()
     stats = get_cached_collection_stats(collection)
     handle_pdf_reingest_action(stats)
+    handle_document_delete_action(stats)
     consume_navigation_query_param()
     apply_modal_source_section()
     section = render_sidebar(stats)
