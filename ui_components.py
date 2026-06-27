@@ -32,6 +32,7 @@ HEADER_ICON_DIR = Path(__file__).parent / "assets" / "header-icons"
 INDEXED_DOCS_ICON_DIR = Path(__file__).parent / "assets" / "indexed-documents"
 INDEXED_DOCS_OPTIMIZED_ICON_DIR = Path(__file__).parent / "assets" / "indexed-documents-optimized"
 PDF_MODAL_ICON_DIR = Path(__file__).parent / "assets" / "pdf-modal-icons"
+UPLOAD_ICON_DIR = Path(__file__).parent / "assets" / "upload-icons"
 SIDEBAR_NAV_ITEMS = [
     {"label": "App overview", "icon": "App_Overview_Icon.png"},
     {"label": "Chat / Answer", "icon": "Chat_Answer_Icon.png"},
@@ -134,6 +135,27 @@ def _load_indexed_docs_icon_data_uri(filename: str) -> str:
     source.save(output, format="PNG")
     encoded = base64.b64encode(output.getvalue()).decode("ascii")
     return f"data:image/png;base64,{encoded}"
+
+
+@st.cache_data(show_spinner=False)
+def load_upload_icon_data_uri(filename: str) -> str:
+    return _load_png_data_uri_fast(str(UPLOAD_ICON_DIR / filename))
+
+
+def render_upload_badges() -> None:
+    badges = [
+        ("pdf_only_icon.png", "PDF only", "is-red"),
+        ("persistent_upload_shield_icon.png", "Persistent upload", "is-blue"),
+        ("duplicate_safe_shield_icon.png", "Duplicate-safe", "is-green"),
+    ]
+    badge_html = []
+    for filename, label, tone in badges:
+        icon_uri = load_upload_icon_data_uri(filename)
+        icon_html = f'<img src="{icon_uri}" alt="" aria-hidden="true" loading="lazy" />' if icon_uri else ""
+        badge_html.append(
+            f'<span class="documents-badge {tone}">{icon_html}<span>{html.escape(label)}</span></span>'
+        )
+    st.markdown(f'<div class="documents-badges">{"".join(badge_html)}</div>', unsafe_allow_html=True)
 
 
 @st.cache_data(show_spinner=False)
@@ -1986,6 +2008,7 @@ body.pdf-modal-open {
   clip-path: polygon(18% 16%, 100% 16%, 100% 84%, 7% 84%, 28% 58%, 68% 58%, 78% 45%, 54% 45%, 46% 32%, 18% 32%);
 }
 .documents-upload-card,
+.st-key-documents_upload_card,
 .documents-progress-card,
 .selected-document-card {
   margin: 0 0 1rem;
@@ -2001,7 +2024,14 @@ body.pdf-modal-open {
   font-weight: 900;
   margin-bottom: 0.8rem;
 }
-.documents-upload-zone {
+.st-key-documents_upload_card [data-testid="stMarkdownContainer"] p {
+  margin: 0;
+}
+.st-key-documents_upload_zone [data-testid="stFileUploader"] {
+  margin: 0;
+}
+.st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"] {
+  position: relative;
   min-height: 148px;
   display: flex;
   align-items: center;
@@ -2014,17 +2044,50 @@ body.pdf-modal-open {
   color: #405072;
   text-align: center;
   font-weight: 700;
+  overflow: hidden;
+  cursor: pointer;
 }
-.documents-upload-zone svg {
-  width: 72px;
-  height: 72px;
-  color: var(--blue);
-  stroke: currentColor;
+.st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"]:hover {
+  border-color: var(--blue);
+  background: linear-gradient(180deg, #FFFFFF, #EFF7FF);
 }
-.documents-upload-zone a {
-  color: var(--blue);
-  font-weight: 900;
-  text-decoration: none;
+.st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"]::before {
+  content: "";
+  width: 82px;
+  height: 82px;
+  display: block;
+  margin: 0 auto 0.42rem;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  pointer-events: none;
+}
+.st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"]::after {
+  content: "Drag PDFs here or browse files";
+  color: #405072;
+  font-size: 0.92rem;
+  font-weight: 750;
+  pointer-events: none;
+}
+.st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"] svg,
+.st-key-documents_upload_zone [data-testid="stFileUploaderDropzoneInstructions"] {
+  display: none !important;
+}
+.st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"] button {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 3 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  margin: 0 !important;
+  opacity: 0 !important;
+  cursor: pointer !important;
+}
+.st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"] button:focus-visible {
+  opacity: 0.08 !important;
+  outline: 4px solid rgba(88,172,244,0.35) !important;
+  outline-offset: -4px !important;
 }
 .documents-badges {
   display: flex;
@@ -2044,6 +2107,13 @@ body.pdf-modal-open {
   padding: 0.35rem 0.65rem;
   font-size: 0.78rem;
   font-weight: 850;
+}
+.documents-badge img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  display: block;
+  flex: 0 0 18px;
 }
 .documents-badge.is-red { color: #D92013; }
 .documents-badge.is-blue { color: var(--blue); }

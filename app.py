@@ -43,6 +43,8 @@ from ui_components import (
     render_metric_card,
     render_overview,
     render_sidebar,
+    render_upload_badges,
+    load_upload_icon_data_uri,
 )
 
 NAV_SECTIONS = {
@@ -1430,34 +1432,27 @@ def render_documents_section_heading() -> None:
 
 
 def render_documents_upload_card() -> None:
-    st.markdown(
-        """
-<div class="documents-upload-card">
-  <div class="documents-card-title">Upload PDFs</div>
-  <div class="documents-upload-zone">
-    <svg viewBox="0 0 96 72" fill="none" aria-hidden="true">
-      <path d="M32 54H22C12 54 6 48 6 39c0-8 6-15 14-16C23 11 34 4 47 7c10 2 18 10 20 20h3c11 0 20 8 20 19 0 5-2 10-6 14" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M48 61V33M36 45l12-12 12 12" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M70 37h13l7 7v20H70V37Z" stroke-width="4" stroke-linejoin="round"/>
-      <path d="M83 37v8h7" stroke-width="4" stroke-linejoin="round"/>
-    </svg>
-    <div>Drag PDFs here or <a>browse files</a></div>
-  </div>
-  <div class="documents-badges">
-    <span class="documents-badge is-red">PDF only</span>
-    <span class="documents-badge is-blue">Persistent upload</span>
-    <span class="documents-badge is-green">Duplicate-safe</span>
-  </div>
-</div>
+    upload_icon = load_upload_icon_data_uri("upload_cloud_document_icon.png")
+    with st.container(key="documents_upload_card"):
+        st.markdown(
+            f"""
+<div class="documents-card-title">Upload PDFs</div>
+<style>
+.st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"]::before {{
+  background-image: url("{upload_icon}");
+}}
+</style>
 """,
-        unsafe_allow_html=True,
-    )
-    uploaded = st.file_uploader(
-        "Upload PDFs",
-        type=["pdf"],
-        accept_multiple_files=True,
-        label_visibility="collapsed",
-    )
+            unsafe_allow_html=True,
+        )
+        uploaded = st.file_uploader(
+            "Drag PDFs here or browse files",
+            type=["pdf"],
+            accept_multiple_files=True,
+            label_visibility="collapsed",
+            key="documents_upload_zone",
+        )
+        render_upload_badges()
     if uploaded:
         saved = save_uploaded_files(uploaded)
         st.success(f"Saved {len(saved)} file(s) to uploaded_docs/.")
