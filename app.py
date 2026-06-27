@@ -556,6 +556,19 @@ def pdf_data_uri(pdf_path: Path) -> str:
     return f"data:application/pdf;base64,{encoded}"
 
 
+def quiet_pymupdf_console_messages(fitz_module: Any) -> None:
+    tools = getattr(fitz_module, "TOOLS", None)
+    if not tools:
+        return
+    for method_name in ("mupdf_display_errors", "mupdf_display_warnings"):
+        method = getattr(tools, method_name, None)
+        if callable(method):
+            try:
+                method(False)
+            except Exception:
+                continue
+
+
 @st.cache_data(show_spinner=False)
 def render_pdf_page_images(
     pdf_path_text: str,
@@ -569,6 +582,8 @@ def render_pdf_page_images(
         import fitz
     except Exception as exc:
         raise RuntimeError("PyMuPDF is not available") from exc
+
+    quiet_pymupdf_console_messages(fitz)
 
     pages: list[dict[str, Any]] = []
     document = fitz.open(pdf_path_text)
