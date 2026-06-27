@@ -1469,15 +1469,15 @@ def render_documents_upload_card() -> None:
                 label_visibility="collapsed",
                 key=f"documents_upload_input_{upload_reset}",
             )
-        if uploaded:
-            total_size = sum(int(getattr(file, "size", 0) or 0) for file in uploaded)
-            first_file = uploaded[0]
-            extra_count = len(uploaded) - 1
-            name = html.escape(str(getattr(first_file, "name", "Selected PDF") or "Selected PDF"))
-            size = html.escape(format_file_size(total_size))
-            suffix = f" + {extra_count} more" if extra_count else ""
-            st.markdown(
-                f"""
+            if uploaded:
+                total_size = sum(int(getattr(file, "size", 0) or 0) for file in uploaded)
+                first_file = uploaded[0]
+                extra_count = len(uploaded) - 1
+                name = html.escape(str(getattr(first_file, "name", "Selected PDF") or "Selected PDF"))
+                size = html.escape(format_file_size(total_size))
+                suffix = f" + {extra_count} more" if extra_count else ""
+                st.markdown(
+                    f"""
 <div class="documents-upload-pending">
   <div class="documents-upload-file">
     <img src="{pdf_icon}" alt="" aria-hidden="true" />
@@ -1486,21 +1486,22 @@ def render_documents_upload_card() -> None:
       <div class="documents-upload-file-size">{size}</div>
     </div>
   </div>
+  <div class="documents-upload-helper">Drag PDFs here or browse files</div>
 </div>
 """,
-                unsafe_allow_html=True,
-            )
-            action_col, cancel_col = st.columns([1, 0.22], gap="small")
-            with action_col:
-                if st.button("Upload PDFs", key="documents_upload_submit", use_container_width=True):
-                    saved = save_uploaded_files(uploaded)
-                    st.session_state.documents_upload_reset = upload_reset + 1
-                    st.session_state.documents_upload_notice = f"Saved {len(saved)} file(s) to uploaded_docs/."
-                    st.rerun()
-            with cancel_col:
-                if st.button("×", key="documents_upload_cancel", help="Cancel upload", use_container_width=True):
-                    st.session_state.documents_upload_reset = upload_reset + 1
-                    st.rerun()
+                    unsafe_allow_html=True,
+                )
+                action_col, cancel_col = st.columns([1, 0.18], gap="small")
+                with action_col:
+                    if st.button("Upload PDFs", key="documents_upload_submit", use_container_width=True):
+                        saved = save_uploaded_files(uploaded)
+                        st.session_state.documents_upload_reset = upload_reset + 1
+                        st.session_state.documents_upload_notice = f"Saved {len(saved)} file(s) to uploaded_docs/."
+                        st.rerun()
+                with cancel_col:
+                    if st.button("×", key="documents_upload_cancel", help="Cancel upload", use_container_width=True):
+                        st.session_state.documents_upload_reset = upload_reset + 1
+                        st.rerun()
         render_upload_badges()
 
 

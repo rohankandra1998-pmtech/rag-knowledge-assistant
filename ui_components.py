@@ -2021,6 +2021,9 @@ body.pdf-modal-open {
   border-radius: 16px;
   background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,251,255,0.96));
   box-shadow: 0 18px 46px rgba(11, 48, 117, 0.09);
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow: hidden;
 }
 .documents-card-title {
   color: var(--navy);
@@ -2031,20 +2034,38 @@ body.pdf-modal-open {
 .st-key-documents_upload_card [data-testid="stMarkdownContainer"] p {
   margin: 0;
 }
+.st-key-documents_upload_zone {
+  position: relative;
+  max-width: 100%;
+  min-height: 178px;
+  margin: 0;
+  padding: 0.82rem;
+  border: 1.5px dashed #6CA8FF;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #FFFFFF, #F5FAFF);
+  color: #405072;
+  text-align: center;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.st-key-documents_upload_zone:hover {
+  border-color: var(--blue);
+  background: linear-gradient(180deg, #FFFFFF, #EFF7FF);
+}
 .st-key-documents_upload_zone [data-testid="stFileUploader"] {
   margin: 0;
 }
 .st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"] {
   position: relative;
-  min-height: 178px;
+  min-height: 150px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-direction: column;
   gap: 0.55rem;
-  border: 1.5px dashed #6CA8FF;
-  border-radius: 14px;
-  background: linear-gradient(180deg, #FFFFFF, #F5FAFF);
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
   color: #405072;
   text-align: center;
   font-weight: 700;
@@ -2052,8 +2073,7 @@ body.pdf-modal-open {
   cursor: pointer;
 }
 .st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"]:hover {
-  border-color: var(--blue);
-  background: linear-gradient(180deg, #FFFFFF, #EFF7FF);
+  background: transparent;
 }
 .st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"]::before {
   content: "";
@@ -2073,13 +2093,26 @@ body.pdf-modal-open {
   font-weight: 750;
   pointer-events: none;
 }
+.st-key-documents_upload_zone:has(.documents-upload-pending) [data-testid="stFileUploaderDropzone"] {
+  min-height: 94px;
+}
+.st-key-documents_upload_zone:has(.documents-upload-pending) [data-testid="stFileUploaderDropzone"]::before {
+  width: 104px;
+  height: 76px;
+  margin-bottom: 0;
+}
+.st-key-documents_upload_zone:has(.documents-upload-pending) [data-testid="stFileUploaderDropzone"]::after {
+  content: none;
+}
 .st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"] svg,
 .st-key-documents_upload_zone [data-testid="stFileUploaderDropzoneInstructions"] {
   display: none !important;
 }
 .st-key-documents_upload_zone [data-testid="stFileUploaderFile"],
 .st-key-documents_upload_zone [data-testid="stFileUploaderFileData"],
-.st-key-documents_upload_zone [data-testid="stFileUploaderDeleteBtn"] {
+.st-key-documents_upload_zone [data-testid="stFileUploaderDeleteBtn"],
+.st-key-documents_upload_zone [data-testid*="FileUploaderFile"],
+.st-key-documents_upload_zone [data-testid*="stFileUploaderFile"] {
   display: none !important;
 }
 .st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"] button {
@@ -2099,21 +2132,22 @@ body.pdf-modal-open {
   outline-offset: -4px !important;
 }
 .documents-upload-pending {
-  margin: 0.55rem auto 0;
-  width: calc(100% - 2.5rem);
+  margin: 0 auto;
+  width: min(100%, 430px);
 }
 .documents-upload-file {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.62rem;
-  min-height: 50px;
+  min-height: 48px;
   border: 1px solid #DCE8F7;
   border-radius: 12px;
   background: #FFFFFF;
   color: #405072;
-  padding: 0.55rem 0.75rem;
+  padding: 0.5rem 0.75rem;
   box-shadow: 0 10px 22px rgba(16,94,221,0.06);
+  box-sizing: border-box;
 }
 .documents-upload-file img {
   width: 28px;
@@ -2123,7 +2157,7 @@ body.pdf-modal-open {
   flex: 0 0 28px;
 }
 .documents-upload-file-name {
-  max-width: 260px;
+  max-width: min(290px, 58vw);
   overflow: hidden;
   color: #1E2A4A;
   font-size: 0.86rem;
@@ -2137,11 +2171,20 @@ body.pdf-modal-open {
   font-weight: 800;
   text-align: center;
 }
+.documents-upload-helper {
+  color: #405072;
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin: 0.5rem 0 0.64rem;
+}
 .st-key-documents_upload_submit button {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   gap: 0.52rem !important;
+  min-height: 48px !important;
+  height: 48px !important;
   background: #FFFFFF !important;
   border-color: #BBD6FF !important;
   color: var(--navy) !important;
@@ -2153,6 +2196,8 @@ body.pdf-modal-open {
   color: var(--blue) !important;
 }
 .st-key-documents_upload_cancel button {
+  min-height: 48px !important;
+  height: 48px !important;
   min-width: 2.65rem !important;
   padding: 0 !important;
   border-color: #FFD3CA !important;
@@ -2168,34 +2213,43 @@ body.pdf-modal-open {
 }
 .documents-badges {
   display: grid;
-  grid-template-columns: minmax(112px, 0.92fr) minmax(176px, 1.32fr) minmax(164px, 1.22fr);
-  gap: 0.7rem;
-  margin: 0.42rem auto 0.1rem;
-  width: calc(100% - 2.5rem);
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.14fr) minmax(0, 1.04fr);
+  gap: 0.44rem;
+  margin: 0.62rem 0 0.1rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .documents-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.34rem;
+  gap: 0.24rem;
   min-width: 0;
-  min-height: 36px;
+  min-height: 34px;
   border: 1px solid #DCE8F7;
   border-radius: 10px;
   background: #FFFFFF;
   color: #405072;
-  padding: 0.35rem 0.72rem;
-  font-size: 0.78rem;
+  padding: 0.32rem 0.4rem;
+  font-size: 0.72rem;
   font-weight: 850;
   line-height: 1;
   white-space: nowrap;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.documents-badge span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .documents-badge img {
-  width: 19px;
-  height: 19px;
+  width: 18px;
+  height: 18px;
   object-fit: contain;
   display: block;
-  flex: 0 0 19px;
+  flex: 0 0 18px;
 }
 .documents-badge.is-red { color: #D92013; }
 .documents-badge.is-blue { color: var(--blue); }
@@ -2582,6 +2636,13 @@ div.stButton > button[kind="primary"] {
   .selected-document-card {
     position: static;
   }
+  .documents-badges {
+    gap: 0.34rem;
+  }
+  .documents-badge {
+    padding-inline: 0.32rem;
+    font-size: 0.68rem;
+  }
 }
 @media (max-width: 620px) {
   .ingestion-status-grid { grid-template-columns: 1fr; }
@@ -2599,6 +2660,12 @@ div.stButton > button[kind="primary"] {
   }
   .doc-view-all {
     width: 100%;
+  }
+  .documents-badges {
+    grid-template-columns: 1fr;
+  }
+  .documents-upload-file-name {
+    max-width: 58vw;
   }
 }
 </style>
