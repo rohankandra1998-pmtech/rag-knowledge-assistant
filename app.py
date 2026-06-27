@@ -31,6 +31,7 @@ from rag_utils import (
     ensure_project_dirs,
 )
 from ui_components import (
+    get_status_card_icon_svg,
     inject_custom_css,
     load_pdf_document_detail_icon_data_uri,
     load_pdf_viewer_control_icon_data_uri,
@@ -1839,16 +1840,17 @@ def render_documents_metric_cards(stats: dict[str, Any]) -> None:
     total_chunks = int(stats.get("total_chunks", 0) or 0)
     storage = format_storage_estimate(stats.get("storage_estimate_mb", 0))
     cards = [
-        ("Total Documents", f"{total_documents:,}", "Deduped by SHA-256", "warm", "M4 6h12l4 4v8H4V6Zm12 0v4h4"),
-        ("Total Chunks", f"{total_chunks:,}", "Stored in ChromaDB", "cool", "M12 3 3 7.5 12 12l9-4.5L12 3Zm3 10.5 6-3v6L12 21l-9-4.5v-6l6 3"),
-        ("Storage Estimate", storage, "Source PDFs only", "gold", "M5 7c0-2 3-4 7-4s7 2 7 4-3 4-7 4-7-2-7-4Zm0 0v10c0 2 3 4 7 4s7-2 7-4V7"),
+        ("Total Documents", f"{total_documents:,}", "Deduped by SHA-256", "warm", "document"),
+        ("Total Chunks", f"{total_chunks:,}", "Stored in ChromaDB", "cool", "layers"),
+        ("Storage Estimate", storage, "Source PDFs only", "gold", "database"),
     ]
     card_html = []
-    for label, value, helper, tone, path_data in cards:
+    for label, value, helper, tone, icon_name in cards:
+        icon_svg = get_status_card_icon_svg(icon_name)
         card_html.append(
             f"""
 <div class="documents-metric-card is-{tone}">
-  <div class="documents-metric-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="{path_data}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="documents-metric-icon">{icon_svg}</div>
   <div>
     <div class="documents-metric-label">{html.escape(label)}</div>
     <div class="documents-metric-value">{html.escape(value)}</div>

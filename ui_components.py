@@ -2844,7 +2844,7 @@ def render_metric_card(label: str, value: str, delta: str, tone: str = "cool") -
     )
 
 
-def render_ingestion_status_cards(stats: dict[str, Any]) -> None:
+def get_status_card_icon_svg(icon_name: str) -> str:
     icons = {
         "document": """
 <svg viewBox="0 0 40 40" aria-hidden="true" focusable="false" fill="none" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
@@ -2869,13 +2869,17 @@ def render_ingestion_status_cards(stats: dict[str, Any]) -> None:
 </svg>
 """,
     }
+    return icons.get(icon_name, "")
+
+
+def render_ingestion_status_cards(stats: dict[str, Any]) -> None:
     cards = [
         {
             "label": "Documents indexed",
             "value": str(stats.get("total_documents", 0)),
             "helper": "Across persistent collection",
             "tone": "warm",
-            "icon": icons["document"],
+            "icon": get_status_card_icon_svg("document"),
             "is_text": False,
         },
         {
@@ -2883,7 +2887,7 @@ def render_ingestion_status_cards(stats: dict[str, Any]) -> None:
             "value": f'{stats.get("total_chunks", 0):,}',
             "helper": "Semantic chunks",
             "tone": "cool",
-            "icon": icons["layers"],
+            "icon": get_status_card_icon_svg("layers"),
             "is_text": False,
         },
         {
@@ -2891,7 +2895,7 @@ def render_ingestion_status_cards(stats: dict[str, Any]) -> None:
             "value": "ChromaDB",
             "helper": "Local persistence",
             "tone": "gold",
-            "icon": icons["database"],
+            "icon": get_status_card_icon_svg("database"),
             "is_text": True,
         },
     ]
