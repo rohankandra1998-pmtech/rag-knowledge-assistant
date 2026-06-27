@@ -2090,36 +2090,35 @@ body.pdf-modal-open {
   outline-offset: -4px !important;
 }
 .documents-badges {
-  display: flex;
-  gap: 0.48rem;
-  flex-wrap: nowrap;
-  margin-top: 0.85rem;
-  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.34fr) minmax(0, 1.16fr);
+  gap: 0.6rem;
+  margin: 0.58rem auto 0.18rem;
+  width: calc(100% - 1rem);
 }
 .documents-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.3rem;
-  flex: 1 1 0;
+  gap: 0.34rem;
   min-width: 0;
-  min-height: 34px;
+  min-height: 36px;
   border: 1px solid #DCE8F7;
   border-radius: 10px;
   background: #FFFFFF;
   color: #405072;
-  padding: 0.35rem 0.42rem;
-  font-size: 0.74rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.75rem;
   font-weight: 850;
   line-height: 1;
   white-space: nowrap;
 }
 .documents-badge img {
-  width: 16px;
-  height: 16px;
+  width: 19px;
+  height: 19px;
   object-fit: contain;
   display: block;
-  flex: 0 0 16px;
+  flex: 0 0 19px;
 }
 .documents-badge.is-red { color: #D92013; }
 .documents-badge.is-blue { color: var(--blue); }
