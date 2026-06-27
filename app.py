@@ -147,6 +147,56 @@ def save_uploaded_files(uploaded_files) -> list[Path]:
     return saved_paths
 
 
+def upload_and_ingest_files(uploaded_files) -> list[dict[str, Any]]:
+    collection = get_chroma_collection()
+    status_area = st.empty()
+
+    def status(message: str) -> None:
+        add_ingestion_event(message)
+        status_area.info(message)
+
+    saved_paths = save_uploaded_files(uploaded_files)
+    results: list[dict[str, Any]] = []
+    for saved_path in saved_paths:
+        try:
+            result = ingest_pdf(saved_path, collection=collection, status_callback=status)
+        except Exception as exc:
+            result = {
+                "filename": saved_path.name,
+                "document_hash": "",
+                "status": "failed",
+                "reason": str(exc),
+                "pages": 0,
+                "chunks": 0,
+            }
+        results.append(result)
+        status_text = str(result.get("status", "") or "").lower()
+        if status_text == "skipped":
+            add_ingestion_event(f"Skipped duplicate upload {saved_path.name}: already indexed.")
+        elif status_text == "failed":
+            reason = str(result.get("reason", "Ingestion failed") or "Ingestion failed")
+            add_ingestion_event(f"Failed to index {saved_path.name}: {reason}.")
+        elif status_text == "indexed":
+            add_ingestion_event(f"Indexed uploaded PDF {saved_path.name}.")
+
+    st.session_state.last_ingestion_results = results
+    invalidate_collection_stats_cache()
+    return results
+
+
+def format_upload_ingestion_notice(results: list[dict[str, Any]]) -> str:
+    indexed = len([result for result in results if str(result.get("status", "")).lower() == "indexed"])
+    skipped = len([result for result in results if str(result.get("status", "")).lower() == "skipped"])
+    failed = len([result for result in results if str(result.get("status", "")).lower() == "failed"])
+
+    parts = [f"Uploaded and indexed {indexed} file(s)."]
+    if skipped:
+        parts.append(f"Skipped {skipped} duplicate file(s).")
+    if failed:
+        parts.append(f"{failed} file(s) failed to index.")
+    return " ".join(parts)
+
+
 def format_file_size(size_bytes: Any) -> str:
     try:
         size = int(size_bytes or 0)
@@ -1517,10 +1567,14 @@ def render_documents_upload_card() -> None:
                 action_col, cancel_col = st.columns([1, 0.18], gap="small")
                 with action_col:
                     if st.button("Upload PDFs", key="documents_upload_submit", use_container_width=True):
-                        saved = save_uploaded_files(uploaded)
-                        st.session_state.documents_upload_reset = upload_reset + 1
-                        st.session_state.documents_upload_notice = f"Saved {len(saved)} file(s) to uploaded_docs/."
-                        st.rerun()
+                        if not uploaded:
+                            st.warning("No PDF selected. Please choose a PDF first.")
+                        else:
+                            with st.spinner("Uploading and indexing PDFs..."):
+                                results = upload_and_ingest_files(uploaded)
+                            st.session_state.documents_upload_reset = upload_reset + 1
+                            st.session_state.documents_upload_notice = format_upload_ingestion_notice(results)
+                            st.rerun()
                 with cancel_col:
                     if st.button("×", key="documents_upload_cancel", help="Cancel upload", use_container_width=True):
                         st.session_state.documents_upload_reset = upload_reset + 1
