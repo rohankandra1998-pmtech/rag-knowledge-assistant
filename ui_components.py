@@ -272,6 +272,11 @@ html, body, [class*="css"] {
   color: var(--ink);
 }
 
+.stale-element {
+  opacity: 1 !important;
+  filter: none !important;
+}
+
 #MainMenu, footer, header { visibility: hidden; }
 .block-container { padding: 1.35rem 1.75rem 3rem; max-width: 1440px; }
 

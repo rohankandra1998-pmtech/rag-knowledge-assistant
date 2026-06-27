@@ -74,6 +74,7 @@ def init_state() -> None:
         "messages": [],
         "ingestion_events": [],
         "last_ingestion_results": [],
+        "ingestion_active": False,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -199,7 +200,10 @@ def get_upload_notice_level(results: list[dict[str, Any]]) -> str:
 
 
 def upload_and_ingest_files(uploaded_files, progress_placeholder=None) -> list[dict[str, Any]]:
-    collection = get_chroma_collection()
+    if st.session_state.get("ingestion_active"):
+        return []
+
+    st.session_state.ingestion_active = True
 
     def status(message: str) -> None:
         add_ingestion_event(message)
@@ -215,61 +219,65 @@ def upload_and_ingest_files(uploaded_files, progress_placeholder=None) -> list[d
             )
         update_ingestion_progress_placeholder(progress_placeholder)
 
-    saved_paths = save_uploaded_files(uploaded_files)
     results: list[dict[str, Any]] = []
-    total_files = len(saved_paths)
-    set_ingestion_progress_run(active=True, active_stage="extract", total_files=total_files, results=results)
-    st.session_state.pop("ingestion_progress_notice", None)
-    st.session_state.pop("ingestion_progress_notice_level", None)
-    update_ingestion_progress_placeholder(progress_placeholder)
-    for file_index, saved_path in enumerate(saved_paths, start=1):
-        active_file = saved_path.name
-        set_ingestion_progress_run(
-            active=True,
-            active_stage="extract",
-            active_file=active_file,
-            file_index=file_index,
-            total_files=total_files,
-            results=results,
-        )
+    try:
+        collection = get_chroma_collection()
+        saved_paths = save_uploaded_files(uploaded_files)
+        total_files = len(saved_paths)
+        set_ingestion_progress_run(active=True, active_stage="extract", total_files=total_files, results=results)
+        st.session_state.pop("ingestion_progress_notice", None)
+        st.session_state.pop("ingestion_progress_notice_level", None)
         update_ingestion_progress_placeholder(progress_placeholder)
-        try:
-            result = ingest_pdf(saved_path, collection=collection, status_callback=status)
-        except Exception as exc:
-            result = {
-                "filename": saved_path.name,
-                "document_hash": "",
-                "status": "failed",
-                "reason": str(exc),
-                "pages": 0,
-                "chunks": 0,
-            }
-        results.append(result)
-        status_text = str(result.get("status", "") or "").lower()
-        if status_text == "skipped":
-            add_ingestion_event(f"Skipped duplicate upload {saved_path.name}: already indexed.")
-        elif status_text == "failed":
-            reason = str(result.get("reason", "Ingestion failed") or "Ingestion failed")
-            add_ingestion_event(f"Failed to index {saved_path.name}: {reason}.")
-        elif status_text == "indexed":
-            add_ingestion_event(f"Indexed uploaded PDF {saved_path.name}.")
-        if status_text == "indexed":
+        for file_index, saved_path in enumerate(saved_paths, start=1):
+            active_file = saved_path.name
             set_ingestion_progress_run(
                 active=True,
-                active_stage="sync",
+                active_stage="extract",
                 active_file=active_file,
                 file_index=file_index,
                 total_files=total_files,
                 results=results,
             )
             update_ingestion_progress_placeholder(progress_placeholder)
+            try:
+                result = ingest_pdf(saved_path, collection=collection, status_callback=status)
+            except Exception as exc:
+                result = {
+                    "filename": saved_path.name,
+                    "document_hash": "",
+                    "status": "failed",
+                    "reason": str(exc),
+                    "pages": 0,
+                    "chunks": 0,
+                }
+            results.append(result)
+            status_text = str(result.get("status", "") or "").lower()
+            if status_text == "skipped":
+                add_ingestion_event(f"Skipped duplicate upload {saved_path.name}: already indexed.")
+            elif status_text == "failed":
+                reason = str(result.get("reason", "Ingestion failed") or "Ingestion failed")
+                add_ingestion_event(f"Failed to index {saved_path.name}: {reason}.")
+            elif status_text == "indexed":
+                add_ingestion_event(f"Indexed uploaded PDF {saved_path.name}.")
+            if status_text == "indexed":
+                set_ingestion_progress_run(
+                    active=True,
+                    active_stage="sync",
+                    active_file=active_file,
+                    file_index=file_index,
+                    total_files=total_files,
+                    results=results,
+                )
+                update_ingestion_progress_placeholder(progress_placeholder)
 
-    st.session_state.last_ingestion_results = results
-    invalidate_collection_stats_cache()
-    st.session_state.ingestion_progress_notice = format_upload_ingestion_notice(results)
-    st.session_state.ingestion_progress_notice_level = get_upload_notice_level(results)
-    clear_ingestion_progress_run()
-    update_ingestion_progress_placeholder(progress_placeholder, results=results)
+        st.session_state.last_ingestion_results = results
+        invalidate_collection_stats_cache()
+        st.session_state.ingestion_progress_notice = format_upload_ingestion_notice(results)
+        st.session_state.ingestion_progress_notice_level = get_upload_notice_level(results)
+        clear_ingestion_progress_run()
+        update_ingestion_progress_placeholder(progress_placeholder, results=results)
+    finally:
+        st.session_state.ingestion_active = False
     return results
 
 
@@ -1593,6 +1601,7 @@ def render_documents_upload_card(progress_placeholder=None) -> None:
     pdf_icon = load_upload_icon_data_uri("pdf_only_icon.png")
     header_upload_icon = load_header_action_icon_data_uri("upload.png")
     upload_reset = int(st.session_state.get("documents_upload_reset", 0) or 0)
+    ingestion_active = bool(st.session_state.get("ingestion_active"))
     with st.container(key="documents_upload_card"):
         st.markdown(
             f"""
@@ -1655,7 +1664,12 @@ def render_documents_upload_card(progress_placeholder=None) -> None:
             if uploaded:
                 action_col, cancel_col = st.columns([1, 0.18], gap="small")
                 with action_col:
-                    if st.button("Upload PDFs", key="documents_upload_submit", use_container_width=True):
+                    if st.button(
+                        "Upload PDFs",
+                        key="documents_upload_submit",
+                        use_container_width=True,
+                        disabled=ingestion_active,
+                    ):
                         if not uploaded:
                             st.warning("No PDF selected. Please choose a PDF first.")
                         else:
@@ -1663,7 +1677,13 @@ def render_documents_upload_card(progress_placeholder=None) -> None:
                             st.session_state.documents_upload_reset = upload_reset + 1
                             st.rerun()
                 with cancel_col:
-                    if st.button("×", key="documents_upload_cancel", help="Cancel upload", use_container_width=True):
+                    if st.button(
+                        "×",
+                        key="documents_upload_cancel",
+                        help="Cancel upload",
+                        use_container_width=True,
+                        disabled=ingestion_active,
+                    ):
                         st.session_state.documents_upload_reset = upload_reset + 1
                         st.rerun()
         render_upload_badges()
