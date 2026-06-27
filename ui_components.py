@@ -2311,6 +2311,30 @@ body.pdf-modal-open {
   text-align: right;
   white-space: nowrap;
 }
+.ingestion-progress-notice {
+  margin-top: 1rem;
+  border-radius: 12px;
+  padding: 0.78rem 0.9rem;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+.ingestion-progress-notice.is-success {
+  background: #E7F8EE;
+  color: #087D32;
+}
+.ingestion-progress-notice.is-warning {
+  background: #FFF6DF;
+  color: #8A6200;
+}
+.ingestion-progress-notice.is-error {
+  background: #FFF1EE;
+  color: #B42318;
+}
+.ingestion-progress-notice.is-info {
+  background: #EAF3FF;
+  color: var(--blue);
+}
 .documents-metric-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -160,18 +160,79 @@ def infer_ingestion_stage(message: str) -> str | None:
     return None
 
 
+def set_ingestion_progress_run(
+    *,
+    active: bool,
+    active_stage: str | None = None,
+    active_file: str = "",
+    file_index: int = 0,
+    total_files: int = 0,
+    results: list[dict[str, Any]] | None = None,
+) -> None:
+    st.session_state.ingestion_progress_run = {
+        "active": active,
+        "active_stage": active_stage,
+        "active_file": active_file,
+        "file_index": file_index,
+        "total_files": total_files,
+        "results": list(results or []),
+    }
+
+
+def clear_ingestion_progress_run() -> None:
+    st.session_state.pop("ingestion_progress_run", None)
+
+
+def get_upload_notice_level(results: list[dict[str, Any]]) -> str:
+    indexed = len([result for result in results if str(result.get("status", "")).lower() == "indexed"])
+    skipped = len([result for result in results if str(result.get("status", "")).lower() == "skipped"])
+    failed = len([result for result in results if str(result.get("status", "")).lower() == "failed"])
+    if failed:
+        return "error"
+    if skipped and not indexed:
+        return "info"
+    if skipped:
+        return "warning"
+    if indexed:
+        return "success"
+    return "info"
+
+
 def upload_and_ingest_files(uploaded_files, progress_placeholder=None) -> list[dict[str, Any]]:
     collection = get_chroma_collection()
 
     def status(message: str) -> None:
         add_ingestion_event(message)
         active_stage = infer_ingestion_stage(message)
-        update_ingestion_progress_placeholder(progress_placeholder, active_stage=active_stage, results=results)
+        if active_stage:
+            set_ingestion_progress_run(
+                active=True,
+                active_stage=active_stage,
+                active_file=active_file,
+                file_index=file_index,
+                total_files=total_files,
+                results=results,
+            )
+        update_ingestion_progress_placeholder(progress_placeholder)
 
     saved_paths = save_uploaded_files(uploaded_files)
     results: list[dict[str, Any]] = []
-    update_ingestion_progress_placeholder(progress_placeholder, active_stage="extract", results=results)
-    for saved_path in saved_paths:
+    total_files = len(saved_paths)
+    set_ingestion_progress_run(active=True, active_stage="extract", total_files=total_files, results=results)
+    st.session_state.pop("ingestion_progress_notice", None)
+    st.session_state.pop("ingestion_progress_notice_level", None)
+    update_ingestion_progress_placeholder(progress_placeholder)
+    for file_index, saved_path in enumerate(saved_paths, start=1):
+        active_file = saved_path.name
+        set_ingestion_progress_run(
+            active=True,
+            active_stage="extract",
+            active_file=active_file,
+            file_index=file_index,
+            total_files=total_files,
+            results=results,
+        )
+        update_ingestion_progress_placeholder(progress_placeholder)
         try:
             result = ingest_pdf(saved_path, collection=collection, status_callback=status)
         except Exception as exc:
@@ -192,15 +253,29 @@ def upload_and_ingest_files(uploaded_files, progress_placeholder=None) -> list[d
             add_ingestion_event(f"Failed to index {saved_path.name}: {reason}.")
         elif status_text == "indexed":
             add_ingestion_event(f"Indexed uploaded PDF {saved_path.name}.")
-        update_ingestion_progress_placeholder(progress_placeholder, active_stage="sync", results=results)
+        if status_text == "indexed":
+            set_ingestion_progress_run(
+                active=True,
+                active_stage="sync",
+                active_file=active_file,
+                file_index=file_index,
+                total_files=total_files,
+                results=results,
+            )
+            update_ingestion_progress_placeholder(progress_placeholder)
 
     st.session_state.last_ingestion_results = results
     invalidate_collection_stats_cache()
+    st.session_state.ingestion_progress_notice = format_upload_ingestion_notice(results)
+    st.session_state.ingestion_progress_notice_level = get_upload_notice_level(results)
+    clear_ingestion_progress_run()
     update_ingestion_progress_placeholder(progress_placeholder, results=results)
     return results
 
 
 def format_upload_ingestion_notice(results: list[dict[str, Any]]) -> str:
+    if not results:
+        return "No files were processed."
     indexed = len([result for result in results if str(result.get("status", "")).lower() == "indexed"])
     skipped = len([result for result in results if str(result.get("status", "")).lower() == "skipped"])
     failed = len([result for result in results if str(result.get("status", "")).lower() == "failed"])
@@ -1536,9 +1611,7 @@ def render_documents_upload_card(progress_placeholder=None) -> None:
 """,
             unsafe_allow_html=True,
         )
-        upload_notice = st.session_state.pop("documents_upload_notice", "")
-        if upload_notice:
-            st.success(upload_notice)
+        st.session_state.pop("documents_upload_notice", None)
         with st.container(key="documents_upload_zone"):
             with st.container(key="documents_upload_input_layer"):
                 uploaded = st.file_uploader(
@@ -1588,7 +1661,6 @@ def render_documents_upload_card(progress_placeholder=None) -> None:
                         else:
                             results = upload_and_ingest_files(uploaded, progress_placeholder=progress_placeholder)
                             st.session_state.documents_upload_reset = upload_reset + 1
-                            st.session_state.documents_upload_notice = format_upload_ingestion_notice(results)
                             st.rerun()
                 with cancel_col:
                     if st.button("×", key="documents_upload_cancel", help="Cancel upload", use_container_width=True):
@@ -1610,64 +1682,79 @@ def pipeline_state(step_name: str, events: list[str], results: list[dict[str, An
     return "pending"
 
 
+def summarize_ingestion_results(results: list[dict[str, Any]]) -> dict[str, int]:
+    return {
+        "indexed": len([result for result in results if str(result.get("status", "")).lower() == "indexed"]),
+        "skipped": len([result for result in results if str(result.get("status", "")).lower() == "skipped"]),
+        "failed": len([result for result in results if str(result.get("status", "")).lower() == "failed"]),
+        "pages": sum(int(result.get("pages") or 0) for result in results if str(result.get("status", "")).lower() == "indexed"),
+        "chunks": sum(int(result.get("chunks") or 0) for result in results if str(result.get("status", "")).lower() == "indexed"),
+    }
+
+
 def build_ingestion_progress_rows(
     events: list[str],
     results: list[dict[str, Any]],
     active_stage: str | None = None,
 ) -> list[tuple[str, str, str]]:
+    if active_stage:
+        stage_order = {"extract": 0, "chunk": 1, "embed": 2, "sync": 3}
+        active_index = stage_order.get(active_stage)
+        if active_index is not None:
+            labels = ["Extract pages", "Semantic chunking", "Embedding chunks", "ChromaDB sync"]
+            active_values = ["In progress", "In progress", "In progress", "Syncing"]
+            live_rows: list[tuple[str, str, str]] = []
+            for index, label in enumerate(labels):
+                if index < active_index:
+                    live_rows.append((label, "complete", "Completed"))
+                elif index == active_index:
+                    live_rows.append((label, "active", active_values[index]))
+                else:
+                    live_rows.append((label, "pending", "Pending"))
+            return live_rows
+
+    summary = summarize_ingestion_results(results)
+    if summary["indexed"]:
+        return [
+            ("Extract pages", "complete", f'{summary["pages"]:,} pages'),
+            ("Semantic chunking", "complete", f'{summary["chunks"]:,} chunks'),
+            ("Embedding chunks", "complete", "Completed"),
+            ("ChromaDB sync", "complete", "Completed"),
+        ]
+    if summary["skipped"] and not summary["indexed"] and not summary["failed"]:
+        return [
+            ("Extract pages", "pending", "Duplicate"),
+            ("Semantic chunking", "pending", "Skipped"),
+            ("Embedding chunks", "pending", "Skipped"),
+            ("ChromaDB sync", "pending", "Already indexed"),
+        ]
+    if summary["failed"] and not summary["indexed"]:
+        return [
+            ("Extract pages", "pending", "Failed"),
+            ("Semantic chunking", "pending", "Failed"),
+            ("Embedding chunks", "pending", "Failed"),
+            ("ChromaDB sync", "pending", "Failed"),
+        ]
+
     latest = results[-1] if results else {}
     indexed = str(latest.get("status", "")).lower() == "indexed"
-    skipped = str(latest.get("status", "")).lower() == "skipped"
-    failed = str(latest.get("status", "")).lower() == "failed"
     pages = int(latest.get("pages") or 0)
     chunks = int(latest.get("chunks") or 0)
 
-    rows: list[tuple[str, str, str]] = [
+    return [
         ("Extract pages", "complete" if pages else pipeline_state("extracting", events, results), f"{pages:,} pages" if pages else "Idle"),
         ("Semantic chunking", "complete" if chunks else pipeline_state("chunking", events, results), f"{chunks:,} chunks" if chunks else "Idle"),
         ("Embedding chunks", "complete" if indexed else pipeline_state("embedding", events, results), "Completed" if indexed else "Pending"),
         ("ChromaDB sync", "complete" if indexed else pipeline_state("indexed", events, results), "Completed" if indexed else "Pending"),
     ]
-    if skipped:
-        return [
-            ("Extract pages", "complete", "Duplicate"),
-            ("Semantic chunking", "complete", "Skipped"),
-            ("Embedding chunks", "complete", "Skipped"),
-            ("ChromaDB sync", "complete", "Already indexed"),
-        ]
-    if failed:
-        return [
-            ("Extract pages", "pending", f"{pages:,} pages" if pages else "Failed"),
-            ("Semantic chunking", "pending", f"{chunks:,} chunks" if chunks else "Failed"),
-            ("Embedding chunks", "pending", "Failed"),
-            ("ChromaDB sync", "pending", "Failed"),
-        ]
-    if not active_stage:
-        return rows
-
-    stage_order = {"extract": 0, "chunk": 1, "embed": 2, "sync": 3}
-    active_index = stage_order.get(active_stage)
-    if active_index is None:
-        return rows
-
-    labels = ["Extract pages", "Semantic chunking", "Embedding chunks", "ChromaDB sync"]
-    active_values = ["In progress", "In progress", "In progress", "Syncing"]
-    live_rows: list[tuple[str, str, str]] = []
-    for index, (label, state, value) in enumerate(rows):
-        if index < active_index:
-            completed_value = value if value not in {"Idle", "Pending"} else "Completed"
-            live_rows.append((labels[index], "complete", completed_value))
-        elif index == active_index:
-            live_rows.append((labels[index], "active", active_values[index]))
-        else:
-            live_rows.append((label, state if state == "complete" else "pending", value if state == "complete" else "Pending"))
-    return live_rows
 
 
 def render_ingestion_progress_card_content(
     events: list[str],
     results: list[dict[str, Any]],
     active_stage: str | None = None,
+    notice: str = "",
+    notice_level: str = "success",
 ) -> None:
     rows = build_ingestion_progress_rows(events, results, active_stage=active_stage)
     row_html = []
@@ -1678,12 +1765,18 @@ def render_ingestion_progress_card_content(
             f'<div class="pipeline-row {state_class}"><span class="pipeline-dot">{dot}</span>'
             f'<span>{html.escape(label)}</span><span class="pipeline-value">{html.escape(value)}</span></div>'
         )
+    notice_html = (
+        f'<div class="ingestion-progress-notice is-{html.escape(notice_level)}">{html.escape(notice)}</div>'
+        if notice
+        else ""
+    )
 
     st.markdown(
         f"""
 <div class="documents-progress-card">
   <div class="documents-card-title">Ingestion progress</div>
   <div class="progress-pipeline">{''.join(row_html)}</div>
+  {notice_html}
 </div>
 """,
         unsafe_allow_html=True,
@@ -1692,8 +1785,22 @@ def render_ingestion_progress_card_content(
 
 def render_ingestion_progress_card(active_stage: str | None = None, results: list[dict[str, Any]] | None = None) -> None:
     events = [str(event) for event in st.session_state.ingestion_events[-8:]]
+    progress_run = st.session_state.get("ingestion_progress_run") or {}
+    is_active = bool(progress_run.get("active"))
+    current_active_stage = active_stage
     current_results = list(st.session_state.last_ingestion_results or []) if results is None else list(results)
-    render_ingestion_progress_card_content(events, current_results, active_stage=active_stage)
+    if is_active:
+        current_active_stage = str(progress_run.get("active_stage") or active_stage or "")
+        current_results = list(progress_run.get("results") or [])
+    notice = "" if is_active else str(st.session_state.get("ingestion_progress_notice", "") or "")
+    notice_level = str(st.session_state.get("ingestion_progress_notice_level", "success") or "success")
+    render_ingestion_progress_card_content(
+        events,
+        current_results,
+        active_stage=current_active_stage,
+        notice=notice,
+        notice_level=notice_level,
+    )
 
 
 def update_ingestion_progress_placeholder(
