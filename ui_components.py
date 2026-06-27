@@ -2108,11 +2108,19 @@ body.pdf-modal-open {
 .st-key-documents_upload_zone [data-testid="stFileUploaderDropzoneInstructions"] {
   display: none !important;
 }
-.st-key-documents_upload_zone [data-testid="stFileUploaderFile"],
-.st-key-documents_upload_zone [data-testid="stFileUploaderFileData"],
-.st-key-documents_upload_zone [data-testid="stFileUploaderDeleteBtn"],
-.st-key-documents_upload_zone [data-testid*="FileUploaderFile"],
-.st-key-documents_upload_zone [data-testid*="stFileUploaderFile"] {
+.st-key-documents_upload_zone [data-testid="stFileUploader"] [data-testid="stFileUploaderFile"],
+.st-key-documents_upload_zone [data-testid="stFileUploader"] [data-testid="stFileUploaderFileData"],
+.st-key-documents_upload_zone [data-testid="stFileUploader"] [data-testid="stFileUploaderFileName"],
+.st-key-documents_upload_zone [data-testid="stFileUploader"] [data-testid="stFileUploaderFileSize"],
+.st-key-documents_upload_zone [data-testid="stFileUploader"] [data-testid="stFileUploaderFileStatus"],
+.st-key-documents_upload_zone [data-testid="stFileUploader"] [data-testid="stFileUploaderDeleteBtn"],
+.st-key-documents_upload_zone [data-testid="stFileUploader"] [data-testid*="FileUploaderFile"],
+.st-key-documents_upload_zone [data-testid="stFileUploader"] [data-testid*="stFileUploaderFile"],
+.st-key-documents_upload_zone [data-testid="stFileUploader"] [data-testid*="UploadedFile"],
+.st-key-documents_upload_zone [data-testid="stFileUploader"] div:has(> [data-testid*="FileUploaderFile"]),
+.st-key-documents_upload_zone [data-testid="stFileUploader"] div:has(> [data-testid*="stFileUploaderFile"]),
+.st-key-documents_upload_zone [data-testid="stFileUploader"] section:has(> [data-testid*="FileUploaderFile"]),
+.st-key-documents_upload_zone [data-testid="stFileUploader"] section:has(> [data-testid*="stFileUploaderFile"]) {
   display: none !important;
 }
 .st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"] button {
@@ -2213,8 +2221,8 @@ body.pdf-modal-open {
 }
 .documents-badges {
   display: grid;
-  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.14fr) minmax(0, 1.04fr);
-  gap: 0.44rem;
+  grid-template-columns: minmax(82px, 0.8fr) minmax(138px, 1.28fr) minmax(116px, 1.08fr);
+  gap: 0.36rem;
   margin: 0.62rem 0 0.1rem;
   width: 100%;
   max-width: 100%;
@@ -2224,32 +2232,32 @@ body.pdf-modal-open {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.24rem;
+  gap: 0.22rem;
   min-width: 0;
   min-height: 34px;
   border: 1px solid #DCE8F7;
   border-radius: 10px;
   background: #FFFFFF;
   color: #405072;
-  padding: 0.32rem 0.4rem;
-  font-size: 0.72rem;
+  padding: 0.32rem 0.34rem;
+  font-size: 0.7rem;
   font-weight: 850;
   line-height: 1;
   white-space: nowrap;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
 }
 .documents-badge span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: max-content;
+  overflow: visible;
+  text-overflow: clip;
 }
 .documents-badge img {
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
   object-fit: contain;
   display: block;
-  flex: 0 0 18px;
+  flex: 0 0 17px;
 }
 .documents-badge.is-red { color: #D92013; }
 .documents-badge.is-blue { color: var(--blue); }
