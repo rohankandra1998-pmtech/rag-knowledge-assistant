@@ -2052,92 +2052,88 @@ body.pdf-modal-open {
   border-color: var(--blue);
   background: linear-gradient(180deg, #FFFFFF, #EFF7FF);
 }
-.st-key-documents_upload_zone [data-testid="stFileUploader"] {
-  margin: 0;
+.st-key-documents_upload_input_layer {
+  position: absolute;
+  top: 0.82rem;
+  right: 0.82rem;
+  left: 0.82rem;
+  z-index: 4;
+  height: 150px;
+  opacity: 0;
+  overflow: hidden;
 }
-.st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"] {
+.st-key-documents_upload_zone:has(.documents-upload-pending) .st-key-documents_upload_input_layer {
+  height: 94px;
+}
+.st-key-documents_upload_input_layer .stElementContainer,
+.st-key-documents_upload_input_layer [class*="stElementContainer"] {
+  height: 100% !important;
+  min-height: 100% !important;
+  overflow: hidden !important;
+}
+.st-key-documents_upload_input_layer [data-testid="stFileUploader"] {
+  height: 100% !important;
+  min-height: 100% !important;
+  margin: 0;
+  overflow: hidden;
+}
+.st-key-documents_upload_input_layer [data-testid="stFileUploaderDropzone"] {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100% !important;
+  min-height: 100% !important;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.st-key-documents_upload_input_layer [data-testid="stFileUploaderDropzone"] button {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 2 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  margin: 0 !important;
+  cursor: pointer !important;
+}
+.st-key-documents_upload_input_layer [data-testid="stFileUploaderDropzone"] svg,
+.st-key-documents_upload_input_layer [data-testid="stFileUploaderDropzoneInstructions"],
+.st-key-documents_upload_input_layer [data-testid="stFileUploader"] [data-testid*="FileUploaderFile"],
+.st-key-documents_upload_input_layer [data-testid="stFileUploader"] [data-testid*="stFileUploaderFile"],
+.st-key-documents_upload_input_layer [data-testid="stFileUploader"] [data-testid*="UploadedFile"] {
+  display: none !important;
+}
+.documents-upload-visual {
   position: relative;
+  z-index: 1;
   min-height: 150px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-direction: column;
   gap: 0.55rem;
-  border: 0;
-  border-radius: 12px;
-  background: transparent;
   color: #405072;
   text-align: center;
   font-weight: 700;
-  overflow: hidden;
-  cursor: pointer;
+  pointer-events: none;
 }
-.st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"]:hover {
-  background: transparent;
+.documents-upload-visual.has-file {
+  min-height: 0;
 }
-.st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"]::before {
-  content: "";
+.documents-upload-cloud {
   width: 122px;
   height: 96px;
   display: block;
   margin: 0 auto 0.36rem;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: contain;
-  pointer-events: none;
+  object-fit: contain;
 }
-.st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"]::after {
-  content: "Drag PDFs here or browse files";
-  color: #405072;
-  font-size: 0.92rem;
-  font-weight: 750;
-  pointer-events: none;
-}
-.st-key-documents_upload_zone:has(.documents-upload-pending) [data-testid="stFileUploaderDropzone"] {
-  min-height: 94px;
-}
-.st-key-documents_upload_zone:has(.documents-upload-pending) [data-testid="stFileUploaderDropzone"]::before {
+.documents-upload-visual.has-file .documents-upload-cloud {
   width: 104px;
   height: 76px;
   margin-bottom: 0;
-}
-.st-key-documents_upload_zone:has(.documents-upload-pending) [data-testid="stFileUploaderDropzone"]::after {
-  content: none;
-}
-.st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"] svg,
-.st-key-documents_upload_zone [data-testid="stFileUploaderDropzoneInstructions"] {
-  display: none !important;
-}
-.st-key-documents_upload_zone [data-testid="stFileUploader"] [data-testid="stFileUploaderFile"],
-.st-key-documents_upload_zone [data-testid="stFileUploader"] [data-testid="stFileUploaderFileData"],
-.st-key-documents_upload_zone [data-testid="stFileUploader"] [data-testid="stFileUploaderFileName"],
-.st-key-documents_upload_zone [data-testid="stFileUploader"] [data-testid="stFileUploaderFileSize"],
-.st-key-documents_upload_zone [data-testid="stFileUploader"] [data-testid="stFileUploaderFileStatus"],
-.st-key-documents_upload_zone [data-testid="stFileUploader"] [data-testid="stFileUploaderDeleteBtn"],
-.st-key-documents_upload_zone [data-testid="stFileUploader"] [data-testid*="FileUploaderFile"],
-.st-key-documents_upload_zone [data-testid="stFileUploader"] [data-testid*="stFileUploaderFile"],
-.st-key-documents_upload_zone [data-testid="stFileUploader"] [data-testid*="UploadedFile"],
-.st-key-documents_upload_zone [data-testid="stFileUploader"] div:has(> [data-testid*="FileUploaderFile"]),
-.st-key-documents_upload_zone [data-testid="stFileUploader"] div:has(> [data-testid*="stFileUploaderFile"]),
-.st-key-documents_upload_zone [data-testid="stFileUploader"] section:has(> [data-testid*="FileUploaderFile"]),
-.st-key-documents_upload_zone [data-testid="stFileUploader"] section:has(> [data-testid*="stFileUploaderFile"]) {
-  display: none !important;
-}
-.st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"] button {
-  position: absolute !important;
-  inset: 0 !important;
-  z-index: 3 !important;
-  width: 100% !important;
-  height: 100% !important;
-  min-height: 100% !important;
-  margin: 0 !important;
-  opacity: 0 !important;
-  cursor: pointer !important;
-}
-.st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"] button:focus-visible {
-  opacity: 0.08 !important;
-  outline: 4px solid rgba(88,172,244,0.35) !important;
-  outline-offset: -4px !important;
 }
 .documents-upload-pending {
   margin: 0 auto;
@@ -2185,6 +2181,16 @@ body.pdf-modal-open {
   font-weight: 800;
   line-height: 1.2;
   margin: 0.5rem 0 0.64rem;
+}
+.documents-upload-visual:not(.has-file) .documents-upload-helper {
+  font-size: 0.92rem;
+  font-weight: 750;
+  margin: 0;
+}
+.st-key-documents_upload_submit,
+.st-key-documents_upload_cancel {
+  position: relative;
+  z-index: 6;
 }
 .st-key-documents_upload_submit button {
   display: inline-flex !important;

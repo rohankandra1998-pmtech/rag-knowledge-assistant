@@ -1457,9 +1457,6 @@ def render_documents_upload_card() -> None:
             f"""
 <div class="documents-card-title">Upload PDFs</div>
 <style>
-.st-key-documents_upload_zone [data-testid="stFileUploaderDropzone"]::before {{
-  background-image: url("{upload_icon}");
-}}
 .st-key-documents_upload_submit button::before {{
   content: "";
   width: 20px;
@@ -1477,13 +1474,14 @@ def render_documents_upload_card() -> None:
         if upload_notice:
             st.success(upload_notice)
         with st.container(key="documents_upload_zone"):
-            uploaded = st.file_uploader(
-                "Drag PDFs here or browse files",
-                type=["pdf"],
-                accept_multiple_files=True,
-                label_visibility="collapsed",
-                key=f"documents_upload_input_{upload_reset}",
-            )
+            with st.container(key="documents_upload_input_layer"):
+                uploaded = st.file_uploader(
+                    "Drag PDFs here or browse files",
+                    type=["pdf"],
+                    accept_multiple_files=True,
+                    label_visibility="collapsed",
+                    key=f"documents_upload_input_{upload_reset}",
+                )
             if uploaded:
                 total_size = sum(int(getattr(file, "size", 0) or 0) for file in uploaded)
                 first_file = uploaded[0]
@@ -1491,8 +1489,7 @@ def render_documents_upload_card() -> None:
                 name = html.escape(str(getattr(first_file, "name", "Selected PDF") or "Selected PDF"))
                 size = html.escape(format_file_size(total_size))
                 suffix = f" + {extra_count} more" if extra_count else ""
-                st.markdown(
-                    f"""
+                pending_upload_html = f"""
 <div class="documents-upload-pending">
   <div class="documents-upload-file">
     <img src="{pdf_icon}" alt="" aria-hidden="true" />
@@ -1501,11 +1498,22 @@ def render_documents_upload_card() -> None:
       <div class="documents-upload-file-size">{size}</div>
     </div>
   </div>
+</div>
+"""
+            else:
+                pending_upload_html = ""
+            selected_class = " has-file" if uploaded else ""
+            st.markdown(
+                f"""
+<div class="documents-upload-visual{selected_class}">
+  <img class="documents-upload-cloud" src="{upload_icon}" alt="" aria-hidden="true" />
+  {pending_upload_html}
   <div class="documents-upload-helper">Drag PDFs here or browse files</div>
 </div>
 """,
-                    unsafe_allow_html=True,
-                )
+                unsafe_allow_html=True,
+            )
+            if uploaded:
                 action_col, cancel_col = st.columns([1, 0.18], gap="small")
                 with action_col:
                     if st.button("Upload PDFs", key="documents_upload_submit", use_container_width=True):
