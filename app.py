@@ -2043,103 +2043,6 @@ def get_selected_document(stats: dict[str, Any]) -> dict[str, Any] | None:
     return documents[0] if documents else None
 
 
-def document_matches_search(document: dict[str, Any], query: str) -> bool:
-    normalized_query = query.strip().lower()
-    if not normalized_query:
-        return True
-
-    fields = [
-        str(document.get("filename", "") or ""),
-        get_document_location_label(document),
-        str(document.get("status", "") or ""),
-        str(document.get("document_hash", "") or ""),
-        str(document.get("chunking_strategy", "") or ""),
-        format_ingested_timestamp(document.get("last_ingested")),
-    ]
-    return normalized_query in " ".join(fields).lower()
-
-
-def filter_documents_for_search(documents: list[dict[str, Any]], query: str) -> list[dict[str, Any]]:
-    if not query.strip():
-        return documents
-    return [document for document in documents if document_matches_search(document, query)]
-
-
-def render_document_library_search(initial_query: str) -> str:
-    source_key = "documents_library_search_query_source"
-    widget_key = "documents_library_search"
-    if st.session_state.get(source_key) != initial_query:
-        st.session_state[widget_key] = initial_query
-        st.session_state[source_key] = initial_query
-
-    with st.container(key="documents_library_search_bar"):
-        _, search_col = st.columns([1, 0.38], gap="small")
-        with search_col:
-            search_query = st.text_input(
-                "Search documents",
-                key=widget_key,
-                placeholder="Search documents",
-                label_visibility="collapsed",
-            )
-
-    return search_query.strip()
-
-
-def render_document_library_search_script() -> None:
-    st.iframe(
-        """
-<script>
-(() => {
-  const parentDocument = window.parent.document;
-  const input = parentDocument.querySelector('.st-key-documents_library_search input[placeholder="Search documents"]');
-  const card = parentDocument.querySelector('.doc-table-card.has-client-search');
-  if (!input || !card || card.dataset.searchBound === "true") return;
-  card.dataset.searchBound = "true";
-
-  const rows = Array.from(card.querySelectorAll('.doc-table-row'));
-  const emptyRow = card.querySelector('.doc-search-empty-row');
-  const countNode = card.querySelector('.doc-summary-count');
-  const chunkNode = card.querySelector('.doc-summary-chunks');
-  const totalDocuments = rows.length;
-
-  const label = (count, singular, plural) => count === 1 ? singular : plural;
-  const applyFilter = () => {
-    const query = (input.value || '').trim().toLowerCase();
-    let visibleDocuments = 0;
-    let visibleChunks = 0;
-    rows.forEach((row) => {
-      const matches = !query || (row.dataset.searchText || '').includes(query);
-      row.hidden = !matches;
-      row.classList.toggle('is-search-hidden', !matches);
-      if (matches) {
-        visibleDocuments += 1;
-        visibleChunks += Number(row.dataset.chunks || 0);
-      }
-    });
-    if (emptyRow) {
-      emptyRow.hidden = visibleDocuments !== 0;
-    }
-    if (countNode) {
-      countNode.textContent = query
-        ? `${visibleDocuments.toLocaleString()} of ${totalDocuments.toLocaleString()} ${label(totalDocuments, 'document', 'documents')}`
-        : `${totalDocuments.toLocaleString()} ${label(totalDocuments, 'document', 'documents')}`;
-    }
-    if (chunkNode) {
-      chunkNode.textContent = `${visibleChunks.toLocaleString()} ${label(visibleChunks, 'chunk', 'chunks')}`;
-    }
-  };
-
-  input.addEventListener('input', applyFilter);
-  input.addEventListener('search', applyFilter);
-  window.parent.requestAnimationFrame(applyFilter);
-})();
-</script>
-""",
-        height=1,
-        width=1,
-    )
-
-
 def render_selected_document_panel(document: dict[str, Any] | None) -> None:
     if not document:
         st.markdown(
@@ -2258,7 +2161,6 @@ def render_documents_screen(stats: dict[str, Any]) -> None:
     documents = stats.get("documents", [])
     selected_document = get_selected_document(stats)
     selected_document_hash = str(selected_document.get("document_hash", "") or "") if selected_document else ""
-    document_search_query = str(st.session_state.get("documents_library_search", "") or "")
     main_col, selected_col = st.columns([3.05, 1.15], gap="medium")
     with main_col:
         upload_col, status_col = st.columns([1.12, 1.08], gap="medium")
@@ -2269,7 +2171,6 @@ def render_documents_screen(stats: dict[str, Any]) -> None:
             render_documents_upload_card(progress_placeholder=progress_placeholder)
 
         render_documents_metric_cards(stats)
-        document_search_query = render_document_library_search(document_search_query)
         render_document_table(
             documents,
             title="Document library",
@@ -2278,11 +2179,10 @@ def render_documents_screen(stats: dict[str, Any]) -> None:
             enable_selection=True,
             selected_document_hash=selected_document_hash,
             selection_section="Documents",
-            search_query=document_search_query,
-            search_param_name="document_search",
+            show_search=True,
+            search_key="documents_library_search",
             info_copy="Deleting a document removes its uploaded PDF and all ChromaDB chunks for that SHA-256 hash.",
         )
-        render_document_library_search_script()
 
     with selected_col:
         render_selected_document_panel(selected_document)
@@ -2294,7 +2194,12 @@ def render_ingestion_status(stats: dict[str, Any]) -> None:
     st.markdown('<div class="ingestion-status-title">Ingestion status</div>', unsafe_allow_html=True)
     render_ingestion_status_cards(stats)
     documents = stats.get("documents", [])
-    render_document_table(documents, source_section="Ingestion status")
+    render_document_table(
+        documents,
+        source_section="Ingestion status",
+        show_search=True,
+        search_key="ingestion_status_documents_search",
+    )
     render_client_pdf_modals(documents, "Ingestion status")
 
 

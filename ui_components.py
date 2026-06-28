@@ -765,6 +765,26 @@ html, body, [class*="css"] {
     #FFFFFF;
   box-shadow: 0 18px 46px rgba(11, 48, 117, 0.10);
 }
+.st-key-documents_library_search_table_card,
+.st-key-ingestion_status_documents_search_table_card {
+  margin: 1rem 0;
+  overflow: hidden;
+  border: 1px solid rgba(16, 94, 221, 0.12);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.99), rgba(248,251,255,0.97)),
+    #FFFFFF;
+  box-shadow: 0 18px 46px rgba(11, 48, 117, 0.10);
+}
+.st-key-documents_library_search_table_card [data-testid="stHorizontalBlock"]:first-child,
+.st-key-ingestion_status_documents_search_table_card [data-testid="stHorizontalBlock"]:first-child {
+  align-items: center;
+  padding: 1.15rem 1.35rem 1.05rem;
+  background: linear-gradient(90deg, #FFFFFF, #F6FAFF);
+}
+.doc-table-header-inline {
+  padding: 0;
+}
 .doc-table-header {
   display: flex;
   justify-content: space-between;
@@ -825,24 +845,12 @@ html, body, [class*="css"] {
   gap: 0.58rem;
   flex-shrink: 0;
 }
-.st-key-documents_library_search_bar {
-  position: relative;
-  z-index: 3;
-  margin: 0.78rem 1.05rem -4.25rem 0;
-  pointer-events: none;
-}
-.st-key-documents_library_search_bar [data-testid="column"] {
-  display: flex;
-  align-items: flex-end;
-}
-.st-key-documents_library_search_bar [data-testid="stTextInput"] {
-  width: 100%;
-  pointer-events: auto;
-}
-.st-key-documents_library_search [data-testid="stWidgetLabel"] {
+.st-key-documents_library_search [data-testid="stWidgetLabel"],
+.st-key-ingestion_status_documents_search [data-testid="stWidgetLabel"] {
   display: none;
 }
-.st-key-documents_library_search input {
+.st-key-documents_library_search input,
+.st-key-ingestion_status_documents_search input {
   height: 42px;
   border: 1px solid #CFE1FB !important;
   border-radius: 12px !important;
@@ -853,37 +861,10 @@ html, body, [class*="css"] {
   font-weight: 750 !important;
   box-shadow: 0 8px 20px rgba(16,94,221,0.06) !important;
 }
-.st-key-documents_library_search input:focus {
+.st-key-documents_library_search input:focus,
+.st-key-ingestion_status_documents_search input:focus {
   border-color: var(--blue) !important;
   box-shadow: 0 0 0 3px rgba(88,172,244,0.22), 0 8px 20px rgba(16,94,221,0.08) !important;
-}
-.doc-icon-btn {
-  border: 1px solid #CFE1FB;
-  border-radius: 11px;
-  background: #FFFFFF;
-  color: var(--blue);
-  min-width: 42px;
-  height: 42px;
-  padding: 0 0.9rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  font-size: 0.9rem;
-  font-weight: 800;
-  box-shadow: 0 8px 20px rgba(16,94,221,0.08);
-}
-.doc-icon-btn img {
-  width: 19px;
-  height: 19px;
-  object-fit: contain;
-  display: block;
-}
-.doc-icon-btn.icon-only {
-  width: 42px;
-  padding: 0;
-  border-radius: 999px;
-  color: #6B7896;
 }
 .doc-table-scroll {
   overflow-x: auto;
@@ -3326,6 +3307,62 @@ def _pdf_modal_id(document: dict[str, Any]) -> str:
     return f"pdf-modal-{target}"
 
 
+def render_document_table_search_script(search_key: str, table_id: str) -> None:
+    st.iframe(
+        f"""
+<script>
+(() => {{
+  const parentDocument = window.parent.document;
+  const input = parentDocument.querySelector('.st-key-{html.escape(search_key, quote=True)} input[placeholder="Search documents"]');
+  const tableBody = parentDocument.querySelector('[data-doc-table-id="{html.escape(table_id, quote=True)}"]');
+  const card = parentDocument.querySelector('.st-key-{html.escape(table_id.replace("-", "_"), quote=True)}_table_card') || tableBody;
+  if (!input || !tableBody || !card || tableBody.dataset.searchBound === "true") return;
+  tableBody.dataset.searchBound = "true";
+
+  const rows = Array.from(tableBody.querySelectorAll('.doc-table-row'));
+  const emptyRow = tableBody.querySelector('.doc-search-empty-row');
+  const countNode = card.querySelector('.doc-summary-count');
+  const chunkNode = card.querySelector('.doc-summary-chunks');
+  const totalDocuments = rows.length;
+
+  const label = (count, singular, plural) => count === 1 ? singular : plural;
+  const applyFilter = () => {{
+    const query = (input.value || '').trim().toLowerCase();
+    let visibleDocuments = 0;
+    let visibleChunks = 0;
+    rows.forEach((row) => {{
+      const matches = !query || (row.dataset.searchText || '').includes(query);
+      row.hidden = !matches;
+      row.classList.toggle('is-search-hidden', !matches);
+      if (matches) {{
+        visibleDocuments += 1;
+        visibleChunks += Number(row.dataset.chunks || 0);
+      }}
+    }});
+    if (emptyRow) {{
+      emptyRow.hidden = visibleDocuments !== 0;
+    }}
+    if (countNode) {{
+      countNode.textContent = query
+        ? `${{visibleDocuments.toLocaleString()}} of ${{totalDocuments.toLocaleString()}} ${{label(totalDocuments, 'document', 'documents')}}`
+        : `${{totalDocuments.toLocaleString()}} ${{label(totalDocuments, 'document', 'documents')}}`;
+    }}
+    if (chunkNode) {{
+      chunkNode.textContent = `${{visibleChunks.toLocaleString()}} ${{label(visibleChunks, 'chunk', 'chunks')}}`;
+    }}
+  }};
+
+  input.addEventListener('input', applyFilter);
+  input.addEventListener('search', applyFilter);
+  window.parent.requestAnimationFrame(applyFilter);
+}})();
+</script>
+""",
+        height=1,
+        width=1,
+    )
+
+
 def render_document_table(
     documents: list[dict[str, Any]],
     title: str = "Indexed documents",
@@ -3334,8 +3371,9 @@ def render_document_table(
     enable_selection: bool = False,
     selected_document_hash: str | None = None,
     selection_section: str | None = None,
-    search_query: str | None = None,
-    search_param_name: str = "document_search",
+    show_search: bool = False,
+    search_key: str | None = None,
+    search_placeholder: str = "Search documents",
     total_document_count: int | None = None,
     info_copy: str = "All documents are chunked semantically and stored as high-quality embeddings for accurate retrieval.",
     empty_title: str = "No indexed documents yet",
@@ -3348,14 +3386,13 @@ def render_document_table(
     formatted_timestamps = [_format_ingested_timestamp(doc.get("last_ingested")) for doc in documents]
     last_updated = next((timestamp for timestamp in formatted_timestamps if timestamp), "Not ingested yet")
     selected_document_hash = (selected_document_hash or "").strip()
-    search_query = "" if search_query is None else str(search_query)
     table_classes = "doc-table-grid has-selection" if enable_selection else "doc-table-grid"
-    card_classes = "doc-table-card has-client-search" if enable_selection and search_query is not None else "doc-table-card"
+    search_key = search_key or f"{re.sub(r'[^a-zA-Z0-9_]+', '_', title.lower()).strip('_')}_search"
+    table_id = re.sub(r"[^a-zA-Z0-9_-]+", "-", search_key).strip("-") or "document-search"
+    card_classes = "doc-table-card has-client-search" if show_search else "doc-table-card"
     selection_section = selection_section or source_section
 
     document_icon = _indexed_docs_icon("document-outline-icon.png", "Documents")
-    refresh_icon = _indexed_docs_icon("refresh-icon.png", "Refresh")
-    info_icon = _indexed_docs_icon("info-icon.png", "Info")
     pdf_icon = _indexed_docs_icon("pdf-file-icon.png", "PDF file")
     view_icon = _indexed_docs_icon("view-eye-icon.png", "View")
     sync_icon = _indexed_docs_icon("sync-icon.png", "Re-ingest")
@@ -3393,15 +3430,13 @@ def render_document_table(
         view_target = quote(document_hash or filename, safe="")
         source_query = f"&from_section={quote(source_section, safe='')}" if source_section else ""
         selected_query = f"&selected_doc={view_target}" if document_hash else ""
-        search_query_part = ""
         selection_section_query = f"&section={quote(selection_section, safe='')}" if selection_section else ""
         selection_href = (
             f"?selected_doc={view_target}"
             f"{selection_section_query}"
-            f"{search_query_part}"
         )
-        reingest_href = f"?reingest_doc={view_target}{source_query}{selected_query}{search_query_part}"
-        delete_href = f"?delete_doc={view_target}{selected_query}{search_query_part}" if enable_delete else ""
+        reingest_href = f"?reingest_doc={view_target}{source_query}{selected_query}"
+        delete_href = f"?delete_doc={view_target}{selected_query}" if enable_delete else ""
         modal_id = _pdf_modal_id(doc)
         selection_cell_html = (
             '<div class="doc-cell doc-select-cell">'
@@ -3463,7 +3498,7 @@ def render_document_table(
   <div class="doc-empty-copy">{html.escape(empty_copy)}</div>
 </div>
 """
-    if enable_selection and search_query is not None:
+    if show_search:
         rows_markup += (
             '<div class="doc-empty-row doc-search-empty-row" hidden>'
             '<div class="doc-empty-title">No documents match your search.</div>'
@@ -3494,7 +3529,7 @@ def render_document_table(
         ]
     )
     table_markup = (
-        f'<div class="{card_classes}">'
+        f'<div class="{card_classes}" data-doc-table-id="{html.escape(table_id, quote=True)}">'
         '<div class="doc-table-header">'
         '<div class="doc-table-heading">'
         f'<div class="doc-title-icon">{document_icon}</div>'
@@ -3508,10 +3543,6 @@ def render_document_table(
         f'Last updated {html.escape(last_updated)}'
         '</div>'
         '</div>'
-        '</div>'
-        '<div class="doc-table-actions" aria-label="Document table actions">'
-        f'<span class="doc-icon-btn" title="Refresh">{refresh_icon}<span>Refresh</span></span>'
-        f'<span class="doc-icon-btn icon-only" title="Info">{info_icon}</span>'
         '</div>'
         '</div>'
         '<div class="doc-table-scroll">'
@@ -3529,7 +3560,60 @@ def render_document_table(
         '</div>'
         '</div>'
     )
-    st.markdown(table_markup, unsafe_allow_html=True)
+    body_markup = (
+        '<div class="doc-table-scroll">'
+        f'<div class="{table_classes}">'
+        f'<div class="doc-table-head">{head_cells}</div>'
+        f'{rows_markup}'
+        '</div>'
+        '</div>'
+        '<div class="doc-info-strip">'
+        '<div class="doc-info-copy">'
+        f'{lightbulb_icon}'
+        f'<span>{html.escape(info_copy)}</span>'
+        '</div>'
+        f'<span class="doc-view-all">View all documents <span aria-hidden="true">{chevron_icon}</span></span>'
+        '</div>'
+    )
+    if show_search:
+        container_key = f"{table_id.replace('-', '_')}_table_card"
+        with st.container(key=container_key):
+            header_left, header_right = st.columns([1, 0.34], gap="large")
+            with header_left:
+                st.markdown(
+                    (
+                        '<div class="doc-table-header-inline">'
+                        '<div class="doc-table-heading">'
+                        f'<div class="doc-title-icon">{document_icon}</div>'
+                        '<div>'
+                        f'<div class="doc-table-title">{html.escape(title)}</div>'
+                        '<div class="doc-table-summary">'
+                        f'<strong class="doc-summary-count">{html.escape(document_summary_text)}</strong>'
+                        f'<span class="doc-summary-dot">{summary_dot}</span>'
+                        f'<strong class="doc-summary-chunks">{total_chunks:,} {chunk_label}</strong>'
+                        f'<span class="doc-summary-dot">{summary_dot}</span>'
+                        f'Last updated {html.escape(last_updated)}'
+                        '</div>'
+                        '</div>'
+                        '</div>'
+                        '</div>'
+                    ),
+                    unsafe_allow_html=True,
+                )
+            with header_right:
+                st.text_input(
+                    "Search documents",
+                    key=search_key,
+                    placeholder=search_placeholder,
+                    label_visibility="collapsed",
+                )
+            st.markdown(
+                f'<div class="doc-table-body has-client-search" data-doc-table-id="{html.escape(table_id, quote=True)}">{body_markup}</div>',
+                unsafe_allow_html=True,
+            )
+            render_document_table_search_script(search_key, table_id)
+    else:
+        st.markdown(table_markup, unsafe_allow_html=True)
 
 
 def render_empty_state(title: str, body: str) -> None:
