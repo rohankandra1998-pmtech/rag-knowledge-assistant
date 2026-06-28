@@ -2065,22 +2065,6 @@ def filter_documents_for_search(documents: list[dict[str, Any]], query: str) -> 
     return [document for document in documents if document_matches_search(document, query)]
 
 
-def sync_document_search_query_param(search_query: str, current_query_param: str) -> None:
-    normalized_query = search_query.strip()
-    if normalized_query == current_query_param:
-        return
-
-    try:
-        if normalized_query:
-            st.query_params["document_search"] = normalized_query
-        elif "document_search" in st.query_params:
-            del st.query_params["document_search"]
-    except Exception:
-        return
-    st.session_state.documents_library_search_query_source = normalized_query
-    st.rerun()
-
-
 def render_document_library_search(initial_query: str) -> str:
     source_key = "documents_library_search_query_source"
     widget_key = "documents_library_search"
@@ -2091,21 +2075,69 @@ def render_document_library_search(initial_query: str) -> str:
     with st.container(key="documents_library_search_bar"):
         _, search_col = st.columns([1, 0.38], gap="small")
         with search_col:
-            with st.form("documents_library_search_form", clear_on_submit=False):
-                input_col, submit_col = st.columns([1, 0.34], gap="small")
-                with input_col:
-                    search_query = st.text_input(
-                        "Search documents",
-                        key=widget_key,
-                        placeholder="Search documents",
-                        label_visibility="collapsed",
-                    )
-                with submit_col:
-                    submitted = st.form_submit_button("Search", use_container_width=True)
+            search_query = st.text_input(
+                "Search documents",
+                key=widget_key,
+                placeholder="Search documents",
+                label_visibility="collapsed",
+            )
 
-    if submitted:
-        sync_document_search_query_param(search_query, initial_query)
-    return initial_query
+    return search_query.strip()
+
+
+def render_document_library_search_script() -> None:
+    st.iframe(
+        """
+<script>
+(() => {
+  const parentDocument = window.parent.document;
+  const input = parentDocument.querySelector('.st-key-documents_library_search input[placeholder="Search documents"]');
+  const card = parentDocument.querySelector('.doc-table-card.has-client-search');
+  if (!input || !card || card.dataset.searchBound === "true") return;
+  card.dataset.searchBound = "true";
+
+  const rows = Array.from(card.querySelectorAll('.doc-table-row'));
+  const emptyRow = card.querySelector('.doc-search-empty-row');
+  const countNode = card.querySelector('.doc-summary-count');
+  const chunkNode = card.querySelector('.doc-summary-chunks');
+  const totalDocuments = rows.length;
+
+  const label = (count, singular, plural) => count === 1 ? singular : plural;
+  const applyFilter = () => {
+    const query = (input.value || '').trim().toLowerCase();
+    let visibleDocuments = 0;
+    let visibleChunks = 0;
+    rows.forEach((row) => {
+      const matches = !query || (row.dataset.searchText || '').includes(query);
+      row.hidden = !matches;
+      row.classList.toggle('is-search-hidden', !matches);
+      if (matches) {
+        visibleDocuments += 1;
+        visibleChunks += Number(row.dataset.chunks || 0);
+      }
+    });
+    if (emptyRow) {
+      emptyRow.hidden = visibleDocuments !== 0;
+    }
+    if (countNode) {
+      countNode.textContent = query
+        ? `${visibleDocuments.toLocaleString()} of ${totalDocuments.toLocaleString()} ${label(totalDocuments, 'document', 'documents')}`
+        : `${totalDocuments.toLocaleString()} ${label(totalDocuments, 'document', 'documents')}`;
+    }
+    if (chunkNode) {
+      chunkNode.textContent = `${visibleChunks.toLocaleString()} ${label(visibleChunks, 'chunk', 'chunks')}`;
+    }
+  };
+
+  input.addEventListener('input', applyFilter);
+  input.addEventListener('search', applyFilter);
+  window.parent.requestAnimationFrame(applyFilter);
+})();
+</script>
+""",
+        height=1,
+        width=1,
+    )
 
 
 def render_selected_document_panel(document: dict[str, Any] | None) -> None:
@@ -2226,7 +2258,7 @@ def render_documents_screen(stats: dict[str, Any]) -> None:
     documents = stats.get("documents", [])
     selected_document = get_selected_document(stats)
     selected_document_hash = str(selected_document.get("document_hash", "") or "") if selected_document else ""
-    document_search_query = get_query_param("document_search")
+    document_search_query = str(st.session_state.get("documents_library_search", "") or "")
     main_col, selected_col = st.columns([3.05, 1.15], gap="medium")
     with main_col:
         upload_col, status_col = st.columns([1.12, 1.08], gap="medium")
@@ -2238,9 +2270,8 @@ def render_documents_screen(stats: dict[str, Any]) -> None:
 
         render_documents_metric_cards(stats)
         document_search_query = render_document_library_search(document_search_query)
-        filtered_documents = filter_documents_for_search(documents, document_search_query)
         render_document_table(
-            filtered_documents,
+            documents,
             title="Document library",
             source_section="Documents",
             enable_delete=True,
@@ -2249,15 +2280,9 @@ def render_documents_screen(stats: dict[str, Any]) -> None:
             selection_section="Documents",
             search_query=document_search_query,
             search_param_name="document_search",
-            total_document_count=len(documents),
             info_copy="Deleting a document removes its uploaded PDF and all ChromaDB chunks for that SHA-256 hash.",
-            empty_title="No documents match your search." if document_search_query else "No indexed documents yet",
-            empty_copy=(
-                "Try another filename, hash, status, location, or chunking strategy."
-                if document_search_query
-                else "Upload PDFs and run ingestion to populate this table."
-            ),
         )
+        render_document_library_search_script()
 
     with selected_col:
         render_selected_document_panel(selected_document)

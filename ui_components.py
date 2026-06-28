@@ -826,17 +826,18 @@ html, body, [class*="css"] {
   flex-shrink: 0;
 }
 .st-key-documents_library_search_bar {
-  margin: 0.78rem 0 -0.42rem;
+  position: relative;
+  z-index: 3;
+  margin: 0.78rem 1.05rem -4.25rem 0;
+  pointer-events: none;
 }
 .st-key-documents_library_search_bar [data-testid="column"] {
   display: flex;
   align-items: flex-end;
 }
-.st-key-documents_library_search_form {
-  width: 100%;
-}
 .st-key-documents_library_search_bar [data-testid="stTextInput"] {
   width: 100%;
+  pointer-events: auto;
 }
 .st-key-documents_library_search [data-testid="stWidgetLabel"] {
   display: none;
@@ -855,21 +856,6 @@ html, body, [class*="css"] {
 .st-key-documents_library_search input:focus {
   border-color: var(--blue) !important;
   box-shadow: 0 0 0 3px rgba(88,172,244,0.22), 0 8px 20px rgba(16,94,221,0.08) !important;
-}
-.st-key-documents_library_search_form button {
-  height: 42px;
-  border: 1px solid #CFE1FB !important;
-  border-radius: 12px !important;
-  background: #FFFFFF !important;
-  color: var(--blue) !important;
-  font-size: 0.82rem !important;
-  font-weight: 850 !important;
-  box-shadow: 0 8px 20px rgba(16,94,221,0.06) !important;
-}
-.st-key-documents_library_search_form button:hover {
-  border-color: #BBD6FF !important;
-  background: #F6FAFF !important;
-  color: var(--navy) !important;
 }
 .doc-icon-btn {
   border: 1px solid #CFE1FB;
@@ -3364,6 +3350,7 @@ def render_document_table(
     selected_document_hash = (selected_document_hash or "").strip()
     search_query = "" if search_query is None else str(search_query)
     table_classes = "doc-table-grid has-selection" if enable_selection else "doc-table-grid"
+    card_classes = "doc-table-card has-client-search" if enable_selection and search_query is not None else "doc-table-card"
     selection_section = selection_section or source_section
 
     document_icon = _indexed_docs_icon("document-outline-icon.png", "Documents")
@@ -3385,9 +3372,17 @@ def render_document_table(
         timestamp = _format_ingested_timestamp(doc.get("last_ingested")) or "Not available"
         document_hash = str(doc.get("document_hash", "") or "")
         short_hash = document_hash[:12] if document_hash else "n/a"
+        chunking = str(doc.get("chunking_strategy", "") or "")
         is_selected = bool(enable_selection and document_hash and document_hash == selected_document_hash)
         status_class = _status_class(status)
         file_size = _format_file_size(doc.get("file_size"))
+        location_text = " ".join(
+            str(doc.get(key, "") or "")
+            for key in ("location", "source", "source_path", "source_file", "path")
+        )
+        search_text = " ".join(
+            [filename, status, timestamp, document_hash, short_hash, chunking, location_text, "docs/", "uploaded_docs/"]
+        ).lower()
         file_meta_html = (
             f"{html.escape(extension)} &middot; {html.escape(file_size)}"
             if file_size
@@ -3398,11 +3393,7 @@ def render_document_table(
         view_target = quote(document_hash or filename, safe="")
         source_query = f"&from_section={quote(source_section, safe='')}" if source_section else ""
         selected_query = f"&selected_doc={view_target}" if document_hash else ""
-        search_query_part = (
-            f"&{quote(search_param_name, safe='')}={quote(search_query, safe='')}"
-            if search_query
-            else ""
-        )
+        search_query_part = ""
         selection_section_query = f"&section={quote(selection_section, safe='')}" if selection_section else ""
         selection_href = (
             f"?selected_doc={view_target}"
@@ -3429,7 +3420,8 @@ def render_document_table(
         )
 
         row_html.append(
-            f'<div class="doc-table-row{" is-selected" if is_selected else ""}">'
+            f'<div class="doc-table-row{" is-selected" if is_selected else ""}" '
+            f'data-search-text="{html.escape(search_text, quote=True)}" data-chunks="{chunks}">'
             f'{selection_cell_html}'
             '<div class="doc-cell">'
             '<div class="doc-main">'
@@ -3471,6 +3463,13 @@ def render_document_table(
   <div class="doc-empty-copy">{html.escape(empty_copy)}</div>
 </div>
 """
+    if enable_selection and search_query is not None:
+        rows_markup += (
+            '<div class="doc-empty-row doc-search-empty-row" hidden>'
+            '<div class="doc-empty-title">No documents match your search.</div>'
+            '<div class="doc-empty-copy">Try another filename, hash, status, location, or chunking strategy.</div>'
+            '</div>'
+        )
 
     document_label = "document" if total_documents == 1 else "documents"
     chunk_label = "chunk" if total_chunks == 1 else "chunks"
@@ -3482,51 +3481,54 @@ def render_document_table(
     actions_icon = "&vellip;"
     chevron_icon = "&rsaquo;"
     selection_head_html = '<div class="doc-cell"><span class="doc-select-head" aria-hidden="true"></span></div>' if enable_selection else ""
-    table_markup = f"""
-<div class="doc-table-card">
-  <div class="doc-table-header">
-    <div class="doc-table-heading">
-      <div class="doc-title-icon">{document_icon}</div>
-      <div>
-        <div class="doc-table-title">{html.escape(title)}</div>
-        <div class="doc-table-summary">
-          <strong>{html.escape(document_summary_text)}</strong>
-          <span class="doc-summary-dot">{summary_dot}</span>
-          <strong>{total_chunks:,} {chunk_label}</strong>
-          <span class="doc-summary-dot">{summary_dot}</span>
-          Last updated {html.escape(last_updated)}
-        </div>
-      </div>
-    </div>
-    <div class="doc-table-actions" aria-label="Document table actions">
-      <span class="doc-icon-btn" title="Refresh">{refresh_icon}<span>Refresh</span></span>
-      <span class="doc-icon-btn icon-only" title="Info">{info_icon}</span>
-    </div>
-  </div>
-  <div class="doc-table-scroll">
-    <div class="{table_classes}">
-      <div class="doc-table-head">
-        {selection_head_html}
-        <div class="doc-cell">{_doc_head("Document", "document-outline-icon.png")}</div>
-        <div class="doc-cell">{_doc_head("Pages", "document-outline-icon.png")}</div>
-        <div class="doc-cell">{_doc_head("Chunks", "stacked-layers-icon.png")}</div>
-        <div class="doc-cell">{_doc_head("Status", "status-shield-icon.png")}</div>
-        <div class="doc-cell">{_doc_head("Last ingested", "calendar-icon.png")}</div>
-        <div class="doc-cell">{_doc_head("Hash", None, "#")}</div>
-        <div class="doc-cell">{_doc_head("Actions", None, actions_icon)}</div>
-      </div>
-{rows_markup}
-    </div>
-  </div>
-  <div class="doc-info-strip">
-    <div class="doc-info-copy">
-      {lightbulb_icon}
-      <span>{html.escape(info_copy)}</span>
-    </div>
-    <span class="doc-view-all">View all documents <span aria-hidden="true">{chevron_icon}</span></span>
-  </div>
-</div>
-"""
+    head_cells = "".join(
+        [
+            selection_head_html,
+            f'<div class="doc-cell">{_doc_head("Document", "document-outline-icon.png")}</div>',
+            f'<div class="doc-cell">{_doc_head("Pages", "document-outline-icon.png")}</div>',
+            f'<div class="doc-cell">{_doc_head("Chunks", "stacked-layers-icon.png")}</div>',
+            f'<div class="doc-cell">{_doc_head("Status", "status-shield-icon.png")}</div>',
+            f'<div class="doc-cell">{_doc_head("Last ingested", "calendar-icon.png")}</div>',
+            f'<div class="doc-cell">{_doc_head("Hash", None, "#")}</div>',
+            f'<div class="doc-cell">{_doc_head("Actions", None, actions_icon)}</div>',
+        ]
+    )
+    table_markup = (
+        f'<div class="{card_classes}">'
+        '<div class="doc-table-header">'
+        '<div class="doc-table-heading">'
+        f'<div class="doc-title-icon">{document_icon}</div>'
+        '<div>'
+        f'<div class="doc-table-title">{html.escape(title)}</div>'
+        '<div class="doc-table-summary">'
+        f'<strong class="doc-summary-count">{html.escape(document_summary_text)}</strong>'
+        f'<span class="doc-summary-dot">{summary_dot}</span>'
+        f'<strong class="doc-summary-chunks">{total_chunks:,} {chunk_label}</strong>'
+        f'<span class="doc-summary-dot">{summary_dot}</span>'
+        f'Last updated {html.escape(last_updated)}'
+        '</div>'
+        '</div>'
+        '</div>'
+        '<div class="doc-table-actions" aria-label="Document table actions">'
+        f'<span class="doc-icon-btn" title="Refresh">{refresh_icon}<span>Refresh</span></span>'
+        f'<span class="doc-icon-btn icon-only" title="Info">{info_icon}</span>'
+        '</div>'
+        '</div>'
+        '<div class="doc-table-scroll">'
+        f'<div class="{table_classes}">'
+        f'<div class="doc-table-head">{head_cells}</div>'
+        f'{rows_markup}'
+        '</div>'
+        '</div>'
+        '<div class="doc-info-strip">'
+        '<div class="doc-info-copy">'
+        f'{lightbulb_icon}'
+        f'<span>{html.escape(info_copy)}</span>'
+        '</div>'
+        f'<span class="doc-view-all">View all documents <span aria-hidden="true">{chevron_icon}</span></span>'
+        '</div>'
+        '</div>'
+    )
     st.markdown(table_markup, unsafe_allow_html=True)
 
 
