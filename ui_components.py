@@ -3430,10 +3430,10 @@ def render_document_table(
         view_target = quote(document_hash or filename, safe="")
         source_query = f"&from_section={quote(source_section, safe='')}" if source_section else ""
         selected_query = f"&selected_doc={view_target}" if document_hash else ""
-        selection_section_query = f"&section={quote(selection_section, safe='')}" if selection_section else ""
+        selection_section_query = f"section={quote(selection_section, safe='')}&" if selection_section else ""
         selection_href = (
-            f"?selected_doc={view_target}"
-            f"{selection_section_query}"
+            f"?{selection_section_query}"
+            f"selected_doc={view_target}"
         )
         reingest_href = f"?reingest_doc={view_target}{source_query}{selected_query}"
         delete_href = f"?delete_doc={view_target}{selected_query}" if enable_delete else ""
@@ -3441,6 +3441,7 @@ def render_document_table(
         selection_cell_html = (
             '<div class="doc-cell doc-select-cell">'
             f'<a class="doc-select-control{" is-selected" if is_selected else ""}" href="{selection_href}" '
+            'target="_self" '
             f'aria-label="Select {html.escape(filename)}" title="Select {html.escape(filename)}">'
             '<span aria-hidden="true"></span></a>'
             '</div>'
