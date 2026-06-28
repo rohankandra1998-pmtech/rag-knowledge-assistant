@@ -94,6 +94,28 @@ def invalidate_collection_stats_cache() -> None:
     st.session_state.pop("collection_stats_cache", None)
 
 
+def clear_document_delete_result_state() -> None:
+    st.session_state.pop("document_delete_result", None)
+    st.session_state.pop("document_delete_result_context", None)
+
+
+def has_pending_documents_upload() -> bool:
+    for key, value in st.session_state.items():
+        if not str(key).startswith("documents_upload_input_"):
+            continue
+        if isinstance(value, list):
+            if value:
+                return True
+        elif value:
+            return True
+    return False
+
+
+def clear_delete_result_when_upload_pending() -> None:
+    if has_pending_documents_upload():
+        clear_document_delete_result_state()
+
+
 def get_cached_collection_stats(collection, *, force_refresh: bool = False) -> dict[str, Any]:
     try:
         chunk_count = int(collection.count())
@@ -201,6 +223,7 @@ def get_upload_notice_level(results: list[dict[str, Any]]) -> str:
 
 
 def upload_and_ingest_files(uploaded_files, progress_placeholder=None) -> list[dict[str, Any]]:
+    clear_document_delete_result_state()
     if st.session_state.get("ingestion_active"):
         return []
 
@@ -623,11 +646,13 @@ def confirm_delete_document(document: dict[str, Any], collection, documents: lis
         result["message"] = message
         result["next_selected_doc"] = next_selected_document_hash(documents or [], document_hash)
         st.session_state.document_delete_result = result
+        st.session_state.document_delete_result_context = "delete"
     else:
         result["message"] = result.get("reason", "Document could not be deleted.")
         st.session_state.document_delete_result = result
+        st.session_state.document_delete_result_context = "delete"
 
-    clear_document_query_params("delete_doc", "view_doc", "from_section", "section")
+    clear_document_query_params("delete_doc", "confirm_delete_doc", "view_doc", "from_section", "section")
     try:
         if result.get("status") == "deleted":
             next_hash = str(result.get("next_selected_doc", "") or "")
@@ -662,7 +687,7 @@ def delete_result_markup(result: dict[str, Any]) -> str:
         copy = str(result.get("message", "Document could not be deleted.") or "Document could not be deleted.")
         detail = "No document changes were applied."
     return f"""
-<div class="delete-result-panel">
+<div class="delete-result-panel polished-delete-result">
   <div class="delete-result-icon {icon_class}">{icon}</div>
   <div class="delete-result-title">{html.escape(title)}</div>
   <div class="delete-result-copy">{html.escape(copy)}</div>
@@ -675,20 +700,23 @@ def render_delete_result_dialog() -> bool:
     result = st.session_state.get("document_delete_result")
     if not result:
         return False
+    if st.session_state.get("document_delete_result_context") != "delete":
+        del st.session_state.document_delete_result
+        return False
 
     st.session_state.nav_section = "Documents"
     dialog = getattr(st, "dialog", None)
     if not callable(dialog):
         level = "success" if result.get("status") == "deleted" else "error"
         st.session_state.document_action_notice = (level, result.get("message", "Document delete finished."))
-        del st.session_state.document_delete_result
+        clear_document_delete_result_state()
         return False
 
     @dialog("Document deleted" if result.get("status") == "deleted" else "Delete failed")
     def _delete_result_dialog() -> None:
         st.markdown(delete_result_markup(result), unsafe_allow_html=True)
         if st.button("Done", key="delete_result_done", type="primary", use_container_width=True):
-            del st.session_state.document_delete_result
+            clear_document_delete_result_state()
             st.session_state.nav_section = "Documents"
             st.rerun()
 
@@ -696,7 +724,13 @@ def render_delete_result_dialog() -> bool:
     return True
 
 
-def delete_confirmation_markup(document: dict[str, Any]) -> str:
+def delete_confirmation_markup(
+    document: dict[str, Any],
+    *,
+    include_footer: bool = False,
+    include_close: bool = False,
+    include_header: bool = True,
+) -> str:
     filename = str(document.get("filename", "") or "document")
     pages = int(document.get("pages") or 0)
     chunks = int(document.get("chunks") or 0)
@@ -723,9 +757,34 @@ def delete_confirmation_markup(document: dict[str, Any]) -> str:
 
     page_label = f"{pages:,} page" + ("" if pages == 1 else "s")
     chunk_label = f"{chunks:,} chunk" + ("" if chunks == 1 else "s")
+    target = quote(document_hash or filename, safe="")
+    confirm_href = f"?section=Documents&confirm_delete_doc={target}&selected_doc={target}"
+    close_html = (
+        '<button class="delete-modal-close" type="button" data-delete-modal-close aria-label="Close delete dialog">&times;</button>'
+        if include_close
+        else ""
+    )
+    footer_html = (
+        '<div class="delete-modal-footer">'
+        '<button class="delete-modal-cancel" type="button" data-delete-modal-close>Cancel</button>'
+        f'<a class="delete-modal-confirm" href="{confirm_href}" target="_self">'
+        f'{_trash_svg_inline()}<span>Delete document</span></a>'
+        '</div>'
+        if include_footer
+        else ""
+    )
+    header_html = (
+        '<div class="delete-confirm-header">'
+        f'<div class="delete-confirm-badge">{_trash_svg_inline()}</div>'
+        '<div class="delete-confirm-title" id="delete-document-title">Delete document?</div>'
+        f'{close_html}'
+        '</div>'
+        if include_header
+        else ""
+    )
     return f"""
 <div class="delete-confirm-panel">
-  <div class="delete-confirm-title">Delete document?</div>
+  {header_html}
   <div class="delete-confirm-copy">{html.escape(body)}</div>
   <div class="delete-summary-card">
     <div class="selected-pdf-mark">PDF</div>
@@ -738,6 +797,7 @@ def delete_confirmation_markup(document: dict[str, Any]) -> str:
   <div class="delete-check-row"><span class="delete-check-dot">&#10003;</span><div><strong>Purge vector chunks</strong><br>Delete all chunks in ChromaDB for this document hash.</div></div>
   <div class="delete-check-row"><span class="delete-check-dot info">i</span><div><strong>Chat history is not deleted</strong><br>Your conversations remain intact.</div></div>
   <div class="delete-warning">This cannot be undone from the app.</div>
+  {footer_html}
 </div>
 """
 
@@ -767,6 +827,25 @@ def handle_document_delete_action(stats: dict[str, Any]) -> None:
     if render_delete_result_dialog():
         return
 
+    confirm_target = get_query_param("confirm_delete_doc")
+    if confirm_target:
+        st.session_state.nav_section = "Documents"
+        document = find_document_by_hash(stats, confirm_target)
+        if not document:
+            st.session_state.document_delete_result = {
+                "status": "failed",
+                "filename": "Document",
+                "message": "Document is no longer available.",
+                "deleted_chunks": 0,
+                "source_file_deleted": False,
+            }
+            st.session_state.document_delete_result_context = "delete"
+            clear_document_query_params("confirm_delete_doc", "delete_doc", "selected_doc", "section", rerun=True)
+            return
+        st.session_state.delete_candidate_documents = stats.get("documents", [])
+        confirm_delete_document(document, get_chroma_collection(), stats.get("documents", []))
+        return
+
     target = get_query_param("delete_doc")
     if not target:
         return
@@ -783,6 +862,7 @@ def handle_document_delete_action(stats: dict[str, Any]) -> None:
             "deleted_chunks": 0,
             "source_file_deleted": False,
         }
+        st.session_state.document_delete_result_context = "delete"
         clear_document_query_params("delete_doc", "selected_doc", "section", rerun=True)
         return
 
@@ -795,7 +875,7 @@ def handle_document_delete_action(stats: dict[str, Any]) -> None:
 
     @dialog("Delete document?")
     def _delete_document_dialog() -> None:
-        st.markdown(delete_confirmation_markup(document), unsafe_allow_html=True)
+        st.markdown(delete_confirmation_markup(document, include_header=False), unsafe_allow_html=True)
         render_delete_confirmation_controls(document, collection, "dialog")
 
     _delete_document_dialog()
@@ -2218,7 +2298,7 @@ def selected_document_panel_markup(document: dict[str, Any] | None) -> str:
     <div class="selected-preview-head"><span>Page preview</span><span>1 / {max(1, pages):,}</span></div>
     {preview_html}
   </div>
-  <a class="selected-delete" href="{delete_href}" target="_self">{_trash_svg_inline()}<span>Delete document</span></a>
+  <a class="selected-delete" href="{delete_href}" target="_self" data-delete-doc-control data-delete-doc-hash="{html.escape(document_hash, quote=True)}" data-delete-doc-filename="{html.escape(filename, quote=True)}">{_trash_svg_inline()}<span>Delete document</span></a>
   <div class="selected-delete-copy">Removes the source PDF and indexed chunks.</div>
 </div>
 """
@@ -2249,6 +2329,119 @@ def render_selected_document_panel_templates(documents: list[dict[str, Any]]) ->
             f'<div data-selected-document-templates hidden>{"".join(template_html)}</div>',
             unsafe_allow_html=True,
         )
+
+
+def render_document_delete_modal_templates(documents: list[dict[str, Any]]) -> None:
+    template_html = []
+    for document in documents:
+        document_hash = str(document.get("document_hash", "") or "").strip()
+        if not document_hash:
+            continue
+        template_html.append(
+            '<div hidden data-delete-doc-template '
+            f'data-delete-doc-hash="{html.escape(document_hash, quote=True)}">'
+            '<div class="document-delete-modal-overlay" role="presentation" data-delete-modal-overlay>'
+            '<div class="document-delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-document-title">'
+            f'{delete_confirmation_markup(document, include_footer=True, include_close=True)}'
+            '</div>'
+            '</div>'
+            '</div>'
+        )
+
+    if template_html:
+        st.markdown(
+            f'<div data-delete-doc-templates hidden>{"".join(template_html)}</div>'
+            '<div data-delete-doc-modal-host></div>',
+            unsafe_allow_html=True,
+        )
+
+
+def render_document_delete_controller() -> None:
+    st.iframe(
+        """
+<script>
+(() => {
+  const parentWindow = window.parent;
+  const parentDocument = parentWindow.document;
+  const VERSION = "instant-doc-delete-v1";
+
+  const getHash = (element) => element ? (element.getAttribute("data-delete-doc-hash") || "").trim() : "";
+  const escapeSelectorValue = (value) => {
+    if (parentWindow.CSS && typeof parentWindow.CSS.escape === "function") {
+      return parentWindow.CSS.escape(value);
+    }
+    return value.replace(/["\\\\]/g, "\\\\$&");
+  };
+
+  const getHost = () => parentDocument.querySelector("[data-delete-doc-modal-host]");
+
+  const closeModal = () => {
+    const host = getHost();
+    if (host) host.innerHTML = "";
+    parentDocument.body.classList.remove("document-delete-modal-open");
+  };
+
+  const openModal = (control) => {
+    const hash = getHash(control);
+    if (!hash) return false;
+    const template = parentDocument.querySelector(`[data-delete-doc-template][data-delete-doc-hash="${escapeSelectorValue(hash)}"]`);
+    const host = getHost();
+    if (!template || !host) return false;
+    host.innerHTML = template.innerHTML;
+    parentDocument.body.classList.add("document-delete-modal-open");
+    const closeButton = host.querySelector("[data-delete-modal-close]");
+    if (closeButton && typeof closeButton.focus === "function") {
+      parentWindow.setTimeout(() => closeButton.focus({ preventScroll: true }), 20);
+    }
+    return true;
+  };
+
+  const handleClick = (event) => {
+    const closeControl = event.target.closest("[data-delete-modal-close]");
+    if (closeControl) {
+      event.preventDefault();
+      event.stopPropagation();
+      closeModal();
+      return;
+    }
+
+    const overlay = event.target.matches("[data-delete-modal-overlay]") ? event.target : null;
+    if (overlay) {
+      event.preventDefault();
+      event.stopPropagation();
+      closeModal();
+      return;
+    }
+
+    const control = event.target.closest("[data-delete-doc-control]");
+    if (!control) return;
+    if (!openModal(control)) return;
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handleKeydown = (event) => {
+    if (event.key !== "Escape") return;
+    const host = getHost();
+    if (!host || !host.querySelector("[data-delete-modal-overlay]")) return;
+    event.preventDefault();
+    closeModal();
+  };
+
+  if (parentWindow.__ragDocumentDeleteController) {
+    parentDocument.removeEventListener("click", parentWindow.__ragDocumentDeleteController.click, true);
+    parentDocument.removeEventListener("keydown", parentWindow.__ragDocumentDeleteController.keydown);
+  }
+  parentWindow.__ragDocumentDeleteController = { click: handleClick, keydown: handleKeydown, version: VERSION };
+  parentDocument.addEventListener("click", handleClick, true);
+  parentDocument.addEventListener("keydown", handleKeydown);
+  parentDocument.documentElement.dataset.documentDeleteControllerVersion = VERSION;
+})();
+</script>
+""",
+        height=1,
+        width=1,
+    )
 
 
 def render_document_selection_controller() -> None:
@@ -2393,7 +2586,9 @@ def render_documents_screen(stats: dict[str, Any]) -> None:
         render_selected_document_panel(selected_document)
 
     render_selected_document_panel_templates(documents)
+    render_document_delete_modal_templates(documents)
     render_document_selection_controller()
+    render_document_delete_controller()
     render_client_pdf_modals(documents, "Documents")
 
 
@@ -2583,6 +2778,7 @@ def main() -> None:
     handle_pdf_reingest_action(stats)
     consume_navigation_query_param()
     apply_modal_source_section()
+    clear_delete_result_when_upload_pending()
     handle_document_delete_action(stats)
     section = render_sidebar(stats)
     previous_section = st.session_state.get("_rendered_nav_section")

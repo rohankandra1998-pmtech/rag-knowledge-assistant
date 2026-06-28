@@ -2653,43 +2653,112 @@ body.pdf-modal-open {
   font-size: 0.76rem;
   font-weight: 750;
 }
-.delete-confirm-panel {
-  margin: 0 0 1rem;
-  padding: 1rem;
-  border: 1px solid #FFD3CA;
-  border-radius: 16px;
+.document-delete-modal-open {
+  overflow: hidden;
+}
+.document-delete-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(11, 18, 34, 0.48);
+  backdrop-filter: blur(3px);
+}
+.document-delete-modal {
+  width: min(528px, calc(100vw - 2rem));
+  max-height: calc(100vh - 3rem);
+  overflow: auto;
+  border-radius: 18px;
   background: #FFFFFF;
-  box-shadow: 0 18px 46px rgba(200,71,44,0.10);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.26);
+}
+.delete-confirm-panel {
+  margin: 0;
+  padding: 1.35rem 1.45rem 1.2rem;
+  border: 0;
+  border-radius: 18px;
+  background: #FFFFFF;
+}
+.delete-confirm-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 0.78rem;
+}
+.delete-confirm-badge {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #FFF1ED;
+  color: #EF2B18;
+}
+.delete-confirm-badge svg {
+  width: 20px;
+  height: 20px;
 }
 .delete-confirm-title {
   color: #020A34;
-  font-size: 1.25rem;
-  font-weight: 900;
-  margin-bottom: 0.5rem;
+  font-size: 1.32rem;
+  font-weight: 950;
+  line-height: 1.15;
+}
+.delete-modal-close {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #31415F;
+  font-size: 1.55rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.delete-modal-close:hover,
+.delete-modal-close:focus-visible {
+  background: #F2F6FC;
+  outline: 2px solid rgba(16, 94, 221, 0.22);
+  outline-offset: 2px;
 }
 .delete-confirm-copy {
-  color: #405072;
+  color: #243451;
   font-size: 0.9rem;
   line-height: 1.48;
 }
 .delete-summary-card {
   display: flex;
-  gap: 0.7rem;
+  gap: 0.72rem;
   align-items: center;
-  margin: 0.85rem 0;
+  margin: 0.88rem 0 0.95rem;
   padding: 0.75rem;
-  border: 1px solid #DCE8F7;
-  border-radius: 12px;
+  border: 1px solid #D9E4F3;
+  border-radius: 10px;
   background: #FBFDFF;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+}
+.delete-summary-card .selected-pdf-mark {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
 }
 .delete-check-row {
   display: flex;
   align-items: flex-start;
-  gap: 0.55rem;
-  color: #405072;
-  font-size: 0.86rem;
-  font-weight: 750;
-  margin: 0.42rem 0;
+  gap: 0.62rem;
+  color: #243451;
+  font-size: 0.88rem;
+  font-weight: 780;
+  margin: 0.62rem 0;
+}
+.delete-check-row strong {
+  color: #17233D;
+  font-weight: 950;
 }
 .delete-check-dot {
   width: 18px;
@@ -2698,11 +2767,12 @@ body.pdf-modal-open {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  margin-top: 0.08rem;
   border-radius: 999px;
   background: #0A9B3F;
   color: #FFFFFF;
   font-size: 0.7rem;
-  font-weight: 900;
+  font-weight: 950;
 }
 .delete-check-dot.info {
   background: #FFFFFF;
@@ -2710,10 +2780,61 @@ body.pdf-modal-open {
   color: #405072;
 }
 .delete-warning {
-  margin-top: 0.75rem;
+  margin-top: 0.9rem;
+  padding-top: 0.78rem;
+  border-top: 1px solid #E6ECF5;
   color: #E52D18;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   font-weight: 900;
+}
+.delete-modal-footer {
+  display: grid;
+  grid-template-columns: 1fr 1.28fr;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.delete-modal-cancel,
+.delete-modal-confirm {
+  min-height: 42px;
+  border-radius: 9px;
+  font-size: 0.88rem;
+  font-weight: 900;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.48rem;
+  cursor: pointer;
+}
+.delete-modal-cancel {
+  border: 1px solid #D5E2F4;
+  background: #FFFFFF;
+  color: #243451;
+}
+.delete-modal-confirm,
+.delete-modal-confirm:visited {
+  border: 1px solid #EF2B18;
+  background: #EF2B18;
+  color: #FFFFFF;
+}
+.delete-modal-confirm svg {
+  width: 17px;
+  height: 17px;
+}
+.delete-modal-cancel:hover,
+.delete-modal-cancel:focus-visible {
+  background: #F7FAFF;
+  outline: 2px solid rgba(16, 94, 221, 0.18);
+  outline-offset: 2px;
+}
+.delete-modal-confirm:hover,
+.delete-modal-confirm:focus-visible {
+  background: #D92817;
+  border-color: #D92817;
+  color: #FFFFFF;
+  text-decoration: none;
+  outline: 2px solid rgba(239, 43, 24, 0.22);
+  outline-offset: 2px;
 }
 .delete-result-panel {
   text-align: center;
@@ -2752,6 +2873,22 @@ body.pdf-modal-open {
   color: #6A7894;
   font-size: 0.88rem;
   font-weight: 750;
+}
+.st-key-delete_result_done button {
+  background: #105EDD !important;
+  border-color: #105EDD !important;
+  color: #FFFFFF !important;
+  box-shadow: none !important;
+}
+.st-key-delete_result_done button:hover,
+.st-key-delete_result_done button:focus,
+.st-key-delete_result_done button:focus-visible {
+  background: #0B4AB7 !important;
+  border-color: #0B4AB7 !important;
+  color: #FFFFFF !important;
+  outline: 2px solid rgba(16, 94, 221, 0.22) !important;
+  outline-offset: 2px !important;
+  box-shadow: none !important;
 }
 .st-key-confirm_delete_doc button,
 .st-key-inline_confirm_delete_doc button,
@@ -3493,7 +3630,11 @@ def render_document_table(
             else ""
         )
         delete_action_html = (
-            f'<a class="tiny-action danger" href="{delete_href}" target="_self" title="Delete {html.escape(filename)}">'
+            f'<a class="tiny-action danger" href="{delete_href}" target="_self" '
+            'data-delete-doc-control '
+            f'data-delete-doc-hash="{html.escape(document_hash, quote=True)}" '
+            f'data-delete-doc-filename="{html.escape(filename, quote=True)}" '
+            f'title="Delete {html.escape(filename)}">'
             f'{trash_icon}<span>Delete</span></a>'
             if enable_delete
             else ""

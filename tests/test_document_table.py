@@ -46,6 +46,7 @@ class DocumentTableSelectionMarkupTest(unittest.TestCase):
         self.assertIn('class="doc-table-row is-selected" data-search-text=', markup)
         self.assertIn('data-selected-doc-hash="hash-two"><div class="doc-cell doc-select-cell">', markup)
         self.assertIn('class="tiny-action danger" href="?section=Documents&delete_doc=hash-two&selected_doc=hash-two" target="_self"', markup)
+        self.assertIn('data-delete-doc-control data-delete-doc-hash="hash-two" data-delete-doc-filename="Second.pdf"', markup)
         self.assertNotIn('class="doc-select-control" href="?section=Documents&selected_doc=hash-two" target="_blank"', markup)
 
 
