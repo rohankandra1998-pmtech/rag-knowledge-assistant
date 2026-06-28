@@ -825,6 +825,52 @@ html, body, [class*="css"] {
   gap: 0.58rem;
   flex-shrink: 0;
 }
+.st-key-documents_library_search_bar {
+  margin: 0.78rem 0 -0.42rem;
+}
+.st-key-documents_library_search_bar [data-testid="column"] {
+  display: flex;
+  align-items: flex-end;
+}
+.st-key-documents_library_search_form {
+  width: 100%;
+}
+.st-key-documents_library_search_bar [data-testid="stTextInput"] {
+  width: 100%;
+}
+.st-key-documents_library_search [data-testid="stWidgetLabel"] {
+  display: none;
+}
+.st-key-documents_library_search input {
+  height: 42px;
+  border: 1px solid #CFE1FB !important;
+  border-radius: 12px !important;
+  background: #FFFFFF !important;
+  color: var(--navy) !important;
+  padding-left: 0.9rem !important;
+  font-size: 0.84rem !important;
+  font-weight: 750 !important;
+  box-shadow: 0 8px 20px rgba(16,94,221,0.06) !important;
+}
+.st-key-documents_library_search input:focus {
+  border-color: var(--blue) !important;
+  box-shadow: 0 0 0 3px rgba(88,172,244,0.22), 0 8px 20px rgba(16,94,221,0.08) !important;
+}
+.st-key-documents_library_search_form button {
+  height: 42px;
+  border: 1px solid #CFE1FB !important;
+  border-radius: 12px !important;
+  background: #FFFFFF !important;
+  color: var(--blue) !important;
+  font-size: 0.82rem !important;
+  font-weight: 850 !important;
+  box-shadow: 0 8px 20px rgba(16,94,221,0.06) !important;
+}
+.st-key-documents_library_search_form button:hover {
+  border-color: #BBD6FF !important;
+  background: #F6FAFF !important;
+  color: var(--navy) !important;
+}
 .doc-icon-btn {
   border: 1px solid #CFE1FB;
   border-radius: 11px;
@@ -867,11 +913,19 @@ html, body, [class*="css"] {
   overflow: hidden;
   background: #FFFFFF;
 }
+.doc-table-grid.has-selection {
+  width: max(100%, 1170px);
+  min-width: 1170px;
+}
 .doc-table-head,
 .doc-table-row {
   display: grid;
   grid-template-columns: minmax(290px, 1fr) 76px 126px 112px 150px 112px 174px;
   align-items: center;
+}
+.doc-table-grid.has-selection .doc-table-head,
+.doc-table-grid.has-selection .doc-table-row {
+  grid-template-columns: 48px minmax(290px, 1fr) 76px 126px 112px 150px 112px 174px;
 }
 .doc-table-head {
   min-height: 48px;
@@ -917,16 +971,37 @@ html, body, [class*="css"] {
   content: "\\22EE";
   font-size: 0.9rem;
 }
+.doc-table-grid.has-selection .doc-table-head .doc-cell:nth-child(7) .doc-head-hash:before {
+  content: "#";
+  font-size: 0.72rem;
+}
+.doc-table-grid.has-selection .doc-table-head .doc-cell:nth-child(8) .doc-head-hash {
+  font-size: 0;
+}
+.doc-table-grid.has-selection .doc-table-head .doc-cell:nth-child(8) .doc-head-hash:before {
+  content: "\\22EE";
+  font-size: 0.9rem;
+}
 .doc-table-row {
   min-height: 80px;
   border-bottom: 1px solid #E8EFF8;
   background: #FFFFFF;
 }
+.doc-table-row.is-selected {
+  background: linear-gradient(90deg, #EAF4FF, #F7FBFF);
+  box-shadow: inset 3px 0 0 var(--blue), inset 0 0 0 1px rgba(16,94,221,0.28);
+}
 .doc-table-row:nth-child(even) {
   background: #FCFDFF;
 }
+.doc-table-row.is-selected:nth-child(even) {
+  background: linear-gradient(90deg, #EAF4FF, #F7FBFF);
+}
 .doc-table-row:hover {
   background: #F2F8FF;
+}
+.doc-table-row.is-selected:hover {
+  background: linear-gradient(90deg, #E4F1FF, #F4FAFF);
 }
 .doc-table-row:last-child {
   border-bottom: 0;
@@ -952,6 +1027,49 @@ html, body, [class*="css"] {
 .doc-table-row .doc-cell:last-child {
   padding-left: 0.45rem;
   padding-right: 0.45rem;
+}
+.doc-select-cell {
+  justify-content: center;
+  padding-left: 0.45rem;
+  padding-right: 0.45rem;
+}
+.doc-select-head,
+.doc-select-control {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #9CB1D1;
+  border-radius: 999px;
+  box-sizing: border-box;
+}
+.doc-select-head {
+  display: inline-block;
+}
+.doc-select-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #FFFFFF;
+  text-decoration: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+.doc-select-control span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: transparent;
+}
+.doc-select-control:hover,
+.doc-select-control:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 4px rgba(88,172,244,0.18);
+  text-decoration: none;
+}
+.doc-select-control.is-selected {
+  border-color: var(--blue);
+  background: var(--blue);
+}
+.doc-select-control.is-selected span {
+  background: #FFFFFF;
 }
 .doc-main {
   display: flex;
@@ -989,6 +1107,19 @@ html, body, [class*="css"] {
   color: #71809A;
   font-size: 0.74rem;
   font-weight: 700;
+}
+.doc-selected-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-top: 0.26rem;
+  border: 1px solid #BBD6FF;
+  border-radius: 999px;
+  background: #EAF4FF;
+  color: var(--blue);
+  padding: 0.16rem 0.48rem;
+  font-size: 0.68rem;
+  font-weight: 900;
 }
 .doc-num {
   color: #17233F;
@@ -2693,6 +2824,7 @@ div.stButton > button[kind="primary"] {
   }
   .doc-table-actions {
     justify-content: flex-start;
+    flex-wrap: wrap;
   }
   .doc-table-scroll {
     overflow-x: auto;
@@ -3213,13 +3345,26 @@ def render_document_table(
     title: str = "Indexed documents",
     source_section: str | None = None,
     enable_delete: bool = False,
+    enable_selection: bool = False,
+    selected_document_hash: str | None = None,
+    selection_section: str | None = None,
+    search_query: str | None = None,
+    search_param_name: str = "document_search",
+    total_document_count: int | None = None,
     info_copy: str = "All documents are chunked semantically and stored as high-quality embeddings for accurate retrieval.",
+    empty_title: str = "No indexed documents yet",
+    empty_copy: str = "Upload PDFs and run ingestion to populate this table.",
 ) -> None:
     total_documents = len(documents)
     total_chunks = sum(int(doc.get("chunks") or 0) for doc in documents)
+    unfiltered_documents = total_document_count if total_document_count is not None else total_documents
     max_chunks = max((int(doc.get("chunks") or 0) for doc in documents), default=0)
     formatted_timestamps = [_format_ingested_timestamp(doc.get("last_ingested")) for doc in documents]
     last_updated = next((timestamp for timestamp in formatted_timestamps if timestamp), "Not ingested yet")
+    selected_document_hash = (selected_document_hash or "").strip()
+    search_query = "" if search_query is None else str(search_query)
+    table_classes = "doc-table-grid has-selection" if enable_selection else "doc-table-grid"
+    selection_section = selection_section or source_section
 
     document_icon = _indexed_docs_icon("document-outline-icon.png", "Documents")
     refresh_icon = _indexed_docs_icon("refresh-icon.png", "Refresh")
@@ -3240,6 +3385,7 @@ def render_document_table(
         timestamp = _format_ingested_timestamp(doc.get("last_ingested")) or "Not available"
         document_hash = str(doc.get("document_hash", "") or "")
         short_hash = document_hash[:12] if document_hash else "n/a"
+        is_selected = bool(enable_selection and document_hash and document_hash == selected_document_hash)
         status_class = _status_class(status)
         file_size = _format_file_size(doc.get("file_size"))
         file_meta_html = (
@@ -3247,13 +3393,34 @@ def render_document_table(
             if file_size
             else f"{html.escape(extension)} source document"
         )
+        selected_pill_html = '<div class="doc-selected-pill">Selected</div>' if is_selected else ""
         chunk_segments = _chunk_segments(chunks, max_chunks)
         view_target = quote(document_hash or filename, safe="")
         source_query = f"&from_section={quote(source_section, safe='')}" if source_section else ""
         selected_query = f"&selected_doc={view_target}" if document_hash else ""
-        reingest_href = f"?reingest_doc={view_target}{source_query}{selected_query}"
-        delete_href = f"?delete_doc={view_target}{selected_query}" if enable_delete else ""
+        search_query_part = (
+            f"&{quote(search_param_name, safe='')}={quote(search_query, safe='')}"
+            if search_query
+            else ""
+        )
+        selection_section_query = f"&section={quote(selection_section, safe='')}" if selection_section else ""
+        selection_href = (
+            f"?selected_doc={view_target}"
+            f"{selection_section_query}"
+            f"{search_query_part}"
+        )
+        reingest_href = f"?reingest_doc={view_target}{source_query}{selected_query}{search_query_part}"
+        delete_href = f"?delete_doc={view_target}{selected_query}{search_query_part}" if enable_delete else ""
         modal_id = _pdf_modal_id(doc)
+        selection_cell_html = (
+            '<div class="doc-cell doc-select-cell">'
+            f'<a class="doc-select-control{" is-selected" if is_selected else ""}" href="{selection_href}" '
+            f'aria-label="Select {html.escape(filename)}" title="Select {html.escape(filename)}">'
+            '<span aria-hidden="true"></span></a>'
+            '</div>'
+            if enable_selection
+            else ""
+        )
         delete_action_html = (
             f'<a class="tiny-action danger" href="{delete_href}" title="Delete {html.escape(filename)}">'
             f'{trash_icon}<span>Delete</span></a>'
@@ -3262,13 +3429,15 @@ def render_document_table(
         )
 
         row_html.append(
-            '<div class="doc-table-row">'
+            f'<div class="doc-table-row{" is-selected" if is_selected else ""}">'
+            f'{selection_cell_html}'
             '<div class="doc-cell">'
             '<div class="doc-main">'
             f'<div class="doc-file-icon">{pdf_icon}</div>'
             '<div class="doc-file-text">'
             f'<div class="doc-file-name" title="{html.escape(filename)}">{html.escape(filename)}</div>'
             f'<div class="doc-file-meta">{file_meta_html}</div>'
+            f'{selected_pill_html}'
             '</div>'
             '</div>'
             '</div>'
@@ -3296,18 +3465,23 @@ def render_document_table(
     if row_html:
         rows_markup = "".join(row_html)
     else:
-        rows_markup = """
-      <div class="doc-empty-row">
-        <div class="doc-empty-title">No indexed documents yet</div>
-        <div class="doc-empty-copy">Upload PDFs and run ingestion to populate this table.</div>
-      </div>
+        rows_markup = f"""
+<div class="doc-empty-row">
+  <div class="doc-empty-title">{html.escape(empty_title)}</div>
+  <div class="doc-empty-copy">{html.escape(empty_copy)}</div>
+</div>
 """
 
     document_label = "document" if total_documents == 1 else "documents"
     chunk_label = "chunk" if total_chunks == 1 else "chunks"
+    document_summary_text = f"{total_documents:,} {document_label}"
+    if unfiltered_documents != total_documents:
+        total_label = "document" if unfiltered_documents == 1 else "documents"
+        document_summary_text = f"{total_documents:,} of {unfiltered_documents:,} {total_label}"
     summary_dot = "&bull;"
     actions_icon = "&vellip;"
     chevron_icon = "&rsaquo;"
+    selection_head_html = '<div class="doc-cell"><span class="doc-select-head" aria-hidden="true"></span></div>' if enable_selection else ""
     table_markup = f"""
 <div class="doc-table-card">
   <div class="doc-table-header">
@@ -3316,7 +3490,7 @@ def render_document_table(
       <div>
         <div class="doc-table-title">{html.escape(title)}</div>
         <div class="doc-table-summary">
-          <strong>{total_documents:,} {document_label}</strong>
+          <strong>{html.escape(document_summary_text)}</strong>
           <span class="doc-summary-dot">{summary_dot}</span>
           <strong>{total_chunks:,} {chunk_label}</strong>
           <span class="doc-summary-dot">{summary_dot}</span>
@@ -3330,8 +3504,9 @@ def render_document_table(
     </div>
   </div>
   <div class="doc-table-scroll">
-    <div class="doc-table-grid">
+    <div class="{table_classes}">
       <div class="doc-table-head">
+        {selection_head_html}
         <div class="doc-cell">{_doc_head("Document", "document-outline-icon.png")}</div>
         <div class="doc-cell">{_doc_head("Pages", "document-outline-icon.png")}</div>
         <div class="doc-cell">{_doc_head("Chunks", "stacked-layers-icon.png")}</div>

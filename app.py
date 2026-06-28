@@ -2043,6 +2043,71 @@ def get_selected_document(stats: dict[str, Any]) -> dict[str, Any] | None:
     return documents[0] if documents else None
 
 
+def document_matches_search(document: dict[str, Any], query: str) -> bool:
+    normalized_query = query.strip().lower()
+    if not normalized_query:
+        return True
+
+    fields = [
+        str(document.get("filename", "") or ""),
+        get_document_location_label(document),
+        str(document.get("status", "") or ""),
+        str(document.get("document_hash", "") or ""),
+        str(document.get("chunking_strategy", "") or ""),
+        format_ingested_timestamp(document.get("last_ingested")),
+    ]
+    return normalized_query in " ".join(fields).lower()
+
+
+def filter_documents_for_search(documents: list[dict[str, Any]], query: str) -> list[dict[str, Any]]:
+    if not query.strip():
+        return documents
+    return [document for document in documents if document_matches_search(document, query)]
+
+
+def sync_document_search_query_param(search_query: str, current_query_param: str) -> None:
+    normalized_query = search_query.strip()
+    if normalized_query == current_query_param:
+        return
+
+    try:
+        if normalized_query:
+            st.query_params["document_search"] = normalized_query
+        elif "document_search" in st.query_params:
+            del st.query_params["document_search"]
+    except Exception:
+        return
+    st.session_state.documents_library_search_query_source = normalized_query
+    st.rerun()
+
+
+def render_document_library_search(initial_query: str) -> str:
+    source_key = "documents_library_search_query_source"
+    widget_key = "documents_library_search"
+    if st.session_state.get(source_key) != initial_query:
+        st.session_state[widget_key] = initial_query
+        st.session_state[source_key] = initial_query
+
+    with st.container(key="documents_library_search_bar"):
+        _, search_col = st.columns([1, 0.38], gap="small")
+        with search_col:
+            with st.form("documents_library_search_form", clear_on_submit=False):
+                input_col, submit_col = st.columns([1, 0.34], gap="small")
+                with input_col:
+                    search_query = st.text_input(
+                        "Search documents",
+                        key=widget_key,
+                        placeholder="Search documents",
+                        label_visibility="collapsed",
+                    )
+                with submit_col:
+                    submitted = st.form_submit_button("Search", use_container_width=True)
+
+    if submitted:
+        sync_document_search_query_param(search_query, initial_query)
+    return initial_query
+
+
 def render_selected_document_panel(document: dict[str, Any] | None) -> None:
     if not document:
         st.markdown(
@@ -2159,6 +2224,9 @@ def render_documents_screen(stats: dict[str, Any]) -> None:
         render_delete_confirmation_inline(delete_document, get_chroma_collection())
 
     documents = stats.get("documents", [])
+    selected_document = get_selected_document(stats)
+    selected_document_hash = str(selected_document.get("document_hash", "") or "") if selected_document else ""
+    document_search_query = get_query_param("document_search")
     main_col, selected_col = st.columns([3.05, 1.15], gap="medium")
     with main_col:
         upload_col, status_col = st.columns([1.12, 1.08], gap="medium")
@@ -2169,16 +2237,30 @@ def render_documents_screen(stats: dict[str, Any]) -> None:
             render_documents_upload_card(progress_placeholder=progress_placeholder)
 
         render_documents_metric_cards(stats)
+        document_search_query = render_document_library_search(document_search_query)
+        filtered_documents = filter_documents_for_search(documents, document_search_query)
         render_document_table(
-            documents,
+            filtered_documents,
             title="Document library",
             source_section="Documents",
             enable_delete=True,
+            enable_selection=True,
+            selected_document_hash=selected_document_hash,
+            selection_section="Documents",
+            search_query=document_search_query,
+            search_param_name="document_search",
+            total_document_count=len(documents),
             info_copy="Deleting a document removes its uploaded PDF and all ChromaDB chunks for that SHA-256 hash.",
+            empty_title="No documents match your search." if document_search_query else "No indexed documents yet",
+            empty_copy=(
+                "Try another filename, hash, status, location, or chunking strategy."
+                if document_search_query
+                else "Upload PDFs and run ingestion to populate this table."
+            ),
         )
 
     with selected_col:
-        render_selected_document_panel(get_selected_document(stats))
+        render_selected_document_panel(selected_document)
 
     render_client_pdf_modals(documents, "Documents")
 
