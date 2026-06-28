@@ -2836,43 +2836,127 @@ body.pdf-modal-open {
   outline: 2px solid rgba(239, 43, 24, 0.22);
   outline-offset: 2px;
 }
+.document-delete-modal.is-deleting .delete-modal-close,
+.document-delete-modal.is-deleting .delete-modal-cancel {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+.document-delete-modal.is-deleting .delete-modal-confirm {
+  pointer-events: none;
+  background: #BA2B19;
+  border-color: #BA2B19;
+}
+.delete-button-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.42);
+  border-top-color: #FFFFFF;
+  border-radius: 999px;
+  animation: deleteSpin 0.75s linear infinite;
+}
+.delete-processing-note {
+  margin-top: 0.95rem;
+  padding: 0.72rem 0.82rem;
+  border-radius: 10px;
+  background: #FFF7F4;
+  color: #BA2B19;
+  font-size: 0.84rem;
+  font-weight: 850;
+  text-align: center;
+}
+@keyframes deleteSpin {
+  to { transform: rotate(360deg); }
+}
 .delete-result-panel {
   text-align: center;
-  padding: 0.65rem 0.2rem 0.2rem;
+  padding: 0.45rem 0.2rem 0.05rem;
+}
+.polished-delete-result {
+  max-width: 430px;
+  margin: 0 auto;
+}
+.delete-result-hero {
+  position: relative;
+  width: 112px;
+  height: 86px;
+  margin: 0.15rem auto 0.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .delete-result-icon {
-  width: 48px;
-  height: 48px;
-  margin: 0 auto 0.8rem;
+  width: 62px;
+  height: 62px;
+  margin: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
   color: #FFFFFF;
-  font-size: 1.5rem;
+  font-size: 2rem;
   font-weight: 950;
+  box-shadow: 0 10px 24px rgba(10, 155, 63, 0.22);
 }
 .delete-result-icon.success {
   background: #0A9B3F;
+  outline: 8px solid rgba(10, 155, 63, 0.13);
 }
 .delete-result-icon.error {
   background: #E52D18;
 }
+.delete-success-sparkle {
+  position: absolute;
+  color: #0A9B3F;
+  font-size: 1rem;
+  font-weight: 950;
+}
+.delete-success-sparkle.one {
+  left: 9px;
+  top: 33px;
+}
+.delete-success-sparkle.two {
+  right: 5px;
+  top: 31px;
+}
+.delete-success-sparkle.three {
+  right: 28px;
+  top: 9px;
+  color: #D7B83D;
+  font-size: 0.8rem;
+}
 .delete-result-title {
-  color: #17233D;
-  font-size: 1.15rem;
+  color: #020A34;
+  font-size: 1.32rem;
   font-weight: 950;
 }
 .delete-result-copy {
-  margin-top: 0.45rem;
-  color: #405072;
-  font-weight: 850;
+  margin-top: 0.75rem;
+  color: #243451;
+  font-size: 0.95rem;
+  font-weight: 900;
 }
 .delete-result-detail {
-  margin-top: 0.35rem;
+  margin-top: 0.32rem;
   color: #6A7894;
-  font-size: 0.88rem;
-  font-weight: 750;
+  font-size: 0.86rem;
+  font-weight: 820;
+}
+.delete-result-summary-card {
+  display: flex;
+  align-items: center;
+  gap: 0.72rem;
+  margin: 1.05rem 0 0.9rem;
+  padding: 0.74rem 0.82rem;
+  border: 1px solid #D9E4F3;
+  border-radius: 10px;
+  background: #FBFDFF;
+  text-align: left;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+}
+.delete-result-summary-card .selected-pdf-mark {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
 }
 .st-key-delete_result_done button {
   background: #105EDD !important;

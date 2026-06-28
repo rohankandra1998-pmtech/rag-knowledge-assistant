@@ -634,7 +634,16 @@ def handle_pdf_reingest_action(stats: dict[str, Any]) -> None:
 
 def confirm_delete_document(document: dict[str, Any], collection, documents: list[dict[str, Any]] | None = None) -> None:
     document_hash = str(document.get("document_hash", "") or "").strip()
+    deleted_metadata = {
+        "file_size": document.get("file_size"),
+        "pages": int(document.get("pages") or 0),
+        "document_hash": document_hash,
+        "short_hash": document_hash[:12] if document_hash else "",
+        "location": get_document_location_label(document),
+        "chunking_strategy": str(document.get("chunking_strategy", "") or ""),
+    }
     result = delete_document_from_knowledge_base(document, collection)
+    result.update(deleted_metadata)
     st.session_state.nav_section = "Documents"
     if result.get("status") == "deleted":
         filename = result.get("filename", "Document")
@@ -671,6 +680,8 @@ def delete_result_markup(result: dict[str, Any]) -> str:
     status = str(result.get("status", "") or "")
     filename = str(result.get("filename", "Document") or "Document")
     chunks = int(result.get("deleted_chunks", 0) or 0)
+    pages = int(result.get("pages", 0) or 0)
+    file_size = format_file_size(result.get("file_size"))
     source_deleted = bool(result.get("source_file_deleted"))
     if status == "deleted":
         chunk_label = "chunk" if chunks == 1 else "chunks"
@@ -686,12 +697,31 @@ def delete_result_markup(result: dict[str, Any]) -> str:
         icon = "!"
         copy = str(result.get("message", "Document could not be deleted.") or "Document could not be deleted.")
         detail = "No document changes were applied."
+    metadata_items = []
+    if file_size:
+        metadata_items.append(file_size)
+    if pages:
+        metadata_items.append(f"{pages:,} page" + ("" if pages == 1 else "s"))
+    metadata_items.append(f"{chunks:,} {chunk_label if status == 'deleted' else ('chunk' if chunks == 1 else 'chunks')} removed")
+    summary_meta = " &bull; ".join(metadata_items)
     return f"""
 <div class="delete-result-panel polished-delete-result">
-  <div class="delete-result-icon {icon_class}">{icon}</div>
+  <div class="delete-result-hero">
+    <span class="delete-success-sparkle one" aria-hidden="true">+</span>
+    <span class="delete-success-sparkle two" aria-hidden="true">+</span>
+    <span class="delete-success-sparkle three" aria-hidden="true">+</span>
+    <div class="delete-result-icon {icon_class}">{icon}</div>
+  </div>
   <div class="delete-result-title">{html.escape(title)}</div>
   <div class="delete-result-copy">{html.escape(copy)}</div>
   <div class="delete-result-detail">{html.escape(detail)}</div>
+  <div class="delete-result-summary-card">
+    <div class="selected-pdf-mark">PDF</div>
+    <div>
+      <div class="selected-doc-name">{html.escape(filename)}</div>
+      <div class="selected-doc-size">{html.escape(summary_meta)}</div>
+    </div>
+  </div>
 </div>
 """
 
@@ -702,6 +732,7 @@ def render_delete_result_dialog() -> bool:
         return False
     if st.session_state.get("document_delete_result_context") != "delete":
         del st.session_state.document_delete_result
+        st.session_state.pop("document_delete_result_context", None)
         return False
 
     st.session_state.nav_section = "Documents"
@@ -2377,6 +2408,7 @@ def render_document_delete_controller() -> None:
 
   const closeModal = () => {
     const host = getHost();
+    if (host && host.querySelector(".document-delete-modal.is-deleting")) return;
     if (host) host.innerHTML = "";
     parentDocument.body.classList.remove("document-delete-modal-open");
   };
@@ -2396,6 +2428,23 @@ def render_document_delete_controller() -> None:
     return true;
   };
 
+  const setDeletingState = (confirmLink) => {
+    const modal = confirmLink.closest(".document-delete-modal");
+    if (!modal || modal.classList.contains("is-deleting")) return false;
+    modal.classList.add("is-deleting");
+    modal.querySelectorAll("[data-delete-modal-close], .delete-modal-cancel, .delete-modal-confirm").forEach((control) => {
+      control.setAttribute("aria-disabled", "true");
+      if (control.tagName === "BUTTON") control.disabled = true;
+    });
+    confirmLink.innerHTML = '<span class="delete-button-spinner" aria-hidden="true"></span><span>Deleting...</span>';
+    const status = parentDocument.createElement("div");
+    status.className = "delete-processing-note";
+    status.textContent = "Deleting source PDF and indexed chunks...";
+    const footer = modal.querySelector(".delete-modal-footer");
+    if (footer) footer.insertAdjacentElement("beforebegin", status);
+    return true;
+  };
+
   const handleClick = (event) => {
     const closeControl = event.target.closest("[data-delete-modal-close]");
     if (closeControl) {
@@ -2410,6 +2459,19 @@ def render_document_delete_controller() -> None:
       event.preventDefault();
       event.stopPropagation();
       closeModal();
+      return;
+    }
+
+    const confirmLink = event.target.closest(".delete-modal-confirm");
+    if (confirmLink) {
+      if (confirmLink.dataset.deleteSubmitting === "true") return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (!setDeletingState(confirmLink)) return;
+      confirmLink.dataset.deleteSubmitting = "true";
+      parentWindow.requestAnimationFrame(() => {
+        window.setTimeout(() => confirmLink.click(), 90);
+      });
       return;
     }
 
