@@ -2080,20 +2080,29 @@ def render_selected_document_panel(document: dict[str, Any] | None) -> None:
             preview_html = '<div class="selected-preview-empty">Preview unavailable.</div>'
 
     metadata_rows = [
-        ("folder", "Location", location),
-        ("page", "Pages", f"{pages:,}"),
-        ("stack", "Chunks", f"{chunks:,} ({chunking})"),
-        ("check", "Status", status),
-        ("date", "Last ingested", last_ingested),
-        ("hash", "Hash (SHA-256)", short_hash),
-        ("split", "Chunking", chunking),
-        ("box", "Vector store", "ChromaDB"),
+        ("pdf_source_collection_icon.png", "Location", location),
+        ("pdf_pages_icon.png", "Pages", f"{pages:,}"),
+        ("pdf_chunks_icon.png", "Chunks", f"{chunks:,} ({chunking})"),
+        ("pdf_indexed_status_icon.png", "Status", status),
+        ("pdf_last_ingested_icon.png", "Last ingested", last_ingested),
+        ("pdf_document_hash_icon.png", "Hash (SHA-256)", short_hash),
+        ("pdf_chunking_strategy_icon.png", "Chunking", chunking),
+        ("pdf_source_collection_icon.png", "Vector store", "ChromaDB"),
     ]
-    row_html = "".join(
-        f'<div class="selected-meta-row"><span class="selected-meta-icon">{html.escape(icon[:1].upper())}</span>'
-        f'<span>{html.escape(label)}</span><span class="selected-meta-value" title="{html.escape(value)}">{html.escape(value)}</span></div>'
-        for icon, label, value in metadata_rows
-    )
+    row_html_parts = []
+    for icon_filename, label, value in metadata_rows:
+        icon_uri = load_pdf_document_detail_icon_data_uri(icon_filename)
+        icon_html = (
+            f'<img class="selected-meta-icon" src="{html.escape(icon_uri, quote=True)}" alt="" aria-hidden="true" loading="lazy" />'
+            if icon_uri
+            else '<span class="selected-meta-icon is-empty" aria-hidden="true"></span>'
+        )
+        row_html_parts.append(
+            f'<div class="selected-meta-row">{icon_html}'
+            f'<span class="selected-meta-label">{html.escape(label)}</span>'
+            f'<span class="selected-meta-value" title="{html.escape(value)}">{html.escape(value)}</span></div>'
+        )
+    row_html = "".join(row_html_parts)
 
     st.markdown(
         f"""
@@ -2150,7 +2159,7 @@ def render_documents_screen(stats: dict[str, Any]) -> None:
         render_delete_confirmation_inline(delete_document, get_chroma_collection())
 
     documents = stats.get("documents", [])
-    main_col, selected_col = st.columns([3.15, 1], gap="large")
+    main_col, selected_col = st.columns([3.05, 1.15], gap="medium")
     with main_col:
         upload_col, status_col = st.columns([1.12, 1.08], gap="medium")
         with status_col:

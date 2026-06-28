@@ -2039,6 +2039,9 @@ body.pdf-modal-open {
 .st-key-documents_upload_card [data-testid="stMarkdownContainer"] p {
   margin: 0;
 }
+.st-key-documents_upload_card {
+  overflow: visible;
+}
 .st-key-documents_upload_zone {
   position: relative;
   max-width: 100%;
@@ -2232,8 +2235,8 @@ body.pdf-modal-open {
 }
 .documents-badges {
   display: grid;
-  grid-template-columns: minmax(82px, 0.8fr) minmax(138px, 1.28fr) minmax(116px, 1.08fr);
-  gap: 0.36rem;
+  grid-template-columns: minmax(78px, 0.76fr) minmax(124px, 1.2fr) minmax(112px, 1.08fr);
+  gap: 0.32rem;
   margin: 0.62rem 0 0.1rem;
   width: 100%;
   max-width: 100%;
@@ -2250,8 +2253,8 @@ body.pdf-modal-open {
   border-radius: 10px;
   background: #FFFFFF;
   color: #405072;
-  padding: 0.32rem 0.34rem;
-  font-size: 0.7rem;
+  padding: 0.32rem 0.26rem;
+  font-size: 0.68rem;
   font-weight: 850;
   line-height: 1;
   white-space: nowrap;
@@ -2264,11 +2267,11 @@ body.pdf-modal-open {
   text-overflow: clip;
 }
 .documents-badge img {
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
   object-fit: contain;
   display: block;
-  flex: 0 0 17px;
+  flex: 0 0 16px;
 }
 .documents-badge.is-red { color: #D92013; }
 .documents-badge.is-blue { color: var(--blue); }
@@ -2451,10 +2454,10 @@ body.pdf-modal-open {
 }
 .selected-meta-row {
   display: grid;
-  grid-template-columns: 22px minmax(92px, 1fr) minmax(0, 1fr);
-  gap: 0.48rem;
+  grid-template-columns: 24px minmax(104px, 0.9fr) minmax(96px, 1.2fr);
+  gap: 0.56rem;
   align-items: center;
-  min-height: 38px;
+  min-height: 40px;
   border-bottom: 1px solid #E7EFF9;
   color: #405072;
   font-size: 0.78rem;
@@ -2462,12 +2465,24 @@ body.pdf-modal-open {
 }
 .selected-meta-row:last-child { border-bottom: 0; }
 .selected-meta-icon {
-  color: #476289;
-  font-size: 0.95rem;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  justify-self: center;
+}
+.selected-meta-icon.is-empty {
+  display: inline-block;
+}
+.selected-meta-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .selected-meta-value {
   color: var(--navy);
   text-align: right;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
