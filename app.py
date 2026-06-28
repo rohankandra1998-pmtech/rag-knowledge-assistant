@@ -444,6 +444,28 @@ def delete_document_from_knowledge_base(document: dict[str, Any], collection) ->
     }
 
 
+def next_selected_document_hash(documents: list[dict[str, Any]], deleted_hash: str) -> str:
+    remaining = [
+        str(document.get("document_hash", "") or "").strip()
+        for document in documents
+        if str(document.get("document_hash", "") or "").strip()
+        and str(document.get("document_hash", "") or "").strip() != deleted_hash
+    ]
+    if not remaining:
+        return ""
+
+    original_hashes = [
+        str(document.get("document_hash", "") or "").strip()
+        for document in documents
+        if str(document.get("document_hash", "") or "").strip()
+    ]
+    try:
+        deleted_index = original_hashes.index(deleted_hash)
+    except ValueError:
+        deleted_index = 0
+    return remaining[min(deleted_index, len(remaining) - 1)]
+
+
 def get_pdf_modal_document(stats: dict[str, Any]) -> dict[str, Any] | None:
     selected = get_query_param("view_doc")
     if not selected:
@@ -587,9 +609,10 @@ def handle_pdf_reingest_action(stats: dict[str, Any]) -> None:
     st.rerun()
 
 
-def confirm_delete_document(document: dict[str, Any], collection) -> None:
+def confirm_delete_document(document: dict[str, Any], collection, documents: list[dict[str, Any]] | None = None) -> None:
     document_hash = str(document.get("document_hash", "") or "").strip()
     result = delete_document_from_knowledge_base(document, collection)
+    st.session_state.nav_section = "Documents"
     if result.get("status") == "deleted":
         filename = result.get("filename", "Document")
         chunks = int(result.get("deleted_chunks", 0) or 0)
@@ -597,17 +620,80 @@ def confirm_delete_document(document: dict[str, Any], collection) -> None:
             message = f"Deleted {filename}: removed uploaded source and {chunks:,} indexed chunks."
         else:
             message = f"Deleted {filename}: purged {chunks:,} indexed chunks and retained the source file."
-        st.session_state.document_action_notice = ("success", message)
+        result["message"] = message
+        result["next_selected_doc"] = next_selected_document_hash(documents or [], document_hash)
+        st.session_state.document_delete_result = result
     else:
-        st.session_state.document_action_notice = ("error", result.get("reason", "Document could not be deleted."))
+        result["message"] = result.get("reason", "Document could not be deleted.")
+        st.session_state.document_delete_result = result
 
-    clear_document_query_params("delete_doc", "view_doc", "from_section")
+    clear_document_query_params("delete_doc", "view_doc", "from_section", "section")
     try:
-        if get_query_param("selected_doc") == document_hash:
+        if result.get("status") == "deleted":
+            next_hash = str(result.get("next_selected_doc", "") or "")
+            if next_hash:
+                st.query_params["selected_doc"] = next_hash
+            elif "selected_doc" in st.query_params:
+                del st.query_params["selected_doc"]
+        elif get_query_param("selected_doc") == document_hash:
             del st.query_params["selected_doc"]
     except Exception:
         pass
     st.rerun()
+
+
+def delete_result_markup(result: dict[str, Any]) -> str:
+    status = str(result.get("status", "") or "")
+    filename = str(result.get("filename", "Document") or "Document")
+    chunks = int(result.get("deleted_chunks", 0) or 0)
+    source_deleted = bool(result.get("source_file_deleted"))
+    if status == "deleted":
+        chunk_label = "chunk" if chunks == 1 else "chunks"
+        source_copy = "Removed source PDF" if source_deleted else "Source PDF was retained"
+        detail = f"{source_copy} and {chunks:,} indexed {chunk_label}."
+        title = "Document deleted"
+        icon_class = "success"
+        icon = "&#10003;"
+        copy = f"Deleted {filename}."
+    else:
+        title = "Delete failed"
+        icon_class = "error"
+        icon = "!"
+        copy = str(result.get("message", "Document could not be deleted.") or "Document could not be deleted.")
+        detail = "No document changes were applied."
+    return f"""
+<div class="delete-result-panel">
+  <div class="delete-result-icon {icon_class}">{icon}</div>
+  <div class="delete-result-title">{html.escape(title)}</div>
+  <div class="delete-result-copy">{html.escape(copy)}</div>
+  <div class="delete-result-detail">{html.escape(detail)}</div>
+</div>
+"""
+
+
+def render_delete_result_dialog() -> bool:
+    result = st.session_state.get("document_delete_result")
+    if not result:
+        return False
+
+    st.session_state.nav_section = "Documents"
+    dialog = getattr(st, "dialog", None)
+    if not callable(dialog):
+        level = "success" if result.get("status") == "deleted" else "error"
+        st.session_state.document_action_notice = (level, result.get("message", "Document delete finished."))
+        del st.session_state.document_delete_result
+        return False
+
+    @dialog("Document deleted" if result.get("status") == "deleted" else "Delete failed")
+    def _delete_result_dialog() -> None:
+        st.markdown(delete_result_markup(result), unsafe_allow_html=True)
+        if st.button("Done", key="delete_result_done", type="primary", use_container_width=True):
+            del st.session_state.document_delete_result
+            st.session_state.nav_section = "Documents"
+            st.rerun()
+
+    _delete_result_dialog()
+    return True
 
 
 def delete_confirmation_markup(document: dict[str, Any]) -> str:
@@ -660,7 +746,8 @@ def render_delete_confirmation_controls(document: dict[str, Any], collection, ke
     cancel_col, delete_col = st.columns([1, 1.35])
     with cancel_col:
         if st.button("Cancel", key=f"{key_prefix}_cancel_delete_doc", use_container_width=True):
-            clear_document_query_params("delete_doc", rerun=True)
+            st.session_state.nav_section = "Documents"
+            clear_document_query_params("delete_doc", "section", rerun=True)
     with delete_col:
         if st.button(
             "Delete document",
@@ -668,7 +755,7 @@ def render_delete_confirmation_controls(document: dict[str, Any], collection, ke
             type="primary",
             use_container_width=True,
         ):
-            confirm_delete_document(document, collection)
+            confirm_delete_document(document, collection, st.session_state.get("delete_candidate_documents", []))
 
 
 def render_delete_confirmation_inline(document: dict[str, Any], collection, key_prefix: str = "inline") -> None:
@@ -677,14 +764,26 @@ def render_delete_confirmation_inline(document: dict[str, Any], collection, key_
 
 
 def handle_document_delete_action(stats: dict[str, Any]) -> None:
+    if render_delete_result_dialog():
+        return
+
     target = get_query_param("delete_doc")
     if not target:
         return
 
+    if get_query_param("section") == "Documents" or target:
+        st.session_state.nav_section = "Documents"
+
     document = find_document_by_hash(stats, target)
     if not document:
-        st.session_state.document_action_notice = ("error", "Document is no longer available.")
-        clear_document_query_params("delete_doc", "selected_doc", rerun=True)
+        st.session_state.document_delete_result = {
+            "status": "failed",
+            "filename": "Document",
+            "message": "Document is no longer available.",
+            "deleted_chunks": 0,
+            "source_file_deleted": False,
+        }
+        clear_document_query_params("delete_doc", "selected_doc", "section", rerun=True)
         return
 
     dialog = getattr(st, "dialog", None)
@@ -692,6 +791,7 @@ def handle_document_delete_action(stats: dict[str, Any]) -> None:
         return
 
     collection = get_chroma_collection()
+    st.session_state.delete_candidate_documents = stats.get("documents", [])
 
     @dialog("Delete document?")
     def _delete_document_dialog() -> None:
@@ -2063,7 +2163,7 @@ def selected_document_panel_markup(document: dict[str, Any] | None) -> str:
     chunking = str(document.get("chunking_strategy", "Semantic") or "Semantic").title()
     location = get_document_location_label(document)
     target = quote(document_hash or filename, safe="")
-    delete_href = f"?delete_doc={target}&selected_doc={target}"
+    delete_href = f"?section=Documents&delete_doc={target}&selected_doc={target}"
     pdf_path = resolve_source_pdf_path(document)
     preview_html = '<div class="selected-preview-empty">Source PDF unavailable.</div>'
     if pdf_path:
@@ -2118,7 +2218,7 @@ def selected_document_panel_markup(document: dict[str, Any] | None) -> str:
     <div class="selected-preview-head"><span>Page preview</span><span>1 / {max(1, pages):,}</span></div>
     {preview_html}
   </div>
-  <a class="selected-delete" href="{delete_href}">{_trash_svg_inline()}<span>Delete document</span></a>
+  <a class="selected-delete" href="{delete_href}" target="_self">{_trash_svg_inline()}<span>Delete document</span></a>
   <div class="selected-delete-copy">Removes the source PDF and indexed chunks.</div>
 </div>
 """
@@ -2256,13 +2356,14 @@ def render_documents_screen(stats: dict[str, Any]) -> None:
         else:
             st.info(message)
 
+    documents = stats.get("documents", [])
     delete_target = get_query_param("delete_doc")
     dialog_available = callable(getattr(st, "dialog", None))
     delete_document = find_document_by_hash(stats, delete_target) if delete_target else None
     if delete_document and not dialog_available:
+        st.session_state.delete_candidate_documents = documents
         render_delete_confirmation_inline(delete_document, get_chroma_collection())
 
-    documents = stats.get("documents", [])
     selected_document = get_selected_document(stats)
     selected_document_hash = str(selected_document.get("document_hash", "") or "") if selected_document else ""
     main_col, selected_col = st.columns([3.05, 1.15], gap="medium")
@@ -2480,9 +2581,9 @@ def main() -> None:
     collection = get_chroma_collection()
     stats = get_cached_collection_stats(collection)
     handle_pdf_reingest_action(stats)
-    handle_document_delete_action(stats)
     consume_navigation_query_param()
     apply_modal_source_section()
+    handle_document_delete_action(stats)
     section = render_sidebar(stats)
     previous_section = st.session_state.get("_rendered_nav_section")
     section_changed = previous_section != section

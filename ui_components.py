@@ -2715,14 +2715,54 @@ body.pdf-modal-open {
   font-size: 0.82rem;
   font-weight: 900;
 }
+.delete-result-panel {
+  text-align: center;
+  padding: 0.65rem 0.2rem 0.2rem;
+}
+.delete-result-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #FFFFFF;
+  font-size: 1.5rem;
+  font-weight: 950;
+}
+.delete-result-icon.success {
+  background: #0A9B3F;
+}
+.delete-result-icon.error {
+  background: #E52D18;
+}
+.delete-result-title {
+  color: #17233D;
+  font-size: 1.15rem;
+  font-weight: 950;
+}
+.delete-result-copy {
+  margin-top: 0.45rem;
+  color: #405072;
+  font-weight: 850;
+}
+.delete-result-detail {
+  margin-top: 0.35rem;
+  color: #6A7894;
+  font-size: 0.88rem;
+  font-weight: 750;
+}
 .st-key-confirm_delete_doc button,
-.st-key-inline_confirm_delete_doc button {
+.st-key-inline_confirm_delete_doc button,
+.st-key-dialog_confirm_delete_doc button {
   background: #E52D18 !important;
   border-color: #E52D18 !important;
   color: #FFFFFF !important;
 }
 .st-key-confirm_delete_doc button:hover,
-.st-key-inline_confirm_delete_doc button:hover {
+.st-key-inline_confirm_delete_doc button:hover,
+.st-key-dialog_confirm_delete_doc button:hover {
   background: #BA2B19 !important;
   border-color: #BA2B19 !important;
 }
@@ -3436,7 +3476,8 @@ def render_document_table(
             f"selected_doc={view_target}"
         )
         reingest_href = f"?reingest_doc={view_target}{source_query}{selected_query}"
-        delete_href = f"?delete_doc={view_target}{selected_query}" if enable_delete else ""
+        delete_section_query = f"section={quote(selection_section or source_section or 'Documents', safe='')}&"
+        delete_href = f"?{delete_section_query}delete_doc={view_target}{selected_query}" if enable_delete else ""
         modal_id = _pdf_modal_id(doc)
         selection_cell_html = (
             '<div class="doc-cell doc-select-cell">'
@@ -3452,7 +3493,7 @@ def render_document_table(
             else ""
         )
         delete_action_html = (
-            f'<a class="tiny-action danger" href="{delete_href}" title="Delete {html.escape(filename)}">'
+            f'<a class="tiny-action danger" href="{delete_href}" target="_self" title="Delete {html.escape(filename)}">'
             f'{trash_icon}<span>Delete</span></a>'
             if enable_delete
             else ""
