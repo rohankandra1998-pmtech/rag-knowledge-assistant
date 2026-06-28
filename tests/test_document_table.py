@@ -39,8 +39,11 @@ class DocumentTableSelectionMarkupTest(unittest.TestCase):
             ui_components.st = original_st
 
         markup = "".join(captured_markup)
-        self.assertIn('class="doc-select-control is-selected" href="?section=Documents&selected_doc=hash-one" target="_self"', markup)
-        self.assertIn('class="doc-select-control" href="?section=Documents&selected_doc=hash-two" target="_self"', markup)
+        self.assertIn('class="doc-select-control is-selected" href="?section=Documents&selected_doc=hash-one" target="_self" data-doc-select-control data-selected-doc-hash="hash-one"', markup)
+        self.assertIn('class="doc-select-control" href="?section=Documents&selected_doc=hash-two" target="_self" data-doc-select-control data-selected-doc-hash="hash-two"', markup)
+        self.assertIn('data-selection-section="Documents"', markup)
+        self.assertIn('class="doc-table-row is-selected" data-search-text=', markup)
+        self.assertIn('data-selected-doc-hash="hash-two"><div class="doc-cell doc-select-cell">', markup)
         self.assertNotIn('class="doc-select-control" href="?section=Documents&selected_doc=hash-two" target="_blank"', markup)
 
 

@@ -2043,18 +2043,14 @@ def get_selected_document(stats: dict[str, Any]) -> dict[str, Any] | None:
     return documents[0] if documents else None
 
 
-def render_selected_document_panel(document: dict[str, Any] | None) -> None:
+def selected_document_panel_markup(document: dict[str, Any] | None) -> str:
     if not document:
-        st.markdown(
-            """
+        return """
 <div class="selected-document-card">
   <div class="selected-document-header"><div class="documents-card-title">Selected document</div></div>
   <div class="selected-preview-empty">No indexed documents yet.</div>
 </div>
-""",
-            unsafe_allow_html=True,
-        )
-        return
+"""
 
     filename = str(document.get("filename", "") or "document")
     file_size = format_file_size(document.get("file_size"))
@@ -2104,8 +2100,7 @@ def render_selected_document_panel(document: dict[str, Any] | None) -> None:
         )
     row_html = "".join(row_html_parts)
 
-    st.markdown(
-        f"""
+    return f"""
 <div class="selected-document-card">
   <div class="selected-document-header">
     <div class="documents-card-title">Selected document</div>
@@ -2126,8 +2121,117 @@ def render_selected_document_panel(document: dict[str, Any] | None) -> None:
   <a class="selected-delete" href="{delete_href}">{_trash_svg_inline()}<span>Delete document</span></a>
   <div class="selected-delete-copy">Removes the source PDF and indexed chunks.</div>
 </div>
-""",
+"""
+
+
+def render_selected_document_panel(document: dict[str, Any] | None) -> None:
+    st.markdown(
+        f'<div data-selected-document-panel>{selected_document_panel_markup(document)}</div>',
         unsafe_allow_html=True,
+    )
+
+
+def render_selected_document_panel_templates(documents: list[dict[str, Any]]) -> None:
+    template_html = []
+    for document in documents:
+        document_hash = str(document.get("document_hash", "") or "").strip()
+        if not document_hash:
+            continue
+        template_html.append(
+            '<div hidden data-selected-document-template '
+            f'data-selected-doc-hash="{html.escape(document_hash, quote=True)}">'
+            f'{selected_document_panel_markup(document)}'
+            '</div>'
+        )
+
+    if template_html:
+        st.markdown(
+            f'<div data-selected-document-templates hidden>{"".join(template_html)}</div>',
+            unsafe_allow_html=True,
+        )
+
+
+def render_document_selection_controller() -> None:
+    st.iframe(
+        """
+<script>
+(() => {
+  const parentWindow = window.parent;
+  const parentDocument = parentWindow.document;
+  const VERSION = "instant-doc-selection-v1";
+
+  const getHash = (element) => element ? (element.getAttribute("data-selected-doc-hash") || "").trim() : "";
+  const escapeSelectorValue = (value) => {
+    if (parentWindow.CSS && typeof parentWindow.CSS.escape === "function") {
+      return parentWindow.CSS.escape(value);
+    }
+    return value.replace(/["\\\\]/g, "\\\\$&");
+  };
+
+  const updateUrl = (hash, section) => {
+    if (!hash || !parentWindow.history || typeof parentWindow.history.replaceState !== "function") return;
+    const url = new URL(parentWindow.location.href);
+    url.searchParams.set("selected_doc", hash);
+    if (section) url.searchParams.set("section", section);
+    parentWindow.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  };
+
+  const setSelectedPill = (row, shouldSelect) => {
+    const existing = row.querySelector(".doc-selected-pill");
+    if (!shouldSelect) {
+      if (existing) existing.remove();
+      return;
+    }
+    if (existing) return;
+    const fileText = row.querySelector(".doc-file-text");
+    if (!fileText) return;
+    const pill = parentDocument.createElement("div");
+    pill.className = "doc-selected-pill";
+    pill.textContent = "Selected";
+    fileText.appendChild(pill);
+  };
+
+  const selectDocument = (control) => {
+    const hash = getHash(control);
+    if (!hash) return false;
+    const panel = parentDocument.querySelector("[data-selected-document-panel]");
+    const template = parentDocument.querySelector(`[data-selected-document-template][data-selected-doc-hash="${escapeSelectorValue(hash)}"]`);
+    if (!panel || !template) return false;
+
+    const table = control.closest("[data-doc-table-id]") || parentDocument;
+    table.querySelectorAll(".doc-table-row").forEach((row) => {
+      const isSelected = getHash(row) === hash;
+      row.classList.toggle("is-selected", isSelected);
+      setSelectedPill(row, isSelected);
+    });
+    table.querySelectorAll("[data-doc-select-control]").forEach((item) => {
+      item.classList.toggle("is-selected", getHash(item) === hash);
+    });
+
+    panel.innerHTML = template.innerHTML;
+    updateUrl(hash, control.getAttribute("data-selection-section") || "");
+    return true;
+  };
+
+  const handleClick = (event) => {
+    const control = event.target.closest("[data-doc-select-control]");
+    if (!control) return;
+    if (!selectDocument(control)) return;
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  if (parentWindow.__ragDocumentSelectionController) {
+    parentDocument.removeEventListener("click", parentWindow.__ragDocumentSelectionController.click, true);
+  }
+  parentWindow.__ragDocumentSelectionController = { click: handleClick, version: VERSION };
+  parentDocument.addEventListener("click", handleClick, true);
+  parentDocument.documentElement.dataset.documentSelectionControllerVersion = VERSION;
+})();
+</script>
+""",
+        height=1,
+        width=1,
     )
 
 
@@ -2187,6 +2291,8 @@ def render_documents_screen(stats: dict[str, Any]) -> None:
     with selected_col:
         render_selected_document_panel(selected_document)
 
+    render_selected_document_panel_templates(documents)
+    render_document_selection_controller()
     render_client_pdf_modals(documents, "Documents")
 
 

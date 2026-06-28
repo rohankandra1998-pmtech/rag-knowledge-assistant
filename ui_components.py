@@ -3442,6 +3442,9 @@ def render_document_table(
             '<div class="doc-cell doc-select-cell">'
             f'<a class="doc-select-control{" is-selected" if is_selected else ""}" href="{selection_href}" '
             'target="_self" '
+            'data-doc-select-control '
+            f'data-selected-doc-hash="{html.escape(document_hash, quote=True)}" '
+            f'data-selection-section="{html.escape(selection_section or "", quote=True)}" '
             f'aria-label="Select {html.escape(filename)}" title="Select {html.escape(filename)}">'
             '<span aria-hidden="true"></span></a>'
             '</div>'
@@ -3457,7 +3460,8 @@ def render_document_table(
 
         row_html.append(
             f'<div class="doc-table-row{" is-selected" if is_selected else ""}" '
-            f'data-search-text="{html.escape(search_text, quote=True)}" data-chunks="{chunks}">'
+            f'data-search-text="{html.escape(search_text, quote=True)}" data-chunks="{chunks}" '
+            f'data-selected-doc-hash="{html.escape(document_hash, quote=True)}">'
             f'{selection_cell_html}'
             '<div class="doc-cell">'
             '<div class="doc-main">'
