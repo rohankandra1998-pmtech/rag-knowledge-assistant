@@ -2403,23 +2403,35 @@ body.pdf-modal-open {
 .selected-document-card {
   position: sticky;
   top: 1rem;
+  width: calc(100% + 3rem);
+  max-width: none;
+  margin-left: -1.5rem;
+  margin-right: -1.5rem;
 }
 .selected-document-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.7rem;
 }
 .selected-close {
   width: 30px;
   height: 30px;
+  flex: 0 0 30px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #405072;
-  text-decoration: none;
+  text-decoration: none !important;
   font-size: 1.35rem;
-  line-height: 1;
+  line-height: 0.85;
+  margin-top: -0.16rem;
+}
+.selected-close:hover,
+.selected-close:focus,
+.selected-close:visited {
+  color: #0B3075;
+  text-decoration: none !important;
 }
 .selected-doc-identity {
   display: flex;
@@ -2693,6 +2705,10 @@ div.stButton > button[kind="primary"] {
   }
   .selected-document-card {
     position: static;
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
   }
   .documents-badges {
     gap: 0.34rem;
