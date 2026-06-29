@@ -2378,13 +2378,38 @@ def render_documents_metric_cards(stats: dict[str, Any]) -> None:
 
 
 def get_selected_document(stats: dict[str, Any]) -> dict[str, Any] | None:
-    selected = get_query_param("selected_doc")
+    selected = get_query_param("selected_doc") or str(st.session_state.get("selected_document_hash", "") or "").strip()
     if selected:
         document = find_document_by_hash(stats, selected)
         if document:
             return document
-    documents = stats.get("documents", [])
-    return documents[0] if documents else None
+        if st.session_state.get("selected_document_hash") == selected:
+            st.session_state.pop("selected_document_hash", None)
+    return None
+
+
+def clear_selected_document_panel() -> None:
+    st.session_state.nav_section = "Documents"
+    st.session_state.pop("selected_doc", None)
+    st.session_state.pop("selected_document_hash", None)
+    clear_document_query_params("selected_doc")
+    st.rerun()
+
+
+def document_selection_trigger_key(document_hash: str) -> str:
+    return f"client_select_document_{document_hash}"
+
+
+def queue_client_document_selection(document_hash: str) -> None:
+    document_hash = str(document_hash or "").strip()
+    if not document_hash:
+        return
+    st.session_state.selected_document_hash = document_hash
+    st.session_state.nav_section = "Documents"
+    try:
+        st.query_params["selected_doc"] = document_hash
+    except Exception:
+        pass
 
 
 def selected_document_panel_markup(document: dict[str, Any] | None) -> str:
@@ -2448,7 +2473,6 @@ def selected_document_panel_markup(document: dict[str, Any] | None) -> str:
 <div class="selected-document-card">
   <div class="selected-document-header">
     <div class="documents-card-title">Selected document</div>
-    <a class="selected-close" href="?" title="Clear selected document">&times;</a>
   </div>
   <div class="selected-doc-identity">
     <div class="selected-pdf-mark">PDF</div>
@@ -2469,10 +2493,17 @@ def selected_document_panel_markup(document: dict[str, Any] | None) -> str:
 
 
 def render_selected_document_panel(document: dict[str, Any] | None) -> None:
-    st.markdown(
-        f'<div data-selected-document-panel>{selected_document_panel_markup(document)}</div>',
-        unsafe_allow_html=True,
-    )
+    with st.container(key="selected_document_panel_shell"):
+        st.markdown(
+            f'<div data-selected-document-panel>{selected_document_panel_markup(document)}</div>',
+            unsafe_allow_html=True,
+        )
+        st.button(
+            "X",
+            key="selected_document_close",
+            help="Close selected document panel",
+            on_click=clear_selected_document_panel,
+        )
 
 
 def render_selected_document_panel_templates(documents: list[dict[str, Any]]) -> None:
@@ -2532,6 +2563,22 @@ def render_document_delete_triggers(documents: list[dict[str, Any]]) -> None:
                 "Confirm delete",
                 key=document_delete_trigger_key(document_hash),
                 on_click=queue_client_document_delete,
+                args=(document_hash,),
+            )
+
+
+def render_document_selection_triggers(documents: list[dict[str, Any]]) -> None:
+    if not documents:
+        return
+    with st.container(key="document_selection_triggers"):
+        for document in documents:
+            document_hash = str(document.get("document_hash", "") or "").strip()
+            if not document_hash:
+                continue
+            st.button(
+                "Select document",
+                key=document_selection_trigger_key(document_hash),
+                on_click=queue_client_document_selection,
                 args=(document_hash,),
             )
 
@@ -2668,7 +2715,7 @@ def render_document_selection_controller() -> None:
 (() => {
   const parentWindow = window.parent;
   const parentDocument = parentWindow.document;
-  const VERSION = "instant-doc-selection-v1";
+  const VERSION = "instant-doc-selection-v2";
 
   const getHash = (element) => element ? (element.getAttribute("data-selected-doc-hash") || "").trim() : "";
   const escapeSelectorValue = (value) => {
@@ -2678,6 +2725,8 @@ def render_document_selection_controller() -> None:
     return value.replace(/["\\\\]/g, "\\\\$&");
   };
 
+  const getSelectionTrigger = (hash) => parentDocument.querySelector(`.st-key-client_select_document_${escapeSelectorValue(hash)} button`);
+
   const updateUrl = (hash, section) => {
     if (!hash || !parentWindow.history || typeof parentWindow.history.replaceState !== "function") return;
     const url = new URL(parentWindow.location.href);
@@ -2686,33 +2735,23 @@ def render_document_selection_controller() -> None:
     parentWindow.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
   };
 
-  const setSelectedPill = (row, shouldSelect) => {
-    const existing = row.querySelector(".doc-selected-pill");
-    if (!shouldSelect) {
-      if (existing) existing.remove();
-      return;
-    }
-    if (existing) return;
-    const fileText = row.querySelector(".doc-file-text");
-    if (!fileText) return;
-    const pill = parentDocument.createElement("div");
-    pill.className = "doc-selected-pill";
-    pill.textContent = "Selected";
-    fileText.appendChild(pill);
-  };
-
   const selectDocument = (control) => {
     const hash = getHash(control);
     if (!hash) return false;
     const panel = parentDocument.querySelector("[data-selected-document-panel]");
     const template = parentDocument.querySelector(`[data-selected-document-template][data-selected-doc-hash="${escapeSelectorValue(hash)}"]`);
-    if (!panel || !template) return false;
+    if (!panel || !template) {
+      const trigger = getSelectionTrigger(hash);
+      if (!trigger) return false;
+      updateUrl(hash, control.getAttribute("data-selection-section") || "");
+      trigger.click();
+      return true;
+    }
 
     const table = control.closest("[data-doc-table-id]") || parentDocument;
     table.querySelectorAll(".doc-table-row").forEach((row) => {
       const isSelected = getHash(row) === hash;
       row.classList.toggle("is-selected", isSelected);
-      setSelectedPill(row, isSelected);
     });
     table.querySelectorAll("[data-doc-select-control]").forEach((item) => {
       item.classList.toggle("is-selected", getHash(item) === hash);
@@ -2753,6 +2792,33 @@ def _trash_svg_inline() -> str:
     )
 
 
+def render_documents_main_content(
+    stats: dict[str, Any],
+    documents: list[dict[str, Any]],
+    selected_document_hash: str,
+) -> None:
+    upload_col, status_col = st.columns([1.12, 1.08], gap="medium")
+    with status_col:
+        progress_placeholder = st.empty()
+        update_ingestion_progress_placeholder(progress_placeholder)
+    with upload_col:
+        render_documents_upload_card(progress_placeholder=progress_placeholder)
+
+    render_documents_metric_cards(stats)
+    render_document_table(
+        documents,
+        title="Document library",
+        source_section="Documents",
+        enable_delete=True,
+        enable_selection=True,
+        selected_document_hash=selected_document_hash,
+        selection_section="Documents",
+        show_search=True,
+        search_key="documents_library_search",
+        info_copy="Deleting a document removes its uploaded PDF and all ChromaDB chunks for that SHA-256 hash.",
+    )
+
+
 def render_documents_screen(stats: dict[str, Any]) -> None:
     render_documents_section_heading()
 
@@ -2776,35 +2842,19 @@ def render_documents_screen(stats: dict[str, Any]) -> None:
 
     selected_document = get_selected_document(stats)
     selected_document_hash = str(selected_document.get("document_hash", "") or "") if selected_document else ""
-    main_col, selected_col = st.columns([3.05, 1.15], gap="medium")
-    with main_col:
-        upload_col, status_col = st.columns([1.12, 1.08], gap="medium")
-        with status_col:
-            progress_placeholder = st.empty()
-            update_ingestion_progress_placeholder(progress_placeholder)
-        with upload_col:
-            render_documents_upload_card(progress_placeholder=progress_placeholder)
-
-        render_documents_metric_cards(stats)
-        render_document_table(
-            documents,
-            title="Document library",
-            source_section="Documents",
-            enable_delete=True,
-            enable_selection=True,
-            selected_document_hash=selected_document_hash,
-            selection_section="Documents",
-            show_search=True,
-            search_key="documents_library_search",
-            info_copy="Deleting a document removes its uploaded PDF and all ChromaDB chunks for that SHA-256 hash.",
-        )
-
-    with selected_col:
-        render_selected_document_panel(selected_document)
+    if selected_document:
+        main_col, selected_col = st.columns([3.05, 1.15], gap="medium")
+        with main_col:
+            render_documents_main_content(stats, documents, selected_document_hash)
+        with selected_col:
+            render_selected_document_panel(selected_document)
+    else:
+        render_documents_main_content(stats, documents, selected_document_hash)
 
     render_selected_document_panel_templates(documents)
     render_document_delete_modal_templates(documents)
     render_document_delete_triggers(documents)
+    render_document_selection_triggers(documents)
     render_document_selection_controller()
     render_document_delete_controller()
     render_client_pdf_modals(documents, "Documents")

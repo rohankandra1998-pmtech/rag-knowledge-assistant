@@ -2531,6 +2531,48 @@ body.pdf-modal-open {
   color: #0B3075;
   text-decoration: none !important;
 }
+.st-key-selected_document_panel_shell {
+  position: relative;
+}
+.st-key-selected_document_close {
+  position: absolute !important;
+  top: -0.18rem;
+  right: -1.45rem;
+  z-index: 4;
+  width: 30px !important;
+  height: 30px !important;
+}
+.st-key-selected_document_close [data-testid="stButton"] {
+  width: 30px !important;
+  height: 30px !important;
+}
+.st-key-selected_document_close button {
+  width: 30px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: #405072 !important;
+  box-shadow: none !important;
+}
+.st-key-selected_document_close button:hover,
+.st-key-selected_document_close button:focus,
+.st-key-selected_document_close button:focus-visible {
+  color: #0B3075 !important;
+  background: #F2F6FC !important;
+  box-shadow: none !important;
+  outline: 2px solid rgba(16, 94, 221, 0.18) !important;
+  outline-offset: 2px !important;
+}
+.st-key-selected_document_close button p {
+  color: inherit !important;
+  font-size: 1rem !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+  margin: 0 !important;
+}
 .selected-doc-identity {
   display: flex;
   align-items: center;
@@ -2849,7 +2891,8 @@ body.pdf-modal-open {
   background: #BA2B19;
   border-color: #BA2B19;
 }
-.st-key-document_delete_triggers {
+.st-key-document_delete_triggers,
+.st-key-document_selection_triggers {
   position: fixed !important;
   left: -10000px !important;
   top: auto !important;
