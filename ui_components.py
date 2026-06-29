@@ -32,6 +32,7 @@ HEADER_ICON_DIR = Path(__file__).parent / "assets" / "header-icons"
 INDEXED_DOCS_ICON_DIR = Path(__file__).parent / "assets" / "indexed-documents"
 INDEXED_DOCS_OPTIMIZED_ICON_DIR = Path(__file__).parent / "assets" / "indexed-documents-optimized"
 PDF_MODAL_ICON_DIR = Path(__file__).parent / "assets" / "pdf-modal-icons"
+UPLOAD_ICON_DIR = Path(__file__).parent / "assets" / "upload-icons"
 SIDEBAR_NAV_ITEMS = [
     {"label": "App overview", "icon": "App_Overview_Icon.png"},
     {"label": "Chat / Answer", "icon": "Chat_Answer_Icon.png"},
@@ -134,6 +135,31 @@ def _load_indexed_docs_icon_data_uri(filename: str) -> str:
     source.save(output, format="PNG")
     encoded = base64.b64encode(output.getvalue()).decode("ascii")
     return f"data:image/png;base64,{encoded}"
+
+
+@st.cache_data(show_spinner=False)
+def load_upload_icon_data_uri(filename: str) -> str:
+    return _load_png_data_uri_fast(str(UPLOAD_ICON_DIR / filename))
+
+
+def load_header_action_icon_data_uri(filename: str) -> str:
+    return _load_header_icon_data_uri(filename)
+
+
+def render_upload_badges() -> None:
+    badges = [
+        ("pdf_only_icon.png", "PDF only", "is-red"),
+        ("persistent_upload_shield_icon.png", "Persistent upload", "is-blue"),
+        ("duplicate_safe_shield_icon.png", "Duplicate-safe", "is-green"),
+    ]
+    badge_html = []
+    for filename, label, tone in badges:
+        icon_uri = load_upload_icon_data_uri(filename)
+        icon_html = f'<img src="{icon_uri}" alt="" aria-hidden="true" loading="lazy" />' if icon_uri else ""
+        badge_html.append(
+            f'<span class="documents-badge {tone}">{icon_html}<span>{html.escape(label)}</span></span>'
+        )
+    st.markdown(f'<div class="documents-badges">{"".join(badge_html)}</div>', unsafe_allow_html=True)
 
 
 @st.cache_data(show_spinner=False)
@@ -244,6 +270,11 @@ html, body, [class*="css"] {
     radial-gradient(circle at 85% 10%, rgba(88, 172, 244, 0.12), transparent 26%),
     linear-gradient(180deg, #FEFEFE 0%, #F6F9FD 100%);
   color: var(--ink);
+}
+
+.stale-element {
+  opacity: 1 !important;
+  filter: none !important;
 }
 
 #MainMenu, footer, header { visibility: hidden; }
@@ -734,6 +765,26 @@ html, body, [class*="css"] {
     #FFFFFF;
   box-shadow: 0 18px 46px rgba(11, 48, 117, 0.10);
 }
+.st-key-documents_library_search_table_card,
+.st-key-ingestion_status_documents_search_table_card {
+  margin: 1rem 0;
+  overflow: hidden;
+  border: 1px solid rgba(16, 94, 221, 0.12);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.99), rgba(248,251,255,0.97)),
+    #FFFFFF;
+  box-shadow: 0 18px 46px rgba(11, 48, 117, 0.10);
+}
+.st-key-documents_library_search_table_card [data-testid="stHorizontalBlock"]:first-child,
+.st-key-ingestion_status_documents_search_table_card [data-testid="stHorizontalBlock"]:first-child {
+  align-items: center;
+  padding: 1.15rem 1.35rem 1.05rem;
+  background: linear-gradient(90deg, #FFFFFF, #F6FAFF);
+}
+.doc-table-header-inline {
+  padding: 0;
+}
 .doc-table-header {
   display: flex;
   justify-content: space-between;
@@ -794,33 +845,26 @@ html, body, [class*="css"] {
   gap: 0.58rem;
   flex-shrink: 0;
 }
-.doc-icon-btn {
-  border: 1px solid #CFE1FB;
-  border-radius: 11px;
-  background: #FFFFFF;
-  color: var(--blue);
-  min-width: 42px;
+.st-key-documents_library_search [data-testid="stWidgetLabel"],
+.st-key-ingestion_status_documents_search [data-testid="stWidgetLabel"] {
+  display: none;
+}
+.st-key-documents_library_search input,
+.st-key-ingestion_status_documents_search input {
   height: 42px;
-  padding: 0 0.9rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  font-size: 0.9rem;
-  font-weight: 800;
-  box-shadow: 0 8px 20px rgba(16,94,221,0.08);
+  border: 1px solid #CFE1FB !important;
+  border-radius: 12px !important;
+  background: #FFFFFF !important;
+  color: var(--navy) !important;
+  padding-left: 0.9rem !important;
+  font-size: 0.84rem !important;
+  font-weight: 750 !important;
+  box-shadow: 0 8px 20px rgba(16,94,221,0.06) !important;
 }
-.doc-icon-btn img {
-  width: 19px;
-  height: 19px;
-  object-fit: contain;
-  display: block;
-}
-.doc-icon-btn.icon-only {
-  width: 42px;
-  padding: 0;
-  border-radius: 999px;
-  color: #6B7896;
+.st-key-documents_library_search input:focus,
+.st-key-ingestion_status_documents_search input:focus {
+  border-color: var(--blue) !important;
+  box-shadow: 0 0 0 3px rgba(88,172,244,0.22), 0 8px 20px rgba(16,94,221,0.08) !important;
 }
 .doc-table-scroll {
   overflow-x: auto;
@@ -829,18 +873,26 @@ html, body, [class*="css"] {
   scrollbar-gutter: stable;
 }
 .doc-table-grid {
-  width: max(100%, 1060px);
-  min-width: 1060px;
+  width: max(100%, 1120px);
+  min-width: 1120px;
   border: 1px solid #E6EEF9;
   border-radius: 12px;
   overflow: hidden;
   background: #FFFFFF;
 }
+.doc-table-grid.has-selection {
+  width: max(100%, 1170px);
+  min-width: 1170px;
+}
 .doc-table-head,
 .doc-table-row {
   display: grid;
-  grid-template-columns: minmax(290px, 1fr) 76px 126px 112px 150px 112px 136px;
+  grid-template-columns: minmax(290px, 1fr) 76px 126px 112px 150px 112px 174px;
   align-items: center;
+}
+.doc-table-grid.has-selection .doc-table-head,
+.doc-table-grid.has-selection .doc-table-row {
+  grid-template-columns: 48px minmax(290px, 1fr) 76px 126px 112px 150px 112px 174px;
 }
 .doc-table-head {
   min-height: 48px;
@@ -886,16 +938,37 @@ html, body, [class*="css"] {
   content: "\\22EE";
   font-size: 0.9rem;
 }
+.doc-table-grid.has-selection .doc-table-head .doc-cell:nth-child(7) .doc-head-hash:before {
+  content: "#";
+  font-size: 0.72rem;
+}
+.doc-table-grid.has-selection .doc-table-head .doc-cell:nth-child(8) .doc-head-hash {
+  font-size: 0;
+}
+.doc-table-grid.has-selection .doc-table-head .doc-cell:nth-child(8) .doc-head-hash:before {
+  content: "\\22EE";
+  font-size: 0.9rem;
+}
 .doc-table-row {
   min-height: 80px;
   border-bottom: 1px solid #E8EFF8;
   background: #FFFFFF;
 }
+.doc-table-row.is-selected {
+  background: linear-gradient(90deg, #EAF4FF, #F7FBFF);
+  box-shadow: inset 3px 0 0 var(--blue), inset 0 0 0 1px rgba(16,94,221,0.28);
+}
 .doc-table-row:nth-child(even) {
   background: #FCFDFF;
 }
+.doc-table-row.is-selected:nth-child(even) {
+  background: linear-gradient(90deg, #EAF4FF, #F7FBFF);
+}
 .doc-table-row:hover {
   background: #F2F8FF;
+}
+.doc-table-row.is-selected:hover {
+  background: linear-gradient(90deg, #E4F1FF, #F4FAFF);
 }
 .doc-table-row:last-child {
   border-bottom: 0;
@@ -921,6 +994,49 @@ html, body, [class*="css"] {
 .doc-table-row .doc-cell:last-child {
   padding-left: 0.45rem;
   padding-right: 0.45rem;
+}
+.doc-select-cell {
+  justify-content: center;
+  padding-left: 0.45rem;
+  padding-right: 0.45rem;
+}
+.doc-select-head,
+.doc-select-control {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #9CB1D1;
+  border-radius: 999px;
+  box-sizing: border-box;
+}
+.doc-select-head {
+  display: inline-block;
+}
+.doc-select-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #FFFFFF;
+  text-decoration: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+.doc-select-control span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: transparent;
+}
+.doc-select-control:hover,
+.doc-select-control:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 4px rgba(88,172,244,0.18);
+  text-decoration: none;
+}
+.doc-select-control.is-selected {
+  border-color: var(--blue);
+  background: var(--blue);
+}
+.doc-select-control.is-selected span {
+  background: #FFFFFF;
 }
 .doc-main {
   display: flex;
@@ -958,6 +1074,19 @@ html, body, [class*="css"] {
   color: #71809A;
   font-size: 0.74rem;
   font-weight: 700;
+}
+.doc-selected-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-top: 0.26rem;
+  border: 1px solid #BBD6FF;
+  border-radius: 999px;
+  background: #EAF4FF;
+  color: var(--blue);
+  padding: 0.16rem 0.48rem;
+  font-size: 0.68rem;
+  font-weight: 900;
 }
 .doc-num {
   color: #17233F;
@@ -1089,11 +1218,29 @@ html, body, [class*="css"] {
 .tiny-action.alt {
   color: var(--blue);
 }
+.tiny-action.danger {
+  border-color: #FFD3CA;
+  color: #E52D18;
+}
+.tiny-action.danger:visited {
+  color: #E52D18;
+}
+.tiny-action.danger:hover {
+  background: #FFF5F2;
+  border-color: #FFB5A8;
+  color: #BA2B19;
+}
 .tiny-action img {
   width: 17px;
   height: 17px;
   object-fit: contain;
   display: block;
+}
+.tiny-action svg {
+  width: 17px;
+  height: 17px;
+  display: block;
+  stroke: currentColor;
 }
 .doc-info-strip {
   display: flex;
@@ -1932,6 +2079,977 @@ body.pdf-modal-open {
   font-weight: 900;
   margin-bottom: 0.85rem;
 }
+.documents-section-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.55rem 0 1rem;
+  overflow: hidden;
+}
+.documents-section-title {
+  color: var(--navy);
+  font-size: 1.55rem;
+  line-height: 1.1;
+  font-weight: 900;
+  flex: 0 0 auto;
+}
+.documents-section-rule {
+  height: 1px;
+  flex: 1 1 auto;
+  background: linear-gradient(90deg, #CAD8EA, rgba(202,216,234,0));
+}
+.documents-circuit {
+  position: absolute;
+  right: 0;
+  top: -18px;
+  width: min(430px, 40vw);
+  height: 92px;
+  pointer-events: none;
+  opacity: 0.42;
+  background:
+    radial-gradient(circle at 88% 28%, transparent 0 3px, rgba(16,94,221,0.4) 4px, transparent 5px),
+    radial-gradient(circle at 70% 55%, transparent 0 3px, rgba(16,94,221,0.35) 4px, transparent 5px),
+    linear-gradient(135deg, transparent 0 48%, rgba(88,172,244,0.38) 49% 51%, transparent 52%),
+    repeating-linear-gradient(0deg, transparent 0 18px, rgba(88,172,244,0.34) 19px, transparent 20px);
+  clip-path: polygon(18% 16%, 100% 16%, 100% 84%, 7% 84%, 28% 58%, 68% 58%, 78% 45%, 54% 45%, 46% 32%, 18% 32%);
+}
+.documents-upload-card,
+.st-key-documents_upload_card,
+.documents-progress-card,
+.selected-document-card {
+  margin: 0 0 1rem;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid rgba(16,94,221,0.13);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,251,255,0.96));
+  box-shadow: 0 18px 46px rgba(11, 48, 117, 0.09);
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow: hidden;
+}
+.documents-card-title {
+  color: var(--navy);
+  font-size: 1.04rem;
+  font-weight: 900;
+  margin-bottom: 0.8rem;
+}
+.st-key-documents_upload_card [data-testid="stMarkdownContainer"] p {
+  margin: 0;
+}
+.st-key-documents_upload_card {
+  overflow: visible;
+}
+.st-key-documents_upload_zone {
+  position: relative;
+  max-width: 100%;
+  min-height: 178px;
+  margin: 0;
+  padding: 0.82rem;
+  border: 1.5px dashed #6CA8FF;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #FFFFFF, #F5FAFF);
+  color: #405072;
+  text-align: center;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.st-key-documents_upload_zone:hover {
+  border-color: var(--blue);
+  background: linear-gradient(180deg, #FFFFFF, #EFF7FF);
+}
+.st-key-documents_upload_input_layer {
+  position: absolute;
+  top: 0.82rem;
+  right: 0.82rem;
+  left: 0.82rem;
+  z-index: 4;
+  height: 150px;
+  opacity: 0;
+  overflow: hidden;
+}
+.st-key-documents_upload_zone:has(.documents-upload-pending) .st-key-documents_upload_input_layer {
+  height: 94px;
+}
+.st-key-documents_upload_input_layer .stElementContainer,
+.st-key-documents_upload_input_layer [class*="stElementContainer"] {
+  height: 100% !important;
+  min-height: 100% !important;
+  overflow: hidden !important;
+}
+.st-key-documents_upload_input_layer [data-testid="stFileUploader"] {
+  height: 100% !important;
+  min-height: 100% !important;
+  margin: 0;
+  overflow: hidden;
+}
+.st-key-documents_upload_input_layer [data-testid="stFileUploaderDropzone"] {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100% !important;
+  min-height: 100% !important;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.st-key-documents_upload_input_layer [data-testid="stFileUploaderDropzone"] button {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 2 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  margin: 0 !important;
+  cursor: pointer !important;
+}
+.st-key-documents_upload_input_layer [data-testid="stFileUploaderDropzone"] svg,
+.st-key-documents_upload_input_layer [data-testid="stFileUploaderDropzoneInstructions"],
+.st-key-documents_upload_input_layer [data-testid="stFileUploader"] [data-testid*="FileUploaderFile"],
+.st-key-documents_upload_input_layer [data-testid="stFileUploader"] [data-testid*="stFileUploaderFile"],
+.st-key-documents_upload_input_layer [data-testid="stFileUploader"] [data-testid*="UploadedFile"] {
+  display: none !important;
+}
+.documents-upload-visual {
+  position: relative;
+  z-index: 1;
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.55rem;
+  color: #405072;
+  text-align: center;
+  font-weight: 700;
+  pointer-events: none;
+}
+.documents-upload-visual.has-file {
+  min-height: 0;
+}
+.documents-upload-cloud {
+  width: 122px;
+  height: 96px;
+  display: block;
+  margin: 0 auto 0.36rem;
+  object-fit: contain;
+}
+.documents-upload-visual.has-file .documents-upload-cloud {
+  width: 104px;
+  height: 76px;
+  margin-bottom: 0;
+}
+.documents-upload-pending {
+  margin: 0 auto;
+  width: min(100%, 430px);
+}
+.documents-upload-file {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.62rem;
+  min-height: 48px;
+  border: 1px solid #DCE8F7;
+  border-radius: 12px;
+  background: #FFFFFF;
+  color: #405072;
+  padding: 0.5rem 0.75rem;
+  box-shadow: 0 10px 22px rgba(16,94,221,0.06);
+  box-sizing: border-box;
+}
+.documents-upload-file img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  display: block;
+  flex: 0 0 28px;
+}
+.documents-upload-file-name {
+  max-width: min(290px, 58vw);
+  overflow: hidden;
+  color: #1E2A4A;
+  font-size: 0.86rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.documents-upload-file-size {
+  color: #71809A;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-align: center;
+}
+.documents-upload-helper {
+  color: #405072;
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin: 0.5rem 0 0.64rem;
+}
+.documents-upload-visual:not(.has-file) .documents-upload-helper {
+  font-size: 0.92rem;
+  font-weight: 750;
+  margin: 0;
+}
+.st-key-documents_upload_submit,
+.st-key-documents_upload_cancel {
+  position: relative;
+  z-index: 6;
+}
+.st-key-documents_upload_submit button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.52rem !important;
+  min-height: 48px !important;
+  height: 48px !important;
+  background: #FFFFFF !important;
+  border-color: #BBD6FF !important;
+  color: var(--navy) !important;
+  box-shadow: 0 12px 28px rgba(16,94,221,0.10) !important;
+}
+.st-key-documents_upload_submit button:hover {
+  background: #F6FAFF !important;
+  border-color: #8EBBFF !important;
+  color: var(--blue) !important;
+}
+.st-key-documents_upload_cancel button {
+  min-height: 48px !important;
+  height: 48px !important;
+  min-width: 2.65rem !important;
+  padding: 0 !important;
+  border-color: #FFD3CA !important;
+  color: #E52D18 !important;
+  background: #FFFFFF !important;
+  font-size: 1.15rem !important;
+  box-shadow: 0 10px 22px rgba(200,71,44,0.06) !important;
+}
+.st-key-documents_upload_cancel button:hover {
+  background: #FFF5F2 !important;
+  border-color: #FFB5A8 !important;
+  color: #BA2B19 !important;
+}
+.documents-badges {
+  display: grid;
+  grid-template-columns: minmax(78px, 0.76fr) minmax(124px, 1.2fr) minmax(112px, 1.08fr);
+  gap: 0.32rem;
+  margin: 0.62rem 0 0.1rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.documents-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.22rem;
+  min-width: 0;
+  min-height: 34px;
+  border: 1px solid #DCE8F7;
+  border-radius: 10px;
+  background: #FFFFFF;
+  color: #405072;
+  padding: 0.32rem 0.26rem;
+  font-size: 0.68rem;
+  font-weight: 850;
+  line-height: 1;
+  white-space: nowrap;
+  box-sizing: border-box;
+  overflow: visible;
+}
+.documents-badge span {
+  min-width: max-content;
+  overflow: visible;
+  text-overflow: clip;
+}
+.documents-badge img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  display: block;
+  flex: 0 0 16px;
+}
+.documents-badge.is-red { color: #D92013; }
+.documents-badge.is-blue { color: var(--blue); }
+.documents-badge.is-green { color: #1D8B42; }
+.progress-pipeline {
+  display: flex;
+  flex-direction: column;
+}
+.pipeline-row {
+  display: grid;
+  grid-template-columns: 26px minmax(150px, 1fr) minmax(92px, auto);
+  gap: 0.62rem;
+  align-items: center;
+  min-height: 44px;
+  border-bottom: 1px solid #E7EFF9;
+  color: #405072;
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+.pipeline-row:last-child { border-bottom: 0; }
+.pipeline-dot {
+  width: 21px;
+  height: 21px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #8BA2C5;
+  border-radius: 999px;
+  color: #8BA2C5;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+.pipeline-row.is-complete .pipeline-dot {
+  border-color: #0A9B3F;
+  background: #0A9B3F;
+  color: #FFFFFF;
+}
+.pipeline-row.is-active .pipeline-dot {
+  border-color: var(--blue);
+  color: var(--blue);
+  box-shadow: 0 0 0 4px rgba(16,94,221,0.10);
+}
+.pipeline-value {
+  color: var(--navy);
+  text-align: right;
+  white-space: nowrap;
+}
+.ingestion-progress-notice {
+  margin-top: 1rem;
+  border-radius: 12px;
+  padding: 0.78rem 0.9rem;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+.ingestion-progress-notice.is-success {
+  background: #E7F8EE;
+  color: #087D32;
+}
+.ingestion-progress-notice.is-warning {
+  background: #FFF6DF;
+  color: #8A6200;
+}
+.ingestion-progress-notice.is-error {
+  background: #FFF1EE;
+  color: #B42318;
+}
+.ingestion-progress-notice.is-info {
+  background: #EAF3FF;
+  color: var(--blue);
+}
+.documents-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 0 0 1rem;
+}
+.documents-metric-card {
+  position: relative;
+  min-height: 128px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1.05rem 1.15rem;
+  border: 1px solid #DFE7F3;
+  border-left: 3px solid var(--accent);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(248,251,255,0.95));
+  box-shadow: 0 16px 38px rgba(11, 48, 117, 0.09);
+}
+.documents-metric-card.is-warm { --accent: #FF3B16; --helper: #FF3B16; --icon-bg: #FFF0EA; }
+.documents-metric-card.is-cool { --accent: #105EDD; --helper: #105EDD; --icon-bg: #EAF3FF; }
+.documents-metric-card.is-gold { --accent: #F5B400; --helper: #A87400; --icon-bg: #FFF7DF; }
+.documents-metric-icon {
+  width: 58px;
+  height: 58px;
+  flex: 0 0 58px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--icon-bg);
+  color: var(--accent);
+}
+.documents-metric-icon svg {
+  width: 31px;
+  height: 31px;
+  stroke: currentColor;
+}
+.documents-metric-label {
+  color: var(--navy);
+  font-size: 0.88rem;
+  font-weight: 900;
+}
+.documents-metric-value {
+  color: #020A34;
+  font-size: 2.35rem;
+  line-height: 1;
+  font-weight: 900;
+  margin-top: 0.25rem;
+}
+.documents-metric-helper {
+  color: var(--helper);
+  font-size: 0.78rem;
+  font-weight: 850;
+  margin-top: 0.65rem;
+}
+.selected-document-card {
+  position: sticky;
+  top: 1rem;
+  width: calc(100% + 3rem);
+  max-width: none;
+  margin-left: -1.5rem;
+  margin-right: -1.5rem;
+}
+.selected-document-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+.selected-close {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #405072;
+  text-decoration: none !important;
+  font-size: 1.35rem;
+  line-height: 0.85;
+  margin-top: -0.16rem;
+}
+.selected-close:hover,
+.selected-close:focus,
+.selected-close:visited {
+  color: #0B3075;
+  text-decoration: none !important;
+}
+.st-key-selected_document_panel_shell {
+  position: relative;
+}
+.st-key-selected_document_close {
+  position: absolute !important;
+  top: 0.88rem;
+  right: -0.25rem;
+  z-index: 4;
+  width: 30px !important;
+  height: 30px !important;
+}
+.st-key-selected_document_close [data-testid="stButton"] {
+  width: 30px !important;
+  height: 30px !important;
+}
+.st-key-selected_document_close button {
+  width: 30px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+  color: #405072 !important;
+  box-shadow: none !important;
+}
+.st-key-selected_document_close button:hover,
+.st-key-selected_document_close button:focus,
+.st-key-selected_document_close button:focus-visible {
+  color: #0B3075 !important;
+  background: #F2F6FC !important;
+  box-shadow: none !important;
+  outline: 3px solid rgba(88,172,244,0.35) !important;
+  outline-offset: 2px !important;
+}
+.st-key-selected_document_close button p {
+  color: inherit !important;
+  font-size: 1.55rem !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  margin: 0 !important;
+}
+.selected-doc-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.72rem;
+  margin: 0.8rem 0 0.75rem;
+}
+.selected-pdf-mark {
+  width: 42px;
+  height: 48px;
+  flex: 0 0 42px;
+  border-radius: 8px;
+  background: #E51912;
+  color: #FFFFFF;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+.selected-doc-name {
+  color: var(--navy);
+  font-weight: 900;
+  line-height: 1.18;
+  word-break: break-word;
+}
+.selected-doc-size {
+  color: #405072;
+  font-size: 0.78rem;
+  font-weight: 750;
+  margin-top: 0.2rem;
+}
+.selected-meta-row {
+  display: grid;
+  grid-template-columns: 24px minmax(104px, 0.9fr) minmax(96px, 1.2fr);
+  gap: 0.56rem;
+  align-items: center;
+  min-height: 40px;
+  border-bottom: 1px solid #E7EFF9;
+  color: #405072;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+.selected-meta-row:last-child { border-bottom: 0; }
+.selected-meta-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  justify-self: center;
+}
+.selected-meta-icon.is-empty {
+  display: inline-block;
+}
+.selected-meta-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.selected-meta-value {
+  color: var(--navy);
+  text-align: right;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.selected-preview {
+  margin-top: 1rem;
+  border: 1px solid #E3ECF8;
+  border-radius: 12px;
+  background: #F8FBFF;
+  overflow: hidden;
+}
+.selected-preview-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.58rem 0.75rem;
+  color: var(--navy);
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+.selected-preview img {
+  width: 100%;
+  display: block;
+  background: #FFFFFF;
+  border-top: 1px solid #E3ECF8;
+}
+.selected-preview-empty {
+  padding: 1.1rem 0.75rem;
+  color: #64708A;
+  font-size: 0.82rem;
+  font-weight: 750;
+  text-align: center;
+}
+.selected-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  margin-top: 1rem;
+  border: 1px solid #F3442C;
+  border-radius: 10px;
+  background: #FFFFFF;
+  color: #E52D18;
+  font-size: 0.9rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+.selected-delete:visited { color: #E52D18; }
+.selected-delete:hover {
+  background: #FFF5F2;
+  color: #BA2B19;
+  text-decoration: none;
+}
+.selected-delete-copy {
+  margin-top: 0.55rem;
+  color: #405072;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+.document-delete-modal-open {
+  overflow: hidden;
+}
+.document-delete-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(11, 18, 34, 0.48);
+  backdrop-filter: blur(3px);
+}
+.document-delete-modal {
+  width: min(528px, calc(100vw - 2rem));
+  max-height: calc(100vh - 3rem);
+  overflow: auto;
+  border-radius: 18px;
+  background: #FFFFFF;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.26);
+}
+.delete-confirm-panel {
+  margin: 0;
+  padding: 1.35rem 1.45rem 1.2rem;
+  border: 0;
+  border-radius: 18px;
+  background: #FFFFFF;
+}
+.delete-confirm-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 0.78rem;
+}
+.delete-confirm-badge {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #FFF1ED;
+  color: #EF2B18;
+}
+.delete-confirm-badge svg {
+  width: 20px;
+  height: 20px;
+}
+.delete-confirm-title {
+  color: #020A34;
+  font-size: 1.32rem;
+  font-weight: 950;
+  line-height: 1.15;
+}
+.delete-modal-close {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #31415F;
+  font-size: 1.55rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.delete-modal-close:hover,
+.delete-modal-close:focus-visible {
+  background: #F2F6FC;
+  outline: 2px solid rgba(16, 94, 221, 0.22);
+  outline-offset: 2px;
+}
+.delete-confirm-copy {
+  color: #243451;
+  font-size: 0.9rem;
+  line-height: 1.48;
+}
+.delete-summary-card {
+  display: flex;
+  gap: 0.72rem;
+  align-items: center;
+  margin: 0.88rem 0 0.95rem;
+  padding: 0.75rem;
+  border: 1px solid #D9E4F3;
+  border-radius: 10px;
+  background: #FBFDFF;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+}
+.delete-summary-card .selected-pdf-mark {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+}
+.delete-check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.62rem;
+  color: #243451;
+  font-size: 0.88rem;
+  font-weight: 780;
+  margin: 0.62rem 0;
+}
+.delete-check-row strong {
+  color: #17233D;
+  font-weight: 950;
+}
+.delete-check-dot {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.24rem;
+  border-radius: 999px;
+  background: #0A9B3F;
+  color: #FFFFFF;
+  font-size: 0.7rem;
+  font-weight: 950;
+  line-height: 1;
+}
+.delete-check-dot.info {
+  background: #FFFFFF;
+  border: 1px solid #8BA2C5;
+  color: #405072;
+  line-height: 1;
+  transform: translateY(1px);
+}
+.delete-warning {
+  margin-top: 0.9rem;
+  padding-top: 0.78rem;
+  border-top: 1px solid #E6ECF5;
+  color: #E52D18;
+  font-size: 0.84rem;
+  font-weight: 900;
+}
+.delete-modal-footer {
+  display: grid;
+  grid-template-columns: 1fr 1.28fr;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.delete-modal-cancel,
+.delete-modal-confirm {
+  min-height: 42px;
+  border-radius: 9px;
+  font-size: 0.88rem;
+  font-weight: 900;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.48rem;
+  cursor: pointer;
+}
+.delete-modal-cancel {
+  border: 1px solid #D5E2F4;
+  background: #FFFFFF;
+  color: #243451;
+}
+.delete-modal-confirm,
+.delete-modal-confirm:visited {
+  border: 1px solid #EF2B18;
+  background: #EF2B18;
+  color: #FFFFFF;
+}
+.delete-modal-confirm svg {
+  width: 17px;
+  height: 17px;
+}
+.delete-modal-cancel:hover,
+.delete-modal-cancel:focus-visible {
+  background: #F7FAFF;
+  outline: 2px solid rgba(16, 94, 221, 0.18);
+  outline-offset: 2px;
+}
+.delete-modal-confirm:hover,
+.delete-modal-confirm:focus-visible {
+  background: #D92817;
+  border-color: #D92817;
+  color: #FFFFFF;
+  text-decoration: none;
+  outline: 2px solid rgba(239, 43, 24, 0.22);
+  outline-offset: 2px;
+}
+.document-delete-modal.is-deleting .delete-modal-close,
+.document-delete-modal.is-deleting .delete-modal-cancel {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+.document-delete-modal.is-deleting .delete-modal-confirm {
+  pointer-events: none;
+  background: #BA2B19;
+  border-color: #BA2B19;
+}
+.st-key-document_delete_triggers,
+.st-key-document_selection_triggers {
+  position: fixed !important;
+  left: -10000px !important;
+  top: auto !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+.delete-button-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.42);
+  border-top-color: #FFFFFF;
+  border-radius: 999px;
+  animation: deleteSpin 0.75s linear infinite;
+}
+.delete-processing-note {
+  margin-top: 0.95rem;
+  padding: 0.72rem 0.82rem;
+  border-radius: 10px;
+  background: #FFF7F4;
+  color: #BA2B19;
+  font-size: 0.84rem;
+  font-weight: 850;
+  text-align: center;
+}
+@keyframes deleteSpin {
+  to { transform: rotate(360deg); }
+}
+.delete-result-panel {
+  text-align: center;
+  padding: 0.45rem 0.2rem 0.05rem;
+}
+.polished-delete-result {
+  max-width: 430px;
+  margin: 0 auto;
+}
+div[role="dialog"]:has(.polished-delete-result) h2 {
+  display: none !important;
+}
+div[role="dialog"]:has(.polished-delete-result) [data-testid="stDialogHeader"] {
+  min-height: 0 !important;
+  padding-bottom: 0 !important;
+}
+.delete-result-hero {
+  position: relative;
+  width: 112px;
+  height: 86px;
+  margin: 0.15rem auto 0.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.delete-result-icon {
+  width: 62px;
+  height: 62px;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #FFFFFF;
+  font-size: 2rem;
+  font-weight: 950;
+  box-shadow: 0 10px 24px rgba(10, 155, 63, 0.22);
+}
+.delete-result-icon.success {
+  background: #0A9B3F;
+  outline: 8px solid rgba(10, 155, 63, 0.13);
+}
+.delete-result-icon.error {
+  background: #E52D18;
+}
+.delete-success-sparkle {
+  position: absolute;
+  color: #0A9B3F;
+  font-size: 1rem;
+  font-weight: 950;
+}
+.delete-success-sparkle.one {
+  left: 9px;
+  top: 33px;
+}
+.delete-success-sparkle.two {
+  right: 5px;
+  top: 31px;
+}
+.delete-success-sparkle.three {
+  right: 28px;
+  top: 9px;
+  color: #D7B83D;
+  font-size: 0.8rem;
+}
+.delete-result-title {
+  color: #020A34;
+  font-size: 1.32rem;
+  font-weight: 950;
+}
+.delete-result-copy {
+  margin-top: 0.75rem;
+  color: #243451;
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+.delete-result-detail {
+  margin-top: 0.32rem;
+  color: #6A7894;
+  font-size: 0.86rem;
+  font-weight: 820;
+}
+.delete-result-summary-card {
+  display: flex;
+  align-items: center;
+  gap: 0.72rem;
+  margin: 1.05rem 0 0.9rem;
+  padding: 0.74rem 0.82rem;
+  border: 1px solid #D9E4F3;
+  border-radius: 10px;
+  background: #FBFDFF;
+  text-align: left;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+}
+.delete-result-summary-card .selected-pdf-mark {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+}
+.st-key-delete_result_done button {
+  background: #105EDD !important;
+  border-color: #105EDD !important;
+  color: #FFFFFF !important;
+  box-shadow: none !important;
+}
+.st-key-delete_result_done button:hover,
+.st-key-delete_result_done button:focus,
+.st-key-delete_result_done button:focus-visible {
+  background: #0B4AB7 !important;
+  border-color: #0B4AB7 !important;
+  color: #FFFFFF !important;
+  outline: 2px solid rgba(16, 94, 221, 0.22) !important;
+  outline-offset: 2px !important;
+  box-shadow: none !important;
+}
+.st-key-confirm_delete_doc button,
+.st-key-inline_confirm_delete_doc button,
+.st-key-dialog_confirm_delete_doc button {
+  background: #E52D18 !important;
+  border-color: #E52D18 !important;
+  color: #FFFFFF !important;
+}
+.st-key-confirm_delete_doc button:hover,
+.st-key-inline_confirm_delete_doc button:hover,
+.st-key-dialog_confirm_delete_doc button:hover {
+  background: #BA2B19 !important;
+  border-color: #BA2B19 !important;
+}
 .empty-state, .error-state {
   border-radius: 16px;
   padding: 1rem;
@@ -1997,12 +3115,30 @@ div.stButton > button[kind="primary"] {
   }
   .doc-table-actions {
     justify-content: flex-start;
+    flex-wrap: wrap;
   }
   .doc-table-scroll {
     overflow-x: auto;
   }
   .doc-table-grid {
-    min-width: 980px;
+    min-width: 1060px;
+  }
+  .documents-metric-grid {
+    grid-template-columns: 1fr;
+  }
+  .selected-document-card {
+    position: static;
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+  }
+  .documents-badges {
+    gap: 0.34rem;
+  }
+  .documents-badge {
+    padding-inline: 0.32rem;
+    font-size: 0.68rem;
   }
 }
 @media (max-width: 620px) {
@@ -2021,6 +3157,12 @@ div.stButton > button[kind="primary"] {
   }
   .doc-view-all {
     width: 100%;
+  }
+  .documents-badges {
+    grid-template-columns: 1fr;
+  }
+  .documents-upload-file-name {
+    max-width: 58vw;
   }
 }
 </style>
@@ -2156,7 +3298,7 @@ def render_metric_card(label: str, value: str, delta: str, tone: str = "cool") -
     )
 
 
-def render_ingestion_status_cards(stats: dict[str, Any]) -> None:
+def get_status_card_icon_svg(icon_name: str) -> str:
     icons = {
         "document": """
 <svg viewBox="0 0 40 40" aria-hidden="true" focusable="false" fill="none" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
@@ -2181,13 +3323,17 @@ def render_ingestion_status_cards(stats: dict[str, Any]) -> None:
 </svg>
 """,
     }
+    return icons.get(icon_name, "")
+
+
+def render_ingestion_status_cards(stats: dict[str, Any]) -> None:
     cards = [
         {
             "label": "Documents indexed",
             "value": str(stats.get("total_documents", 0)),
             "helper": "Across persistent collection",
             "tone": "warm",
-            "icon": icons["document"],
+            "icon": get_status_card_icon_svg("document"),
             "is_text": False,
         },
         {
@@ -2195,7 +3341,7 @@ def render_ingestion_status_cards(stats: dict[str, Any]) -> None:
             "value": f'{stats.get("total_chunks", 0):,}',
             "helper": "Semantic chunks",
             "tone": "cool",
-            "icon": icons["layers"],
+            "icon": get_status_card_icon_svg("layers"),
             "is_text": False,
         },
         {
@@ -2203,7 +3349,7 @@ def render_ingestion_status_cards(stats: dict[str, Any]) -> None:
             "value": "ChromaDB",
             "helper": "Local persistence",
             "tone": "gold",
-            "icon": icons["database"],
+            "icon": get_status_card_icon_svg("database"),
             "is_text": True,
         },
     ]
@@ -2433,6 +3579,17 @@ def _indexed_docs_icon(filename: str, alt: str, class_name: str = "") -> str:
     return f'<img{class_attr} src="{icon_uri}" alt="{html.escape(alt)}" loading="lazy" />'
 
 
+def _trash_icon() -> str:
+    return (
+        '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">'
+        '<path d="M4 7h16" stroke-width="2" stroke-linecap="round"/>'
+        '<path d="M10 11v6M14 11v6" stroke-width="2" stroke-linecap="round"/>'
+        '<path d="M6 7l1 14h10l1-14" stroke-width="2" stroke-linejoin="round"/>'
+        '<path d="M9 7V4h6v3" stroke-width="2" stroke-linejoin="round"/>'
+        "</svg>"
+    )
+
+
 def _format_file_size(size_bytes: Any) -> str:
     try:
         size = int(size_bytes or 0)
@@ -2474,23 +3631,96 @@ def _pdf_modal_id(document: dict[str, Any]) -> str:
     return f"pdf-modal-{target}"
 
 
+def render_document_table_search_script(search_key: str, table_id: str) -> None:
+    st.iframe(
+        f"""
+<script>
+(() => {{
+  const parentDocument = window.parent.document;
+  const input = parentDocument.querySelector('.st-key-{html.escape(search_key, quote=True)} input[placeholder="Search documents"]');
+  const tableBody = parentDocument.querySelector('[data-doc-table-id="{html.escape(table_id, quote=True)}"]');
+  const card = parentDocument.querySelector('.st-key-{html.escape(table_id.replace("-", "_"), quote=True)}_table_card') || tableBody;
+  if (!input || !tableBody || !card || tableBody.dataset.searchBound === "true") return;
+  tableBody.dataset.searchBound = "true";
+
+  const rows = Array.from(tableBody.querySelectorAll('.doc-table-row'));
+  const emptyRow = tableBody.querySelector('.doc-search-empty-row');
+  const countNode = card.querySelector('.doc-summary-count');
+  const chunkNode = card.querySelector('.doc-summary-chunks');
+  const totalDocuments = rows.length;
+
+  const label = (count, singular, plural) => count === 1 ? singular : plural;
+  const applyFilter = () => {{
+    const query = (input.value || '').trim().toLowerCase();
+    let visibleDocuments = 0;
+    let visibleChunks = 0;
+    rows.forEach((row) => {{
+      const matches = !query || (row.dataset.searchText || '').includes(query);
+      row.hidden = !matches;
+      row.classList.toggle('is-search-hidden', !matches);
+      if (matches) {{
+        visibleDocuments += 1;
+        visibleChunks += Number(row.dataset.chunks || 0);
+      }}
+    }});
+    if (emptyRow) {{
+      emptyRow.hidden = visibleDocuments !== 0;
+    }}
+    if (countNode) {{
+      countNode.textContent = query
+        ? `${{visibleDocuments.toLocaleString()}} of ${{totalDocuments.toLocaleString()}} ${{label(totalDocuments, 'document', 'documents')}}`
+        : `${{totalDocuments.toLocaleString()}} ${{label(totalDocuments, 'document', 'documents')}}`;
+    }}
+    if (chunkNode) {{
+      chunkNode.textContent = `${{visibleChunks.toLocaleString()}} ${{label(visibleChunks, 'chunk', 'chunks')}}`;
+    }}
+  }};
+
+  input.addEventListener('input', applyFilter);
+  input.addEventListener('search', applyFilter);
+  window.parent.requestAnimationFrame(applyFilter);
+}})();
+</script>
+""",
+        height=1,
+        width=1,
+    )
+
+
 def render_document_table(
     documents: list[dict[str, Any]],
     title: str = "Indexed documents",
     source_section: str | None = None,
+    enable_delete: bool = False,
+    enable_selection: bool = False,
+    selected_document_hash: str | None = None,
+    selection_section: str | None = None,
+    show_search: bool = False,
+    search_key: str | None = None,
+    search_placeholder: str = "Search documents",
+    total_document_count: int | None = None,
+    info_copy: str = "All documents are chunked semantically and stored as high-quality embeddings for accurate retrieval.",
+    empty_title: str = "No indexed documents yet",
+    empty_copy: str = "Upload PDFs and run ingestion to populate this table.",
 ) -> None:
     total_documents = len(documents)
     total_chunks = sum(int(doc.get("chunks") or 0) for doc in documents)
+    unfiltered_documents = total_document_count if total_document_count is not None else total_documents
     max_chunks = max((int(doc.get("chunks") or 0) for doc in documents), default=0)
     formatted_timestamps = [_format_ingested_timestamp(doc.get("last_ingested")) for doc in documents]
     last_updated = next((timestamp for timestamp in formatted_timestamps if timestamp), "Not ingested yet")
+    selected_document_hash = (selected_document_hash or "").strip()
+    table_classes = "doc-table-grid has-selection" if enable_selection else "doc-table-grid"
+    search_key = search_key or f"{re.sub(r'[^a-zA-Z0-9_]+', '_', title.lower()).strip('_')}_search"
+    table_id = re.sub(r"[^a-zA-Z0-9_-]+", "-", search_key).strip("-") or "document-search"
+    card_classes = "doc-table-card has-client-search" if show_search else "doc-table-card"
+    selection_section = selection_section or source_section
 
     document_icon = _indexed_docs_icon("document-outline-icon.png", "Documents")
-    refresh_icon = _indexed_docs_icon("refresh-icon.png", "Refresh")
-    info_icon = _indexed_docs_icon("info-icon.png", "Info")
     pdf_icon = _indexed_docs_icon("pdf-file-icon.png", "PDF file")
     view_icon = _indexed_docs_icon("view-eye-icon.png", "View")
     sync_icon = _indexed_docs_icon("sync-icon.png", "Re-ingest")
+    trash_icon = _trash_icon()
     lightbulb_icon = _indexed_docs_icon("lightbulb-info-icon.png", "Info")
 
     row_html = []
@@ -2503,26 +3733,72 @@ def render_document_table(
         timestamp = _format_ingested_timestamp(doc.get("last_ingested")) or "Not available"
         document_hash = str(doc.get("document_hash", "") or "")
         short_hash = document_hash[:12] if document_hash else "n/a"
+        chunking = str(doc.get("chunking_strategy", "") or "")
+        is_selected = bool(enable_selection and document_hash and document_hash == selected_document_hash)
         status_class = _status_class(status)
         file_size = _format_file_size(doc.get("file_size"))
+        location_text = " ".join(
+            str(doc.get(key, "") or "")
+            for key in ("location", "source", "source_path", "source_file", "path")
+        )
+        search_text = " ".join(
+            [filename, status, timestamp, document_hash, short_hash, chunking, location_text, "docs/", "uploaded_docs/"]
+        ).lower()
         file_meta_html = (
             f"{html.escape(extension)} &middot; {html.escape(file_size)}"
             if file_size
             else f"{html.escape(extension)} source document"
         )
+        selected_pill_html = '<div class="doc-selected-pill">Selected</div>' if is_selected else ""
         chunk_segments = _chunk_segments(chunks, max_chunks)
         view_target = quote(document_hash or filename, safe="")
         source_query = f"&from_section={quote(source_section, safe='')}" if source_section else ""
+        selected_query = f"&selected_doc={view_target}" if document_hash else ""
+        selection_section_query = f"section={quote(selection_section, safe='')}&" if selection_section else ""
+        selection_href = (
+            f"?{selection_section_query}"
+            f"selected_doc={view_target}"
+        )
+        reingest_href = f"?reingest_doc={view_target}{source_query}{selected_query}"
+        delete_section_query = f"section={quote(selection_section or source_section or 'Documents', safe='')}&"
+        delete_href = f"?{delete_section_query}delete_doc={view_target}{selected_query}" if enable_delete else ""
         modal_id = _pdf_modal_id(doc)
+        selection_cell_html = (
+            '<div class="doc-cell doc-select-cell">'
+            f'<a class="doc-select-control{" is-selected" if is_selected else ""}" href="{selection_href}" '
+            'target="_self" '
+            'data-doc-select-control '
+            f'data-selected-doc-hash="{html.escape(document_hash, quote=True)}" '
+            f'data-selection-section="{html.escape(selection_section or "", quote=True)}" '
+            f'aria-label="Select {html.escape(filename)}" title="Select {html.escape(filename)}">'
+            '<span aria-hidden="true"></span></a>'
+            '</div>'
+            if enable_selection
+            else ""
+        )
+        delete_action_html = (
+            f'<a class="tiny-action danger" href="{delete_href}" target="_self" '
+            'data-delete-doc-control '
+            f'data-delete-doc-hash="{html.escape(document_hash, quote=True)}" '
+            f'data-delete-doc-filename="{html.escape(filename, quote=True)}" '
+            f'title="Delete {html.escape(filename)}">'
+            f'{trash_icon}<span>Delete</span></a>'
+            if enable_delete
+            else ""
+        )
 
         row_html.append(
-            '<div class="doc-table-row">'
+            f'<div class="doc-table-row{" is-selected" if is_selected else ""}" '
+            f'data-search-text="{html.escape(search_text, quote=True)}" data-chunks="{chunks}" '
+            f'data-selected-doc-hash="{html.escape(document_hash, quote=True)}">'
+            f'{selection_cell_html}'
             '<div class="doc-cell">'
             '<div class="doc-main">'
             f'<div class="doc-file-icon">{pdf_icon}</div>'
             '<div class="doc-file-text">'
             f'<div class="doc-file-name" title="{html.escape(filename)}">{html.escape(filename)}</div>'
             f'<div class="doc-file-meta">{file_meta_html}</div>'
+            f'{selected_pill_html}'
             '</div>'
             '</div>'
             '</div>'
@@ -2538,8 +3814,10 @@ def render_document_table(
             '<div class="doc-row-actions">'
             f'<a class="tiny-action" href="#{html.escape(modal_id, quote=True)}" data-pdf-modal-target="{html.escape(modal_id, quote=True)}" '
             f'data-pdf-modal-fallback="?view_doc={view_target}{source_query}" title="View {html.escape(filename)}">'
-            f'{view_icon}<span>View</span></a>'
-            f'<span class="tiny-action alt" title="Re-ingest">{sync_icon}<span>Re-ingest</span></span>'
+            f'{view_icon}<span>Preview</span></a>'
+            f'<a class="tiny-action alt" href="{reingest_href}" title="Re-ingest {html.escape(filename)}">'
+            f'{sync_icon}<span>Re-ingest</span></a>'
+            f'{delete_action_html}'
             '</div>'
             '</div>'
             '</div>'
@@ -2548,63 +3826,128 @@ def render_document_table(
     if row_html:
         rows_markup = "".join(row_html)
     else:
-        rows_markup = """
-      <div class="doc-empty-row">
-        <div class="doc-empty-title">No indexed documents yet</div>
-        <div class="doc-empty-copy">Upload PDFs and run ingestion to populate this table.</div>
-      </div>
+        rows_markup = f"""
+<div class="doc-empty-row">
+  <div class="doc-empty-title">{html.escape(empty_title)}</div>
+  <div class="doc-empty-copy">{html.escape(empty_copy)}</div>
+</div>
 """
+    if show_search:
+        rows_markup += (
+            '<div class="doc-empty-row doc-search-empty-row" hidden>'
+            '<div class="doc-empty-title">No documents match your search.</div>'
+            '<div class="doc-empty-copy">Try another filename, hash, status, location, or chunking strategy.</div>'
+            '</div>'
+        )
 
     document_label = "document" if total_documents == 1 else "documents"
     chunk_label = "chunk" if total_chunks == 1 else "chunks"
+    document_summary_text = f"{total_documents:,} {document_label}"
+    if unfiltered_documents != total_documents:
+        total_label = "document" if unfiltered_documents == 1 else "documents"
+        document_summary_text = f"{total_documents:,} of {unfiltered_documents:,} {total_label}"
     summary_dot = "&bull;"
     actions_icon = "&vellip;"
     chevron_icon = "&rsaquo;"
-    table_markup = f"""
-<div class="doc-table-card">
-  <div class="doc-table-header">
-    <div class="doc-table-heading">
-      <div class="doc-title-icon">{document_icon}</div>
-      <div>
-        <div class="doc-table-title">{html.escape(title)}</div>
-        <div class="doc-table-summary">
-          <strong>{total_documents:,} {document_label}</strong>
-          <span class="doc-summary-dot">{summary_dot}</span>
-          <strong>{total_chunks:,} {chunk_label}</strong>
-          <span class="doc-summary-dot">{summary_dot}</span>
-          Last updated {html.escape(last_updated)}
-        </div>
-      </div>
-    </div>
-    <div class="doc-table-actions" aria-label="Document table actions">
-      <span class="doc-icon-btn" title="Refresh">{refresh_icon}<span>Refresh</span></span>
-      <span class="doc-icon-btn icon-only" title="Info">{info_icon}</span>
-    </div>
-  </div>
-  <div class="doc-table-scroll">
-    <div class="doc-table-grid">
-      <div class="doc-table-head">
-        <div class="doc-cell">{_doc_head("Document", "document-outline-icon.png")}</div>
-        <div class="doc-cell">{_doc_head("Pages", "document-outline-icon.png")}</div>
-        <div class="doc-cell">{_doc_head("Chunks", "stacked-layers-icon.png")}</div>
-        <div class="doc-cell">{_doc_head("Status", "status-shield-icon.png")}</div>
-        <div class="doc-cell">{_doc_head("Last ingested", "calendar-icon.png")}</div>
-        <div class="doc-cell">{_doc_head("Hash", None, "#")}</div>
-        <div class="doc-cell">{_doc_head("Actions", None, actions_icon)}</div>
-      </div>
-{rows_markup}
-    </div>
-  </div>
-  <div class="doc-info-strip">
-    <div class="doc-info-copy">
-      {lightbulb_icon}
-      <span>All documents are chunked semantically and stored as high-quality embeddings for accurate retrieval.</span>
-    </div>
-    <span class="doc-view-all">View all documents <span aria-hidden="true">{chevron_icon}</span></span>
-  </div>
-</div>
-"""
-    st.markdown(table_markup, unsafe_allow_html=True)
+    selection_head_html = '<div class="doc-cell"><span class="doc-select-head" aria-hidden="true"></span></div>' if enable_selection else ""
+    head_cells = "".join(
+        [
+            selection_head_html,
+            f'<div class="doc-cell">{_doc_head("Document", "document-outline-icon.png")}</div>',
+            f'<div class="doc-cell">{_doc_head("Pages", "document-outline-icon.png")}</div>',
+            f'<div class="doc-cell">{_doc_head("Chunks", "stacked-layers-icon.png")}</div>',
+            f'<div class="doc-cell">{_doc_head("Status", "status-shield-icon.png")}</div>',
+            f'<div class="doc-cell">{_doc_head("Last ingested", "calendar-icon.png")}</div>',
+            f'<div class="doc-cell">{_doc_head("Hash", None, "#")}</div>',
+            f'<div class="doc-cell">{_doc_head("Actions", None, actions_icon)}</div>',
+        ]
+    )
+    table_markup = (
+        f'<div class="{card_classes}" data-doc-table-id="{html.escape(table_id, quote=True)}">'
+        '<div class="doc-table-header">'
+        '<div class="doc-table-heading">'
+        f'<div class="doc-title-icon">{document_icon}</div>'
+        '<div>'
+        f'<div class="doc-table-title">{html.escape(title)}</div>'
+        '<div class="doc-table-summary">'
+        f'<strong class="doc-summary-count">{html.escape(document_summary_text)}</strong>'
+        f'<span class="doc-summary-dot">{summary_dot}</span>'
+        f'<strong class="doc-summary-chunks">{total_chunks:,} {chunk_label}</strong>'
+        f'<span class="doc-summary-dot">{summary_dot}</span>'
+        f'Last updated {html.escape(last_updated)}'
+        '</div>'
+        '</div>'
+        '</div>'
+        '</div>'
+        '<div class="doc-table-scroll">'
+        f'<div class="{table_classes}">'
+        f'<div class="doc-table-head">{head_cells}</div>'
+        f'{rows_markup}'
+        '</div>'
+        '</div>'
+        '<div class="doc-info-strip">'
+        '<div class="doc-info-copy">'
+        f'{lightbulb_icon}'
+        f'<span>{html.escape(info_copy)}</span>'
+        '</div>'
+        f'<span class="doc-view-all">View all documents <span aria-hidden="true">{chevron_icon}</span></span>'
+        '</div>'
+        '</div>'
+    )
+    body_markup = (
+        '<div class="doc-table-scroll">'
+        f'<div class="{table_classes}">'
+        f'<div class="doc-table-head">{head_cells}</div>'
+        f'{rows_markup}'
+        '</div>'
+        '</div>'
+        '<div class="doc-info-strip">'
+        '<div class="doc-info-copy">'
+        f'{lightbulb_icon}'
+        f'<span>{html.escape(info_copy)}</span>'
+        '</div>'
+        f'<span class="doc-view-all">View all documents <span aria-hidden="true">{chevron_icon}</span></span>'
+        '</div>'
+    )
+    if show_search:
+        container_key = f"{table_id.replace('-', '_')}_table_card"
+        with st.container(key=container_key):
+            header_left, header_right = st.columns([1, 0.34], gap="large")
+            with header_left:
+                st.markdown(
+                    (
+                        '<div class="doc-table-header-inline">'
+                        '<div class="doc-table-heading">'
+                        f'<div class="doc-title-icon">{document_icon}</div>'
+                        '<div>'
+                        f'<div class="doc-table-title">{html.escape(title)}</div>'
+                        '<div class="doc-table-summary">'
+                        f'<strong class="doc-summary-count">{html.escape(document_summary_text)}</strong>'
+                        f'<span class="doc-summary-dot">{summary_dot}</span>'
+                        f'<strong class="doc-summary-chunks">{total_chunks:,} {chunk_label}</strong>'
+                        f'<span class="doc-summary-dot">{summary_dot}</span>'
+                        f'Last updated {html.escape(last_updated)}'
+                        '</div>'
+                        '</div>'
+                        '</div>'
+                        '</div>'
+                    ),
+                    unsafe_allow_html=True,
+                )
+            with header_right:
+                st.text_input(
+                    "Search documents",
+                    key=search_key,
+                    placeholder=search_placeholder,
+                    label_visibility="collapsed",
+                )
+            st.markdown(
+                f'<div class="doc-table-body has-client-search" data-doc-table-id="{html.escape(table_id, quote=True)}">{body_markup}</div>',
+                unsafe_allow_html=True,
+            )
+            render_document_table_search_script(search_key, table_id)
+    else:
+        st.markdown(table_markup, unsafe_allow_html=True)
 
 
 def render_empty_state(title: str, body: str) -> None:

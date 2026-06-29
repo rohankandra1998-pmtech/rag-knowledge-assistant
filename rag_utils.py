@@ -246,11 +246,26 @@ def is_document_already_ingested(collection, document_hash: str) -> bool:
         return False
 
 
-def delete_document_by_hash(collection, document_hash: str) -> None:
+def delete_document_by_hash(collection, document_hash: str) -> int:
+    if not document_hash:
+        return 0
+
+    deleted_count = 0
+    try:
+        result = collection.get(where={"document_hash": document_hash})
+        ids = result.get("ids", []) if isinstance(result, dict) else []
+        if ids:
+            collection.delete(ids=ids)
+            return len(ids)
+    except Exception:
+        ids = []
+
     try:
         collection.delete(where={"document_hash": document_hash})
     except Exception:
-        pass
+        return deleted_count
+
+    return deleted_count
 
 
 def _now_iso() -> str:
