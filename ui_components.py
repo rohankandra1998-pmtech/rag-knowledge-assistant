@@ -2767,17 +2767,20 @@ body.pdf-modal-open {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-top: 0.08rem;
+  margin-top: 0.24rem;
   border-radius: 999px;
   background: #0A9B3F;
   color: #FFFFFF;
   font-size: 0.7rem;
   font-weight: 950;
+  line-height: 1;
 }
 .delete-check-dot.info {
   background: #FFFFFF;
   border: 1px solid #8BA2C5;
   color: #405072;
+  line-height: 1;
+  transform: translateY(1px);
 }
 .delete-warning {
   margin-top: 0.9rem;
@@ -2874,6 +2877,13 @@ body.pdf-modal-open {
 .polished-delete-result {
   max-width: 430px;
   margin: 0 auto;
+}
+div[role="dialog"]:has(.polished-delete-result) h2 {
+  display: none !important;
+}
+div[role="dialog"]:has(.polished-delete-result) [data-testid="stDialogHeader"] {
+  min-height: 0 !important;
+  padding-bottom: 0 !important;
 }
 .delete-result-hero {
   position: relative;
