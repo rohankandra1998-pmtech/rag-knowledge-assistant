@@ -97,6 +97,51 @@ def invalidate_collection_stats_cache() -> None:
 def clear_document_delete_result_state() -> None:
     st.session_state.pop("document_delete_result", None)
     st.session_state.pop("document_delete_result_context", None)
+    st.session_state.pop("document_delete_in_progress_hash", None)
+    st.session_state.pop("document_delete_confirmed_hash", None)
+    st.session_state.pop("delete_candidate_documents", None)
+
+
+def clear_stale_document_delete_query_params() -> None:
+    clear_document_query_params("confirm_delete_doc", "delete_doc", "view_doc", "from_section", "section")
+
+
+def delete_result_matches_hash(result: dict[str, Any] | None, target: str) -> bool:
+    if not result:
+        return False
+    normalized_target = unquote(target or "").strip()
+    if not normalized_target:
+        return False
+    result_hash = str(result.get("document_hash", "") or "").strip()
+    filename = str(result.get("filename", "") or "").strip()
+    return normalized_target in {result_hash, filename}
+
+
+def get_completed_document_delete_hashes() -> set[str]:
+    completed = st.session_state.get("document_delete_completed_hashes", [])
+    if isinstance(completed, set):
+        return {str(item) for item in completed if item}
+    if isinstance(completed, (list, tuple)):
+        return {str(item) for item in completed if item}
+    return set()
+
+
+def mark_document_delete_completed(document_hash: str) -> None:
+    if not document_hash:
+        return
+    completed = list(get_completed_document_delete_hashes())
+    if document_hash not in completed:
+        completed.append(document_hash)
+    st.session_state.document_delete_completed_hashes = completed[-20:]
+
+
+def document_delete_trigger_key(document_hash: str) -> str:
+    return f"client_confirm_delete_{document_hash}"
+
+
+def queue_client_document_delete(document_hash: str) -> None:
+    st.session_state.document_delete_confirmed_hash = str(document_hash or "").strip()
+    st.session_state.nav_section = "Documents"
 
 
 def has_pending_documents_upload() -> bool:
@@ -632,8 +677,14 @@ def handle_pdf_reingest_action(stats: dict[str, Any]) -> None:
     st.rerun()
 
 
-def confirm_delete_document(document: dict[str, Any], collection, documents: list[dict[str, Any]] | None = None) -> None:
+def confirm_delete_document(document: dict[str, Any], collection, documents: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     document_hash = str(document.get("document_hash", "") or "").strip()
+    existing_result = st.session_state.get("document_delete_result")
+    if document_hash in get_completed_document_delete_hashes() and delete_result_matches_hash(existing_result, document_hash):
+        clear_stale_document_delete_query_params()
+        return existing_result
+
+    st.session_state.document_delete_in_progress_hash = document_hash
     deleted_metadata = {
         "file_size": document.get("file_size"),
         "pages": int(document.get("pages") or 0),
@@ -654,26 +705,26 @@ def confirm_delete_document(document: dict[str, Any], collection, documents: lis
             message = f"Deleted {filename}: purged {chunks:,} indexed chunks and retained the source file."
         result["message"] = message
         result["next_selected_doc"] = next_selected_document_hash(documents or [], document_hash)
+        result["confirmed_delete_hash"] = document_hash
         st.session_state.document_delete_result = result
         st.session_state.document_delete_result_context = "delete"
+        mark_document_delete_completed(document_hash)
+        clear_stale_document_delete_query_params()
+        next_hash = str(result.get("next_selected_doc", "") or "").strip()
+        if next_hash:
+            st.query_params["selected_doc"] = next_hash
+        else:
+            clear_document_query_params("selected_doc")
     else:
         result["message"] = result.get("reason", "Document could not be deleted.")
         st.session_state.document_delete_result = result
         st.session_state.document_delete_result_context = "delete"
+        clear_stale_document_delete_query_params()
 
-    clear_document_query_params("delete_doc", "confirm_delete_doc", "view_doc", "from_section", "section")
-    try:
-        if result.get("status") == "deleted":
-            next_hash = str(result.get("next_selected_doc", "") or "")
-            if next_hash:
-                st.query_params["selected_doc"] = next_hash
-            elif "selected_doc" in st.query_params:
-                del st.query_params["selected_doc"]
-        elif get_query_param("selected_doc") == document_hash:
-            del st.query_params["selected_doc"]
-    except Exception:
-        pass
-    st.rerun()
+    if st.session_state.get("document_delete_in_progress_hash") == document_hash:
+        st.session_state.pop("document_delete_in_progress_hash", None)
+
+    return result
 
 
 def delete_result_markup(result: dict[str, Any]) -> str:
@@ -703,7 +754,7 @@ def delete_result_markup(result: dict[str, Any]) -> str:
     if pages:
         metadata_items.append(f"{pages:,} page" + ("" if pages == 1 else "s"))
     metadata_items.append(f"{chunks:,} {chunk_label if status == 'deleted' else ('chunk' if chunks == 1 else 'chunks')} removed")
-    summary_meta = " &bull; ".join(metadata_items)
+    summary_meta = f" {chr(8226)} ".join(metadata_items)
     return f"""
 <div class="delete-result-panel polished-delete-result">
   <div class="delete-result-hero">
@@ -743,16 +794,81 @@ def render_delete_result_dialog() -> bool:
         clear_document_delete_result_state()
         return False
 
-    @dialog("Document deleted" if result.get("status") == "deleted" else "Delete failed")
+    @dialog(" ")
     def _delete_result_dialog() -> None:
+        render_document_delete_modal_cleanup()
         st.markdown(delete_result_markup(result), unsafe_allow_html=True)
+        render_delete_result_url_cleanup(result)
         if st.button("Done", key="delete_result_done", type="primary", use_container_width=True):
+            next_hash = str(result.get("next_selected_doc", "") or "").strip()
+            clear_stale_document_delete_query_params()
+            if next_hash:
+                st.query_params["selected_doc"] = next_hash
+            else:
+                clear_document_query_params("selected_doc")
             clear_document_delete_result_state()
             st.session_state.nav_section = "Documents"
             st.rerun()
 
     _delete_result_dialog()
     return True
+
+
+def render_document_delete_modal_cleanup() -> None:
+    st.iframe(
+        """
+<script>
+(() => {
+  const parentDocument = window.parent.document;
+  parentDocument.querySelectorAll("[data-delete-doc-modal-host]").forEach((host) => {
+    host.innerHTML = "";
+  });
+  parentDocument.querySelectorAll(".document-delete-modal-overlay").forEach((overlay) => {
+    if (!overlay.closest("[data-delete-doc-template]")) overlay.remove();
+  });
+  parentDocument.body.classList.remove("document-delete-modal-open");
+})();
+</script>
+""",
+        height=1,
+        width=1,
+    )
+
+
+def render_delete_result_url_cleanup(result: dict[str, Any]) -> None:
+    next_hash = str(result.get("next_selected_doc", "") or "").strip()
+    st.iframe(
+        f"""
+<script>
+(() => {{
+  const parentWindow = window.parent;
+  const parentDocument = parentWindow.document;
+  parentDocument.querySelectorAll("[data-delete-doc-modal-host]").forEach((host) => {{
+    host.innerHTML = "";
+  }});
+  parentDocument.querySelectorAll(".document-delete-modal-overlay").forEach((overlay) => {{
+    if (!overlay.closest("[data-delete-doc-template]")) overlay.remove();
+  }});
+  parentDocument.body.classList.remove("document-delete-modal-open");
+  if (!parentWindow.history || typeof parentWindow.history.replaceState !== "function") return;
+  const url = new URL(parentWindow.location.href);
+  url.searchParams.delete("delete_doc");
+  url.searchParams.delete("confirm_delete_doc");
+  url.searchParams.delete("view_doc");
+  url.searchParams.delete("from_section");
+  url.searchParams.delete("section");
+  if ({next_hash!r}) {{
+    url.searchParams.set("selected_doc", {next_hash!r});
+  }} else {{
+    url.searchParams.delete("selected_doc");
+  }}
+  parentWindow.history.replaceState(null, "", `${{url.pathname}}${{url.search}}${{url.hash}}`);
+}})();
+</script>
+""",
+        height=1,
+        width=1,
+    )
 
 
 def delete_confirmation_markup(
@@ -798,7 +914,7 @@ def delete_confirmation_markup(
     footer_html = (
         '<div class="delete-modal-footer">'
         '<button class="delete-modal-cancel" type="button" data-delete-modal-close>Cancel</button>'
-        f'<a class="delete-modal-confirm" href="{confirm_href}" target="_self">'
+        f'<a class="delete-modal-confirm" href="{confirm_href}" target="_self" data-delete-confirm-hash="{html.escape(document_hash, quote=True)}">'
         f'{_trash_svg_inline()}<span>Delete document</span></a>'
         '</div>'
         if include_footer
@@ -855,14 +971,25 @@ def render_delete_confirmation_inline(document: dict[str, Any], collection, key_
 
 
 def handle_document_delete_action(stats: dict[str, Any]) -> None:
-    if render_delete_result_dialog():
-        return
-
-    confirm_target = get_query_param("confirm_delete_doc")
+    queued_confirm_target = str(st.session_state.pop("document_delete_confirmed_hash", "") or "").strip()
+    confirm_target = queued_confirm_target or get_query_param("confirm_delete_doc")
     if confirm_target:
         st.session_state.nav_section = "Documents"
+        existing_result = st.session_state.get("document_delete_result")
+        if delete_result_matches_hash(existing_result, confirm_target):
+            clear_stale_document_delete_query_params()
+            render_delete_result_dialog()
+            return
+
         document = find_document_by_hash(stats, confirm_target)
         if not document:
+            normalized_confirm_target = unquote(confirm_target or "").strip()
+            if normalized_confirm_target in get_completed_document_delete_hashes():
+                clear_stale_document_delete_query_params()
+                if render_delete_result_dialog():
+                    return
+                return
+
             st.session_state.document_delete_result = {
                 "status": "failed",
                 "filename": "Document",
@@ -871,10 +998,15 @@ def handle_document_delete_action(stats: dict[str, Any]) -> None:
                 "source_file_deleted": False,
             }
             st.session_state.document_delete_result_context = "delete"
-            clear_document_query_params("confirm_delete_doc", "delete_doc", "selected_doc", "section", rerun=True)
+            clear_stale_document_delete_query_params()
+            render_delete_result_dialog()
             return
         st.session_state.delete_candidate_documents = stats.get("documents", [])
         confirm_delete_document(document, get_chroma_collection(), stats.get("documents", []))
+        render_delete_result_dialog()
+        return
+
+    if render_delete_result_dialog():
         return
 
     target = get_query_param("delete_doc")
@@ -894,7 +1026,8 @@ def handle_document_delete_action(stats: dict[str, Any]) -> None:
             "source_file_deleted": False,
         }
         st.session_state.document_delete_result_context = "delete"
-        clear_document_query_params("delete_doc", "selected_doc", "section", rerun=True)
+        clear_stale_document_delete_query_params()
+        render_delete_result_dialog()
         return
 
     dialog = getattr(st, "dialog", None)
@@ -2387,6 +2520,22 @@ def render_document_delete_modal_templates(documents: list[dict[str, Any]]) -> N
         )
 
 
+def render_document_delete_triggers(documents: list[dict[str, Any]]) -> None:
+    if not documents:
+        return
+    with st.container(key="document_delete_triggers"):
+        for document in documents:
+            document_hash = str(document.get("document_hash", "") or "").strip()
+            if not document_hash:
+                continue
+            st.button(
+                "Confirm delete",
+                key=document_delete_trigger_key(document_hash),
+                on_click=queue_client_document_delete,
+                args=(document_hash,),
+            )
+
+
 def render_document_delete_controller() -> None:
     st.iframe(
         """
@@ -2394,7 +2543,7 @@ def render_document_delete_controller() -> None:
 (() => {
   const parentWindow = window.parent;
   const parentDocument = parentWindow.document;
-  const VERSION = "instant-doc-delete-v1";
+  const VERSION = "instant-doc-delete-v4";
 
   const getHash = (element) => element ? (element.getAttribute("data-delete-doc-hash") || "").trim() : "";
   const escapeSelectorValue = (value) => {
@@ -2405,6 +2554,7 @@ def render_document_delete_controller() -> None:
   };
 
   const getHost = () => parentDocument.querySelector("[data-delete-doc-modal-host]");
+  const getConfirmTrigger = (hash) => parentDocument.querySelector(`.st-key-client_confirm_delete_${escapeSelectorValue(hash)} button`);
 
   const closeModal = () => {
     const host = getHost();
@@ -2465,13 +2615,18 @@ def render_document_delete_controller() -> None:
     const confirmLink = event.target.closest(".delete-modal-confirm");
     if (confirmLink) {
       if (confirmLink.dataset.deleteSubmitting === "true") return;
-      event.preventDefault();
-      event.stopPropagation();
+      const hash = (confirmLink.getAttribute("data-delete-confirm-hash") || "").trim();
+      const confirmTrigger = hash ? getConfirmTrigger(hash) : null;
+      if (confirmTrigger) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!setDeletingState(confirmLink)) return;
+        confirmLink.dataset.deleteSubmitting = "true";
+        confirmTrigger.click();
+        return;
+      }
       if (!setDeletingState(confirmLink)) return;
       confirmLink.dataset.deleteSubmitting = "true";
-      parentWindow.requestAnimationFrame(() => {
-        window.setTimeout(() => confirmLink.click(), 90);
-      });
       return;
     }
 
@@ -2649,6 +2804,7 @@ def render_documents_screen(stats: dict[str, Any]) -> None:
 
     render_selected_document_panel_templates(documents)
     render_document_delete_modal_templates(documents)
+    render_document_delete_triggers(documents)
     render_document_selection_controller()
     render_document_delete_controller()
     render_client_pdf_modals(documents, "Documents")
