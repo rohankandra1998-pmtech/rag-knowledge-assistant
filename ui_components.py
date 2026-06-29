@@ -2536,8 +2536,8 @@ body.pdf-modal-open {
 }
 .st-key-selected_document_close {
   position: absolute !important;
-  top: -0.18rem;
-  right: -1.45rem;
+  top: 0.88rem;
+  right: -0.25rem;
   z-index: 4;
   width: 30px !important;
   height: 30px !important;
@@ -2552,7 +2552,7 @@ body.pdf-modal-open {
   min-height: 30px !important;
   padding: 0 !important;
   border: 0 !important;
-  border-radius: 8px !important;
+  border-radius: 999px !important;
   background: transparent !important;
   color: #405072 !important;
   box-shadow: none !important;
@@ -2563,13 +2563,13 @@ body.pdf-modal-open {
   color: #0B3075 !important;
   background: #F2F6FC !important;
   box-shadow: none !important;
-  outline: 2px solid rgba(16, 94, 221, 0.18) !important;
+  outline: 3px solid rgba(88,172,244,0.35) !important;
   outline-offset: 2px !important;
 }
 .st-key-selected_document_close button p {
   color: inherit !important;
-  font-size: 1rem !important;
-  font-weight: 800 !important;
+  font-size: 1.55rem !important;
+  font-weight: 400 !important;
   line-height: 1 !important;
   margin: 0 !important;
 }

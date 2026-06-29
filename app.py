@@ -2499,7 +2499,7 @@ def render_selected_document_panel(document: dict[str, Any] | None) -> None:
             unsafe_allow_html=True,
         )
         st.button(
-            "X",
+            "×",
             key="selected_document_close",
             help="Close selected document panel",
             on_click=clear_selected_document_panel,
