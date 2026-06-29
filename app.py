@@ -2393,7 +2393,6 @@ def clear_selected_document_panel() -> None:
     st.session_state.pop("selected_doc", None)
     st.session_state.pop("selected_document_hash", None)
     clear_document_query_params("selected_doc")
-    st.rerun()
 
 
 def document_selection_trigger_key(document_hash: str) -> str:
