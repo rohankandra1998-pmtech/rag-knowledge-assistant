@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import base64
 import html
-import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -24,7 +23,6 @@ from rag_utils import (
     get_document_hash,
     ingest_folder,
     ingest_pdf,
-    reset_vector_db,
     retrieve_context_with_usage,
     rerank_chunks_with_usage,
     rewrite_query_result,
@@ -35,14 +33,17 @@ from ui_components import (
     inject_custom_css,
     load_pdf_document_detail_icon_data_uri,
     load_pdf_viewer_control_icon_data_uri,
+    render_chat_answer_card,
+    render_chat_empty_canvas,
+    render_chat_evidence_panel,
     render_chat_message,
+    render_chat_pipeline_status,
+    render_chat_user_bubble,
     render_document_table,
     render_empty_state,
     render_error_state,
     render_header,
     render_ingestion_status_cards,
-    render_metric_card,
-    render_overview,
     render_sidebar,
     render_upload_badges,
     load_header_action_icon_data_uri,
@@ -50,12 +51,15 @@ from ui_components import (
 )
 
 NAV_SECTIONS = {
-    "App overview",
     "Chat / Answer",
     "Documents",
     "Ingestion status",
     "Models",
+}
+DEFAULT_NAV_SECTION = "Chat / Answer"
+REMOVED_NAV_SECTIONS = {
     "Example questions",
+    "App overview",
     "Settings / Debug",
 }
 
@@ -76,6 +80,8 @@ def init_state() -> None:
         "ingestion_events": [],
         "last_ingestion_results": [],
         "ingestion_active": False,
+        "chat_evidence_message_index": None,
+        "chat_evidence_mode": "sources",
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -83,6 +89,9 @@ def init_state() -> None:
 
     if "pending_nav" in st.session_state:
         st.session_state.nav_section = st.session_state.pop("pending_nav")
+    current_nav_section = st.session_state.get("nav_section")
+    if current_nav_section in REMOVED_NAV_SECTIONS or (current_nav_section and current_nav_section not in NAV_SECTIONS):
+        st.session_state.nav_section = DEFAULT_NAV_SECTION
 
 
 def add_ingestion_event(message: str) -> None:
@@ -388,6 +397,10 @@ def format_ingested_timestamp(timestamp: Any) -> str:
         return timestamp_text
 
 
+def format_chat_timestamp(dt: datetime | None = None) -> str:
+    return (dt or datetime.now()).strftime("%I:%M %p").lstrip("0")
+
+
 def resolve_source_pdf_path(document: dict[str, Any]) -> Path | None:
     filename = str(document.get("filename", "") or "")
     document_hash = str(document.get("document_hash", "") or "")
@@ -578,6 +591,10 @@ def clear_modal_query_params(*, rerun: bool = False) -> None:
 
 def consume_navigation_query_param() -> None:
     query_section = get_query_param("section")
+    if query_section in REMOVED_NAV_SECTIONS:
+        st.session_state.nav_section = DEFAULT_NAV_SECTION
+        clear_modal_query_params(rerun=True)
+        return
     if query_section in NAV_SECTIONS:
         st.session_state.nav_section = query_section
         clear_modal_query_params(rerun=True)
@@ -587,6 +604,9 @@ def apply_modal_source_section() -> None:
     if not get_query_param("view_doc"):
         return
     source_section = get_query_param("from_section")
+    if source_section in REMOVED_NAV_SECTIONS:
+        st.session_state.nav_section = DEFAULT_NAV_SECTION
+        return
     if source_section in NAV_SECTIONS:
         st.session_state.nav_section = source_section
 
@@ -1386,7 +1406,9 @@ def render_pdf_modal_shell(
             preview_html = '<div class="pdf-missing-source">Source PDF not found in docs/ or uploaded_docs/.</div>'
     source_section = source_section or get_query_param("from_section")
     if source_section not in NAV_SECTIONS:
-        source_section = str(st.session_state.get("nav_section", "App overview"))
+        source_section = str(st.session_state.get("nav_section", DEFAULT_NAV_SECTION))
+    if source_section not in NAV_SECTIONS:
+        source_section = DEFAULT_NAV_SECTION
     close_href = f"?section={quote(source_section, safe='')}"
     open_pdf_html = (
         f'<a class="pdf-modal-action primary" href="{escaped_pdf_uri}" target="_blank" download="{html.escape(filename)}">Open full PDF</a>'
@@ -1969,19 +1991,39 @@ def render_client_pdf_modals(documents: list[dict[str, Any]], source_section: st
     render_client_pdf_modal_controller()
 
 
-def answer_question(question: str) -> None:
+def render_chat_generation_progress(
+    progress_placeholder,
+    *,
+    active_step: int | None = None,
+    completed_steps: int = 0,
+    failed_step: int | None = None,
+) -> None:
+    if progress_placeholder is None:
+        return
+    progress_placeholder.empty()
+    with progress_placeholder.container():
+        render_chat_pipeline_status(
+            active_step=active_step,
+            completed_steps=completed_steps,
+            is_loading=failed_step is None,
+            failed_step=failed_step,
+        )
+
+
+def answer_question(question: str, progress_placeholder=None) -> None:
     question = question.strip()
     if not question:
         return
 
     collection = get_chroma_collection()
-    st.session_state.messages.append({"role": "user", "content": question})
+    st.session_state.messages.append({"role": "user", "content": question, "timestamp": format_chat_timestamp()})
 
     if collection.count() == 0:
         st.session_state.messages.append(
             {
                 "role": "assistant",
                 "content": "I don't know based on the uploaded documents. Upload and ingest PDFs first, then ask again.",
+                "timestamp": format_chat_timestamp(),
                 "sources": [],
                 "debug": {
                     "original_query": question,
@@ -2001,30 +2043,43 @@ def answer_question(question: str) -> None:
                 },
             }
         )
+        st.session_state.chat_evidence_message_index = len(st.session_state.messages) - 1
+        st.session_state.chat_evidence_mode = "sources"
         st.session_state.pending_nav = "Chat / Answer"
         st.rerun()
 
+    current_stage = 0
     try:
-        with st.spinner("Rewriting query, retrieving evidence, reranking chunks, and generating an answer..."):
-            history = st.session_state.messages[:-1]
-            rewrite_result = rewrite_query_result(question, history)
-            rewritten_query = rewrite_result["query"]
-            retrieval_result = retrieve_context_with_usage(rewritten_query, collection=collection, top_k=10)
-            retrieved = retrieval_result["chunks"]
-            rerank_result = rerank_chunks_with_usage(rewritten_query, retrieved, top_n=5)
-            reranked = rerank_result["chunks"]
-            result = generate_answer(question, rewritten_query, reranked, history)
-            token_usage = build_token_usage_summary(
-                rewrite_result.get("usage", {}),
-                retrieval_result.get("usage", {}),
-                rerank_result.get("usage", {}),
-                result.get("usage", {}),
-            )
+        render_chat_generation_progress(progress_placeholder, active_step=0, completed_steps=0)
+        history = st.session_state.messages[:-1]
+        rewrite_result = rewrite_query_result(question, history)
+        rewritten_query = rewrite_result["query"]
+
+        current_stage = 1
+        render_chat_generation_progress(progress_placeholder, active_step=1, completed_steps=1)
+        retrieval_result = retrieve_context_with_usage(rewritten_query, collection=collection, top_k=10)
+        retrieved = retrieval_result["chunks"]
+
+        current_stage = 2
+        render_chat_generation_progress(progress_placeholder, active_step=2, completed_steps=2)
+        rerank_result = rerank_chunks_with_usage(rewritten_query, retrieved, top_n=5)
+        reranked = rerank_result["chunks"]
+
+        current_stage = 3
+        render_chat_generation_progress(progress_placeholder, active_step=3, completed_steps=3)
+        result = generate_answer(question, rewritten_query, reranked, history)
+        token_usage = build_token_usage_summary(
+            rewrite_result.get("usage", {}),
+            retrieval_result.get("usage", {}),
+            rerank_result.get("usage", {}),
+            result.get("usage", {}),
+        )
 
         st.session_state.messages.append(
             {
                 "role": "assistant",
                 "content": result["answer"],
+                "timestamp": format_chat_timestamp(),
                 "sources": result.get("sources", []),
                 "debug": {
                     "original_query": question,
@@ -2042,11 +2097,15 @@ def answer_question(question: str) -> None:
                 },
             }
         )
+        st.session_state.chat_evidence_message_index = len(st.session_state.messages) - 1
+        st.session_state.chat_evidence_mode = "sources"
     except Exception as exc:
+        render_chat_generation_progress(progress_placeholder, completed_steps=current_stage, failed_step=current_stage)
         st.session_state.messages.append(
             {
                 "role": "assistant",
                 "content": f"I could not generate an answer because: {exc}",
+                "timestamp": format_chat_timestamp(),
                 "sources": [],
                 "debug": {
                     "original_query": question,
@@ -2057,6 +2116,8 @@ def answer_question(question: str) -> None:
                     "response_time": 0,
                     "prompt_tokens_estimate": 0,
                     "completion_tokens_estimate": 0,
+                    "pipeline_failed_step": current_stage,
+                    "pipeline_completed_steps": current_stage,
                     "token_usage": build_token_usage_summary(
                         {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
                         {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
@@ -2066,25 +2127,129 @@ def answer_question(question: str) -> None:
                 },
             }
         )
+        st.session_state.chat_evidence_message_index = len(st.session_state.messages) - 1
+        st.session_state.chat_evidence_mode = "debug"
 
     st.session_state.pending_nav = "Chat / Answer"
     st.rerun()
 
 
-def render_chat_screen(stats: dict[str, Any]) -> None:
-    st.markdown('<div class="section-title">Chat / Answer</div>', unsafe_allow_html=True)
-    if stats.get("total_chunks", 0) == 0:
-        render_empty_state(
-            "No indexed documents yet",
-            "Upload PDFs in Documents, then click Ingest. The assistant will answer only from indexed files.",
+def get_latest_evidence_message_index(messages: list[dict[str, Any]]) -> int | None:
+    for index in range(len(messages) - 1, -1, -1):
+        message = messages[index]
+        if message.get("role") == "assistant" and (message.get("sources") is not None or message.get("debug") is not None):
+            return index
+    return None
+
+
+def get_selected_evidence_message(messages: list[dict[str, Any]]) -> tuple[int | None, dict[str, Any] | None]:
+    selected_index = st.session_state.get("chat_evidence_message_index")
+    if isinstance(selected_index, int) and 0 <= selected_index < len(messages):
+        selected = messages[selected_index]
+        if selected.get("role") == "assistant":
+            return selected_index, selected
+
+    latest_index = get_latest_evidence_message_index(messages)
+    if latest_index is None:
+        return None, None
+    st.session_state.chat_evidence_message_index = latest_index
+    return latest_index, messages[latest_index]
+
+
+def set_chat_evidence_selection(index: int, mode: str) -> None:
+    st.session_state.chat_evidence_message_index = index
+    st.session_state.chat_evidence_mode = mode
+
+
+def render_chat_answer_footer(message: dict[str, Any], index: int, selected_mode: str) -> None:
+    sources = message.get("sources", []) or []
+    selected = st.session_state.get("chat_evidence_message_index") == index
+    sources_active = selected and selected_mode == "sources"
+    debug_active = selected and selected_mode == "debug"
+    footer_cols = st.columns([0.3, 0.32, 0.38], gap="small")
+    with footer_cols[0]:
+        sources_state = "active" if sources_active else "idle"
+        with st.container(key=f"answer_sources_button_{sources_state}_{index}"):
+            st.button(
+                f"Sources used ({len(sources)})",
+                key=f"answer_sources_{index}",
+                use_container_width=True,
+                on_click=set_chat_evidence_selection,
+                args=(index, "sources"),
+            )
+    with footer_cols[1]:
+        debug_state = "active" if debug_active else "idle"
+        with st.container(key=f"answer_debug_button_{debug_state}_{index}"):
+            st.button(
+                "Behind the scenes",
+                key=f"answer_debug_{index}",
+                use_container_width=True,
+                on_click=set_chat_evidence_selection,
+                args=(index, "debug"),
+            )
+    with footer_cols[2]:
+        label = "Active evidence" if selected else "Evidence ready"
+        mode = "debug" if selected_mode == "debug" and selected else "sources"
+        st.markdown(
+            f'<div class="chat-footer-status is-{mode}">{html.escape(label)}</div>',
+            unsafe_allow_html=True,
         )
 
-    for message in st.session_state.messages:
-        render_chat_message(message)
 
-    prompt = st.chat_input("Ask a question about your documents...")
-    if prompt:
-        answer_question(prompt)
+def render_chat_composer() -> str | None:
+    with st.container(key="chat_composer_card"):
+        with st.form("chat_answer_composer", clear_on_submit=True):
+            input_col, send_col = st.columns([1, 0.08], gap="small")
+            with input_col:
+                prompt = st.text_input(
+                    "Ask a question about your documents",
+                    placeholder="Ask a question about your documents...",
+                    label_visibility="collapsed",
+                )
+            with send_col:
+                submitted = st.form_submit_button("Send", use_container_width=True)
+        if submitted and prompt.strip():
+            return prompt
+    return None
+
+
+def render_chat_screen(stats: dict[str, Any]) -> None:
+    st.markdown(
+        '<div class="chat-section-head"><div class="section-title">Chat / Answer</div><div class="chat-section-rule"></div></div>',
+        unsafe_allow_html=True,
+    )
+    messages = st.session_state.messages
+    selected_index, selected_message = get_selected_evidence_message(messages)
+    selected_mode = str(st.session_state.get("chat_evidence_mode", "sources") or "sources")
+
+    main_col, evidence_col = st.columns([0.68, 0.32], gap="medium")
+    with main_col:
+        with st.container(key="chat_canvas_card"):
+            if not messages:
+                render_chat_empty_canvas(stats)
+            else:
+                st.markdown('<div class="chat-thread">', unsafe_allow_html=True)
+                for index, message in enumerate(messages):
+                    if message.get("role") == "user":
+                        render_chat_user_bubble(message)
+                        continue
+                    if message.get("role") != "assistant":
+                        continue
+                    render_chat_answer_card(message, index, selected=(index == selected_index))
+                    with st.container(key=f"answer_footer_{index}"):
+                        render_chat_answer_footer(message, index, selected_mode)
+                st.markdown("</div>", unsafe_allow_html=True)
+            pipeline_placeholder = st.empty()
+            if selected_message:
+                with pipeline_placeholder.container():
+                    render_chat_pipeline_status(selected_message.get("debug"))
+        prompt = render_chat_composer()
+        if prompt:
+            answer_question(prompt, progress_placeholder=pipeline_placeholder)
+
+    with evidence_col:
+        with st.container(key="chat_evidence_panel_shell"):
+            render_chat_evidence_panel(selected_message, selected_mode)
 
 
 def format_storage_estimate(value_mb: Any) -> str:
@@ -2899,143 +3064,6 @@ def render_models_screen() -> None:
         )
 
 
-def render_examples_screen() -> None:
-    st.markdown('<div class="section-title">Example questions</div>', unsafe_allow_html=True)
-    questions = [
-        "What are the key risks mentioned in the report?",
-        "Summarize the employee onboarding process.",
-        "What is the refund policy for our products?",
-        "Compare Q1 and Q2 performance metrics.",
-        "Explain the architecture of the system.",
-        "What policy details should leadership review?",
-    ]
-    for question in questions:
-        if st.button(question, key=f"example_{question}", use_container_width=True):
-            answer_question(question)
-
-
-def render_collection_stats_panel(stats: dict[str, Any]) -> None:
-    documents = stats.get("documents", []) or []
-    total_documents = int(stats.get("total_documents", 0) or 0)
-    total_chunks = int(stats.get("total_chunks", 0) or 0)
-    storage_mb = float(stats.get("storage_estimate_mb", 0) or 0)
-    max_chunks = max((int(document.get("chunks", 0) or 0) for document in documents), default=0)
-
-    document_rows = []
-    for document in documents[:5]:
-        filename = str(document.get("filename", "") or "Unknown document")
-        pages = int(document.get("pages", 0) or 0)
-        chunks = int(document.get("chunks", 0) or 0)
-        status = str(document.get("status", "Indexed") or "Indexed").title()
-        last_ingested = format_ingested_timestamp(document.get("last_ingested"))
-        file_size = format_file_size(document.get("file_size"))
-        details = f"{pages:,} pages &middot; {chunks:,} chunks"
-        if file_size != "Unknown":
-            details = f"{details} &middot; {html.escape(file_size)}"
-        document_rows.append(
-            f"""
-      <div class="collection-doc-row">
-        <div>
-          <div class="collection-doc-name" title="{html.escape(filename)}">{html.escape(filename)}</div>
-          <div class="collection-doc-meta">{details}</div>
-        </div>
-        <span class="collection-mini-pill">{html.escape(status)}</span>
-        <div class="collection-doc-meta">{html.escape(str(document.get("chunking_strategy", "semantic")).title())}</div>
-        <div class="collection-doc-date">{html.escape(last_ingested)}</div>
-      </div>
-"""
-        )
-
-    if document_rows:
-        documents_html = f'<div class="collection-doc-list">{"".join(document_rows)}</div>'
-    else:
-        documents_html = '<div class="collection-empty">No indexed documents yet. Upload and ingest PDFs to populate collection stats.</div>'
-
-    bar_rows = []
-    for document in documents[:5]:
-        filename = str(document.get("filename", "") or "Unknown document")
-        chunks = int(document.get("chunks", 0) or 0)
-        width = int((chunks / max_chunks) * 100) if max_chunks else 0
-        bar_rows.append(
-            f"""
-      <div class="collection-bar-row">
-        <div class="collection-bar-label" title="{html.escape(filename)}">{html.escape(filename)}</div>
-        <div class="collection-bar-track"><span class="collection-bar-fill" style="width: {width}%"></span></div>
-        <div class="collection-bar-value">{chunks:,}</div>
-      </div>
-"""
-        )
-    bars_html = "".join(bar_rows) if bar_rows else '<div class="collection-empty">Chunk distribution will appear after ingestion.</div>'
-
-    st.markdown(
-        f"""
-<div class="collection-stats-card">
-  <div class="collection-stats-header">
-    <div>
-      <div class="collection-stats-title">Collection stats</div>
-      <div class="collection-stats-copy">Current local ChromaDB index health and document coverage.</div>
-    </div>
-    <div class="collection-stats-badge">ChromaDB</div>
-  </div>
-  <div class="collection-stats-grid">
-    <div class="collection-stat-tile">
-      <div class="collection-stat-label">Documents indexed</div>
-      <div class="collection-stat-value">{total_documents:,}</div>
-      <div class="collection-stat-helper">Deduped source PDFs</div>
-    </div>
-    <div class="collection-stat-tile">
-      <div class="collection-stat-label">Chunks stored</div>
-      <div class="collection-stat-value">{total_chunks:,}</div>
-      <div class="collection-stat-helper">Retrieval-ready passages</div>
-    </div>
-    <div class="collection-stat-tile">
-      <div class="collection-stat-label">Storage estimate</div>
-      <div class="collection-stat-value">{storage_mb:.2f} MB</div>
-      <div class="collection-stat-helper">Source PDF footprint</div>
-    </div>
-  </div>
-  <div class="collection-stats-section-title">Indexed documents</div>
-  {documents_html}
-  <div class="collection-stats-section-title">Chunks by document</div>
-  <div class="collection-bars">{bars_html}</div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
-
-
-def render_settings_screen(stats: dict[str, Any]) -> None:
-    st.markdown('<div class="section-title">Settings / Debug</div>', unsafe_allow_html=True)
-    st.markdown(
-        """
-<div class="section-card">
-  <div class="section-title">Environment</div>
-  <p>Secrets are loaded server-side from .env or environment variables. API keys are never rendered in the UI.</p>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
-    render_collection_stats_panel(stats)
-    with st.expander("Raw stats payload", expanded=False):
-        st.json(stats, expanded=1)
-
-    st.warning("Resetting the vector database deletes all indexed chunks. Source PDFs are not deleted.")
-    confirmed = st.checkbox("I understand this will delete the local ChromaDB collection.")
-    if st.button("Reset vector DB", disabled=not confirmed):
-        reset_vector_db()
-        invalidate_collection_stats_cache()
-        st.session_state.messages = []
-        st.success("Vector database reset.")
-        st.rerun()
-
-    if st.button("Delete uploaded PDFs", disabled=not confirmed):
-        shutil.rmtree(UPLOADED_DOCS_DIR, ignore_errors=True)
-        Path(UPLOADED_DOCS_DIR).mkdir(parents=True, exist_ok=True)
-        invalidate_collection_stats_cache()
-        st.success("uploaded_docs/ cleared.")
-        st.rerun()
-
-
 def main() -> None:
     init_state()
     inject_custom_css()
@@ -3064,25 +3092,7 @@ def main() -> None:
         ingest_all_known_pdfs()
         stats = get_cached_collection_stats(collection, force_refresh=True)
 
-    if section == "App overview":
-        question = render_overview(stats, st.session_state.messages)
-        if question:
-            answer_question(question)
-        recent_docs, recent_convos = st.columns(2)
-        with recent_docs:
-            recent_documents = stats.get("documents", [])[:6]
-            render_document_table(recent_documents, title="Recent documents", source_section="App overview")
-            render_client_pdf_modals(recent_documents, "App overview")
-        with recent_convos:
-            st.markdown('<div class="section-card"><div class="section-title">Recent conversations</div>', unsafe_allow_html=True)
-            user_questions = [m["content"] for m in st.session_state.messages if m.get("role") == "user"][-6:]
-            if user_questions:
-                for item in reversed(user_questions):
-                    st.caption(item)
-            else:
-                st.caption("No questions asked yet.")
-            st.markdown("</div>", unsafe_allow_html=True)
-    elif section == "Chat / Answer":
+    if section == "Chat / Answer":
         render_chat_screen(stats)
     elif section == "Documents":
         render_documents_screen(stats)
@@ -3090,17 +3100,13 @@ def main() -> None:
         render_ingestion_status(stats)
     elif section == "Models":
         render_models_screen()
-    elif section == "Example questions":
-        render_examples_screen()
-    elif section == "Settings / Debug":
-        render_settings_screen(stats)
 
     selected_document = get_pdf_modal_document(stats)
     if selected_document:
         render_pdf_preview_dialog(selected_document)
     elif get_query_param("view_doc"):
         clear_modal_query_params(rerun=True)
-    elif section_changed or section == "Settings / Debug":
+    elif section_changed:
         scroll_page_to_top()
 
 

@@ -33,14 +33,12 @@ INDEXED_DOCS_ICON_DIR = Path(__file__).parent / "assets" / "indexed-documents"
 INDEXED_DOCS_OPTIMIZED_ICON_DIR = Path(__file__).parent / "assets" / "indexed-documents-optimized"
 PDF_MODAL_ICON_DIR = Path(__file__).parent / "assets" / "pdf-modal-icons"
 UPLOAD_ICON_DIR = Path(__file__).parent / "assets" / "upload-icons"
+CHAT_UI_ICON_DIR = Path(__file__).parent / "assets" / "chat-ui"
 SIDEBAR_NAV_ITEMS = [
-    {"label": "App overview", "icon": "App_Overview_Icon.png"},
     {"label": "Chat / Answer", "icon": "Chat_Answer_Icon.png"},
     {"label": "Documents", "icon": "Documents_Icon.png"},
     {"label": "Ingestion status", "icon": "Ingestion_Status_Icon.png"},
     {"label": "Models", "icon": "Models_Icon.png"},
-    {"label": "Example questions", "icon": "Example_Questions_Icon.png"},
-    {"label": "Settings / Debug", "icon": "Settings_Debug_Icon.png"},
 ]
 
 
@@ -142,6 +140,31 @@ def load_upload_icon_data_uri(filename: str) -> str:
     return _load_png_data_uri_fast(str(UPLOAD_ICON_DIR / filename))
 
 
+def _load_chat_ui_icon_data_uri(filename: str) -> str:
+    return _load_png_data_uri_fast(str(CHAT_UI_ICON_DIR / filename))
+
+
+def _load_chat_empty_state_asset_data_uri(filename: str) -> str:
+    return _load_png_data_uri_fast(str(CHAT_UI_ICON_DIR / "empty-state" / filename))
+
+
+def _build_evidence_empty_icon_svg() -> str:
+    return """
+<svg viewBox="0 0 120 90" role="img" aria-label="Evidence document search" focusable="false">
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M43 12h30l18 18v42c0 6.1-4.9 11-11 11H43c-6.1 0-11-4.9-11-11V23c0-6.1 4.9-11 11-11Z" stroke="#105EDD" stroke-width="6.4"/>
+    <path d="M73 13v17h17" stroke="#105EDD" stroke-width="6.4"/>
+    <circle cx="58" cy="52" r="11.5" stroke="#105EDD" stroke-width="6.4"/>
+    <path d="m67 61 12 12" stroke="#105EDD" stroke-width="6.4"/>
+    <path d="M20 45c7.2-2.1 10.9-5.9 13-13 2.1 7.1 5.8 10.9 13 13-7.2 2.1-10.9 5.9-13 13-2.1-7.1-5.8-10.9-13-13Z" stroke="#F8B400" stroke-width="4.8"/>
+    <path d="M91 63c4.8-1.4 7.2-3.8 8.7-8.6 1.4 4.8 3.9 7.2 8.6 8.6-4.8 1.4-7.2 3.9-8.6 8.6-1.5-4.8-3.9-7.2-8.7-8.6Z" stroke="#F8B400" stroke-width="4.4"/>
+  </g>
+  <circle cx="26" cy="29" r="4" fill="#F8B400"/>
+  <circle cx="101" cy="47" r="3.6" fill="#F8B400"/>
+</svg>
+"""
+
+
 def load_header_action_icon_data_uri(filename: str) -> str:
     return _load_header_icon_data_uri(filename)
 
@@ -209,9 +232,21 @@ def inject_custom_css() -> None:
     upload_icon_uri = _load_header_icon_data_uri("upload.png")
     ingest_icon_uri = _load_header_icon_data_uri("ingest.png")
     clear_icon_uri = _load_header_icon_data_uri("clear-chat.png")
+    pipeline_arrow_icon_uri = _load_chat_ui_icon_data_uri("pipeline-arrow.png")
+    pipeline_clock_icon_uri = _load_chat_ui_icon_data_uri("pipeline-clock.png")
+    composer_send_icon_uri = _load_chat_ui_icon_data_uri("composer-send.png")
+    sources_used_icon_uri = _load_chat_ui_icon_data_uri("sources-used.png")
+    behind_scenes_icon_uri = _load_chat_ui_icon_data_uri("behind-the-scenes.png")
     st.markdown(
         f"""
 <style>
+:root {{
+  --pipeline-arrow-icon: url("{pipeline_arrow_icon_uri}");
+  --pipeline-clock-icon: url("{pipeline_clock_icon_uri}");
+  --composer-send-icon: url("{composer_send_icon_uri}");
+  --answer-sources-icon: url("{sources_used_icon_uri}");
+  --answer-debug-icon: url("{behind_scenes_icon_uri}");
+}}
 .st-key-header_actions .st-key-header_upload [data-testid^="stBaseButton"]::before {{
   content: "";
   width: 22px;
@@ -717,7 +752,19 @@ html, body, [class*="css"] {
 .assistant-label {
   color: var(--navy);
   font-weight: 900;
+}
+.chat-answer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
   margin-bottom: 0.55rem;
+}
+.chat-assistant-time {
+  color: #5F6D83;
+  font-size: 0.72rem;
+  font-weight: 750;
+  white-space: nowrap;
 }
 .answer-body {
   color: #1E2A4A;
@@ -753,6 +800,900 @@ html, body, [class*="css"] {
   display: block;
   height: 100%;
   background: linear-gradient(90deg, #58ACF4, #105EDD);
+}
+
+.chat-section-head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.1rem 0 0.75rem;
+}
+.chat-section-head .section-title {
+  margin: 0;
+  white-space: nowrap;
+}
+.chat-section-rule {
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(90deg, rgba(11,48,117,0.22), rgba(11,48,117,0));
+}
+.st-key-chat_canvas_card {
+  min-height: 610px;
+  padding: 1rem 1.05rem 0.9rem;
+  border: 1px solid rgba(16, 94, 221, 0.14);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,251,255,0.94)),
+    #FFFFFF;
+  box-shadow: 0 18px 46px rgba(11, 48, 117, 0.08);
+}
+.st-key-chat_canvas_card:has(.chat-empty-state) {
+  min-height: 535px;
+  padding-bottom: 0.45rem;
+}
+.chat-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.chat-user-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0.25rem 0 0.1rem;
+}
+.chat-user-bubble {
+  display: flex;
+  align-items: center;
+  gap: 0.62rem;
+  width: fit-content;
+  max-width: 74%;
+  min-height: 45px;
+  padding: 0.62rem 0.78rem 0.62rem 1rem;
+  border: 1px solid rgba(245, 180, 0, 0.68);
+  border-radius: 11px;
+  background: linear-gradient(180deg, #FFFDF7, #FFF9E8);
+  color: #1E2435;
+  font-size: 0.92rem;
+  font-weight: 800;
+  box-shadow: 0 10px 24px rgba(245, 180, 0, 0.08);
+}
+.chat-user-time {
+  color: #5F6D83;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.chat-user-avatar {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  border-radius: 999px;
+  background: #24170F;
+}
+.chat-user-avatar::before,
+.chat-user-avatar::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #FFFFFF;
+}
+.chat-user-avatar::before {
+  top: 5px;
+  width: 7px;
+  height: 7px;
+}
+.chat-user-avatar::after {
+  bottom: 5px;
+  width: 14px;
+  height: 8px;
+}
+.chat-assistant-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 0.45rem;
+  align-items: start;
+  max-width: 83%;
+  margin: 0.1rem 0 0.35rem;
+}
+.chat-assistant-row.is-selected .chat-answer-card {
+  border-color: rgba(16, 94, 221, 0.58);
+  background: linear-gradient(180deg, rgba(255,255,255,0.99), rgba(247,251,255,0.98));
+  box-shadow: 0 0 0 2px rgba(16,94,221,0.12), 0 18px 42px rgba(16, 94, 221, 0.16);
+}
+.chat-bot-avatar {
+  width: 42px;
+  height: 42px;
+  margin-top: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(207, 225, 251, 0.72);
+  background: rgba(255,255,255,0.42);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 20px rgba(16, 94, 221, 0.08);
+}
+.chat-bot-avatar img {
+  width: 40px;
+  height: 40px;
+  display: block;
+  object-fit: contain;
+}
+.chat-answer-card {
+  padding: 0.92rem 1rem 0.86rem;
+  border: 1px solid #DCE7F5;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.98);
+  box-shadow: 0 10px 28px rgba(11, 48, 117, 0.06);
+}
+.chat-assistant-row:has(+ [class*="st-key-answer_footer_"]) .chat-answer-card {
+  border-bottom-color: transparent;
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 8px 20px rgba(11, 48, 117, 0.045);
+}
+.chat-answer-card .answer-body {
+  font-size: 0.9rem;
+  line-height: 1.52;
+}
+.chat-source-pill {
+  display: inline-flex;
+  max-width: 100%;
+  margin-top: 0.52rem;
+  padding: 0.16rem 0.52rem;
+  border: 1px solid #BBD6FF;
+  border-radius: 7px;
+  background: #EAF3FF;
+  color: var(--blue);
+  font-size: 0.75rem;
+  font-weight: 900;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.chat-answer-divider {
+  height: 1px;
+  margin-top: 0.62rem;
+  background: #E5EDF7;
+}
+[class*="st-key-answer_footer_"] {
+  max-width: calc(83% - 42px);
+  margin-left: 42px;
+  margin-top: -0.36rem;
+  margin-bottom: 0.95rem;
+  padding: 0.52rem 0.85rem 0.56rem;
+  border: 1px solid #DCE7F5;
+  border-top-color: #E5EDF7;
+  border-radius: 0 0 12px 12px;
+  background: rgba(255,255,255,0.98);
+  box-shadow: 0 12px 24px rgba(11, 48, 117, 0.045);
+}
+[class*="st-key-answer_footer_"] button {
+  min-height: 38px !important;
+  height: 38px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 8px !important;
+  border-color: #DCE7F5 !important;
+  background: #FFFFFF !important;
+  color: var(--navy) !important;
+  box-shadow: none !important;
+  font-size: 0.8rem !important;
+  font-weight: 850 !important;
+  line-height: 1 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, color 160ms ease, transform 160ms ease;
+}
+[class*="st-key-answer_footer_"] button p {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  line-height: 1;
+  white-space: nowrap;
+}
+[class*="st-key-answer_footer_"] button [data-testid="stMarkdownContainer"] {
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+[class*="st-key-answer_sources_button_"] button p::before,
+[class*="st-key-answer_debug_button_"] button p::before {
+  content: "";
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  display: inline-block;
+  margin-right: 0.44rem;
+  transform: translateY(0);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+[class*="st-key-answer_sources_button_"] button p::before {
+  background-image: var(--answer-sources-icon);
+}
+[class*="st-key-answer_debug_button_"] button p::before {
+  background-image: var(--answer-debug-icon);
+}
+[class*="st-key-answer_footer_"] button:hover {
+  border-color: #105EDD !important;
+  color: #105EDD !important;
+  background: #F7FBFF !important;
+  box-shadow: 0 8px 16px rgba(16,94,221,0.10) !important;
+  transform: translateY(-1px);
+}
+[class*="st-key-answer_footer_"] button:active {
+  transform: translateY(0);
+}
+[class*="st-key-answer_footer_"] button:focus-visible {
+  outline: 3px solid rgba(88, 172, 244, 0.30) !important;
+  outline-offset: 2px !important;
+}
+[class*="st-key-answer_sources_button_active_"] button,
+[class*="st-key-answer_debug_button_active_"] button {
+  border-color: #105EDD !important;
+  background: #105EDD !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 10px 20px rgba(16,94,221,0.18) !important;
+}
+[class*="st-key-answer_sources_button_active_"] button p::before,
+[class*="st-key-answer_debug_button_active_"] button p::before {
+  filter: brightness(0) invert(1);
+}
+[class*="st-key-answer_sources_button_active_"] button:hover,
+[class*="st-key-answer_debug_button_active_"] button:hover {
+  border-color: #0C4EC2 !important;
+  background: #0C4EC2 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 12px 22px rgba(16,94,221,0.22) !important;
+}
+.chat-footer-status {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  color: #68758E;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+.chat-footer-status::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  margin-right: 0.38rem;
+  border-radius: 999px;
+  background: #105EDD;
+  box-shadow: 0 0 0 3px rgba(16,94,221,0.12);
+}
+.chat-pipeline-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  margin: 0.55rem 0 0;
+  padding: 0.55rem 0.72rem;
+  border: 1px solid #DCE7F5;
+  border-radius: 12px;
+  background: #FFFFFF;
+}
+.pipeline-step {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--navy);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+.pipeline-step:not(:last-of-type)::after {
+  content: "→";
+  color: #98A8C0;
+  margin-left: 0.25rem;
+}
+.pipeline-check {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #13A73F;
+  color: #FFFFFF;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+.pipeline-time {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  color: var(--navy);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+.pipeline-step {
+  color: #7B879D;
+}
+.pipeline-step.is-complete {
+  color: var(--navy);
+}
+.pipeline-step.is-active {
+  color: var(--blue);
+}
+.pipeline-step.is-failed {
+  color: var(--terracotta);
+}
+.pipeline-step::after {
+  content: none !important;
+}
+.pipeline-check {
+  border: 1px solid #C8D5E8;
+  background: #F4F7FB;
+  color: transparent;
+}
+.pipeline-check.is-complete {
+  border-color: #13A73F;
+  background: #13A73F;
+  color: #FFFFFF;
+}
+.pipeline-check.is-active {
+  position: relative;
+  border-color: var(--blue);
+  background: var(--blue);
+  box-shadow: 0 0 0 4px rgba(16, 94, 221, 0.12);
+}
+.pipeline-check.is-active::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  border: 2px solid rgba(255,255,255,0.45);
+  border-top-color: #FFFFFF;
+  animation: pipeline-spin 850ms linear infinite;
+}
+.pipeline-check.is-failed {
+  border-color: var(--terracotta);
+  background: var(--terracotta);
+  color: #FFFFFF;
+}
+.pipeline-time.is-loading {
+  color: var(--blue);
+}
+.pipeline-time.is-failed {
+  color: var(--terracotta);
+}
+.pipeline-arrow {
+  width: 16px;
+  height: 12px;
+  flex: 0 0 16px;
+  background: #8DA2C0;
+  -webkit-mask: var(--pipeline-arrow-icon) center / contain no-repeat;
+  mask: var(--pipeline-arrow-icon) center / contain no-repeat;
+}
+.pipeline-clock {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  background: currentColor;
+  -webkit-mask: var(--pipeline-clock-icon) center / contain no-repeat;
+  mask: var(--pipeline-clock-icon) center / contain no-repeat;
+}
+@keyframes pipeline-spin {
+  to { transform: rotate(360deg); }
+}
+.st-key-chat_composer_card {
+  margin-top: 0.55rem;
+  padding: 0.55rem;
+  border: 1px solid #DCE7F5;
+  border-radius: 16px;
+  background: #FFFFFF;
+  box-shadow: 0 12px 28px rgba(11, 48, 117, 0.06);
+}
+.st-key-chat_composer_card [data-testid="stForm"] {
+  border: 0;
+  padding: 0;
+}
+.st-key-chat_composer_card [data-testid="stHorizontalBlock"] {
+  align-items: center;
+}
+.st-key-chat_composer_card input {
+  border: 0 !important;
+  box-shadow: none !important;
+  color: var(--navy) !important;
+  font-weight: 700;
+}
+.st-key-chat_composer_card [data-testid="stTextInputRootElement"] {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.st-key-chat_composer_card button {
+  position: relative;
+  width: 46px !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 12px 22px rgba(16, 94, 221, 0.24) !important;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, border-color 160ms ease, outline-color 160ms ease;
+}
+.st-key-chat_composer_card button p {
+  font-size: 0;
+  width: 0;
+  min-width: 0;
+  margin: 0;
+}
+.st-key-chat_composer_card button::before {
+  content: "";
+  width: 46px;
+  min-width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  display: block;
+  background: center / contain no-repeat var(--composer-send-icon);
+  transition: filter 160ms ease;
+}
+.st-key-chat_composer_card button:hover {
+  background: #081A52 !important;
+  border-color: #081A52 !important;
+  box-shadow: 0 16px 28px rgba(16, 94, 221, 0.30) !important;
+  transform: translateY(-1px);
+}
+.st-key-chat_composer_card button:hover::before {
+  filter: brightness(0.94) saturate(1.08);
+}
+.st-key-chat_composer_card button:active {
+  transform: translateY(0);
+  box-shadow: 0 8px 16px rgba(16, 94, 221, 0.20) !important;
+}
+.st-key-chat_composer_card button:active::before {
+  filter: brightness(0.9) saturate(1.05);
+}
+.st-key-chat_composer_card button:focus-visible {
+  outline: 3px solid rgba(88, 172, 244, 0.36) !important;
+  outline-offset: 3px !important;
+}
+.chat-empty-state {
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 0.7rem;
+  color: var(--navy);
+  padding: 1.05rem 0.75rem 0.35rem;
+  overflow: hidden;
+}
+.chat-empty-graphic {
+  position: relative;
+  width: min(100%, 940px);
+  margin: 0 auto 0.35rem;
+}
+.chat-empty-flow-image {
+  display: block;
+  width: min(100%, 900px);
+  height: auto;
+  object-fit: contain;
+  margin: 0 auto;
+  filter: drop-shadow(0 22px 42px rgba(11, 48, 117, 0.10));
+}
+.chat-empty-title {
+  font-size: 1.25rem;
+  font-weight: 900;
+  line-height: 1.2;
+}
+.chat-empty-copy {
+  max-width: 520px;
+  color: #53637F;
+  font-size: 0.94rem;
+  line-height: 1.55;
+}
+@media (max-width: 920px) {
+  .chat-empty-state {
+    min-height: 445px;
+  }
+  .chat-empty-graphic {
+    width: 100%;
+  }
+  .chat-empty-flow-image {
+    width: min(100%, 720px);
+  }
+}
+@media (max-width: 640px) {
+  .chat-empty-state {
+    min-height: 460px;
+    padding-inline: 0.25rem;
+  }
+  .st-key-chat_canvas_card:has(.chat-empty-state) {
+    min-height: 480px;
+  }
+  .chat-empty-flow-image {
+    width: 100%;
+  }
+}
+.st-key-chat_evidence_panel_shell {
+  padding: 0.95rem;
+  border: 1px solid rgba(16, 94, 221, 0.14);
+  border-radius: 16px;
+  background: rgba(255,255,255,0.98);
+  box-shadow: inset 4px 0 0 #105EDD, 0 18px 46px rgba(11, 48, 117, 0.08);
+}
+.evidence-header-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin-bottom: 0.65rem;
+}
+.evidence-header {
+  color: var(--navy);
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1.15;
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+.evidence-selected-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  max-width: 100%;
+  padding: 0.3rem 0.52rem;
+  border: 1px solid #CFE1FB;
+  border-radius: 999px;
+  background: #F3F8FF;
+  color: #105EDD;
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+.evidence-selected-pill-icon {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 14px;
+}
+.evidence-selected-pill-icon img {
+  width: 14px;
+  height: 14px;
+  display: block;
+  object-fit: contain;
+}
+.evidence-selected-preview {
+  margin: 0.45rem 0 0.62rem;
+  padding: 0.72rem;
+  border: 1px solid #D6E5F8;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #F8FBFF, #FFFFFF);
+  box-shadow: 0 10px 24px rgba(11, 48, 117, 0.05);
+}
+.evidence-selected-preview-title {
+  margin-bottom: 0.48rem;
+  color: var(--navy);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+.evidence-selected-preview-body {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: center;
+}
+.evidence-selected-preview-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid #CFE1FB;
+  background: #FFFFFF;
+  box-shadow: 0 8px 14px rgba(16,94,221,0.08);
+}
+.evidence-selected-preview-icon img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+.evidence-selected-preview-text {
+  min-width: 0;
+  color: #1D2E52;
+  font-size: 0.76rem;
+  line-height: 1.38;
+}
+.evidence-opened-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  max-width: 100%;
+  padding: 0.34rem 0.5rem;
+  border: 1px solid #CFE1FB;
+  border-radius: 7px;
+  background: #EDF5FF;
+  color: var(--navy);
+  font-size: 0.78rem;
+}
+.evidence-opened-pill strong {
+  color: var(--blue);
+}
+.evidence-section-title {
+  margin: 0.78rem 0 0.45rem;
+  color: var(--navy);
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+.evidence-section-title.compact {
+  margin-top: 0.7rem;
+}
+.evidence-source-card {
+  margin: 0.45rem 0 0.65rem;
+  overflow: hidden;
+  border: 1px solid #DCE7F5;
+  border-radius: 10px;
+  background: #FFFFFF;
+  box-shadow: 0 8px 20px rgba(11, 48, 117, 0.05);
+}
+.evidence-source-card[open] {
+  border-color: #C7DCF5;
+  box-shadow: 0 12px 24px rgba(11, 48, 117, 0.07);
+}
+.evidence-source-summary {
+  list-style: none;
+  display: grid;
+  grid-template-columns: 35px minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.7rem 0.72rem;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+.evidence-source-summary::-webkit-details-marker {
+  display: none;
+}
+.evidence-source-summary::marker {
+  content: "";
+}
+.evidence-source-summary:hover {
+  background: #F7FAFF;
+}
+.evidence-source-top {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+}
+.evidence-pdf-badge {
+  width: 35px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 35px;
+  border-radius: 7px;
+  background: linear-gradient(180deg, #E52D18, #B81F12);
+  color: #FFFFFF;
+  font-size: 0.68rem;
+  font-weight: 900;
+  box-shadow: 0 8px 16px rgba(229,45,24,0.18);
+}
+.evidence-source-title-wrap {
+  min-width: 0;
+}
+.evidence-source-name {
+  color: var(--navy);
+  font-size: 0.82rem;
+  font-weight: 900;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.evidence-source-meta {
+  color: #425275;
+  font-size: 0.74rem;
+  margin-top: 0.12rem;
+}
+.evidence-source-compact-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.34rem;
+}
+.evidence-compact-score {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  min-height: 21px;
+  padding: 0.12rem 0.38rem;
+  border: 1px solid #DCE7F5;
+  border-radius: 999px;
+  background: #F8FBFF;
+  color: #425275;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+.evidence-compact-score strong {
+  color: var(--navy);
+  font-size: 0.68rem;
+}
+.evidence-source-chevron {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #DCE7F5;
+  border-radius: 999px;
+  background: #FFFFFF;
+  color: var(--blue);
+  font-size: 0.9rem;
+  font-weight: 900;
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+.evidence-source-card[open] .evidence-source-chevron {
+  transform: rotate(90deg);
+  border-color: #BBD6F5;
+  background: #EEF6FF;
+}
+.evidence-source-expanded {
+  padding: 0.62rem 0.72rem 0.72rem;
+  border-top: 1px solid #E8EEF7;
+  background: #FFFFFF;
+}
+.evidence-score-row {
+  display: grid;
+  grid-template-columns: 70px 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.52rem;
+  color: #20345B;
+  font-size: 0.74rem;
+}
+.evidence-score-row strong {
+  color: var(--navy);
+  font-size: 0.73rem;
+}
+.evidence-score-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #D9E3F2;
+}
+.evidence-score-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #58ACF4, #105EDD);
+}
+.evidence-snippet {
+  margin-top: 0.62rem;
+  padding: 0.58rem;
+  border: 1px solid #E2EAF5;
+  border-radius: 7px;
+  background: #F8FAFD;
+  color: #1D2E52;
+  font-size: 0.78rem;
+  line-height: 1.42;
+}
+.evidence-source-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+  margin-top: 0.5rem;
+}
+.evidence-action-link {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #DCE7F5;
+  border-radius: 7px;
+  background: #FFFFFF;
+  color: var(--blue) !important;
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-decoration: none !important;
+}
+.evidence-action-link.is-primary {
+  background: #F6FAFF;
+}
+.evidence-debug-card {
+  overflow: hidden;
+  border: 1px solid #DCE7F5;
+  border-radius: 9px;
+  background: #FFFFFF;
+}
+.evidence-debug-row {
+  display: grid;
+  grid-template-columns: 0.92fr 1.25fr;
+  gap: 0.5rem;
+  padding: 0.38rem 0.5rem;
+  border-bottom: 1px solid #E8EEF7;
+  color: #24395F;
+  font-size: 0.72rem;
+}
+.evidence-debug-row:last-child {
+  border-bottom: 0;
+}
+.evidence-debug-row span {
+  color: var(--navy);
+  font-weight: 800;
+}
+.evidence-debug-row strong {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.evidence-token-table {
+  width: 100%;
+  border-collapse: collapse;
+  overflow: hidden;
+  border: 1px solid #DCE7F5;
+  border-radius: 9px;
+  background: #FFFFFF;
+  color: #24395F;
+  font-size: 0.71rem;
+}
+.evidence-token-table th,
+.evidence-token-table td {
+  padding: 0.34rem 0.42rem;
+  border-bottom: 1px solid #E8EEF7;
+  border-right: 1px solid #E8EEF7;
+  text-align: left;
+}
+.evidence-token-table th {
+  color: var(--navy);
+  font-weight: 900;
+  background: #F8FBFF;
+}
+.evidence-token-table td:last-child,
+.evidence-token-table th:last-child {
+  border-right: 0;
+}
+.evidence-token-table tr:last-child td {
+  border-bottom: 0;
+}
+.evidence-empty {
+  padding: 0.8rem;
+  border: 1px dashed #CFE1FB;
+  border-radius: 10px;
+  background: #F8FBFF;
+  color: #53637F;
+  font-size: 0.82rem;
+}
+.evidence-empty.large {
+  min-height: 335px;
+  margin: 0.45rem 0 0.35rem;
+  padding: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.36rem;
+  text-align: center;
+  line-height: 1.45;
+}
+.evidence-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 94px;
+  margin: 0 0 0.25rem;
+}
+.evidence-empty-icon svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 14px 26px rgba(16, 94, 221, 0.10));
+}
+.evidence-empty.large strong {
+  color: var(--navy);
+  font-size: 1rem;
 }
 
 .doc-table-card {
@@ -3109,6 +4050,42 @@ div.stButton > button[kind="primary"] {
     text-align: left;
   }
   .chat-user { max-width: 92%; }
+  .st-key-chat_canvas_card {
+    min-height: 520px;
+  }
+  .chat-user-bubble,
+  .chat-assistant-row {
+    max-width: 100%;
+  }
+  [class*="st-key-answer_footer_"] {
+    max-width: 100%;
+    margin-left: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .chat-pipeline-strip {
+    align-items: flex-start;
+  }
+  .pipeline-time {
+    width: 100%;
+    margin-left: 0;
+  }
+  .evidence-header-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .evidence-selected-pill {
+    white-space: normal;
+  }
+  .evidence-selected-preview-body {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+  .evidence-score-row {
+    grid-template-columns: 70px 38px minmax(0, 1fr);
+  }
+  .evidence-source-actions {
+    grid-template-columns: 1fr;
+  }
   .doc-table-header {
     flex-direction: column;
     align-items: stretch;
@@ -3226,12 +4203,6 @@ def render_sidebar(stats: dict[str, Any]) -> str:
         st.markdown(
             """
 <div class="side-card">
-  <div class="side-card-title">Example questions</div>
-  <div class="side-row"><span>Summarize a report</span></div>
-  <div class="side-row"><span>Compare policies</span></div>
-  <div class="side-row"><span>Find risks</span></div>
-</div>
-<div class="side-card">
   <div class="side-row"><strong>Admin</strong><span class="side-pill">Local</span></div>
   <div class="side-row"><span>portfolio-ready build</span></div>
 </div>
@@ -3282,20 +4253,6 @@ def render_header() -> dict[str, bool]:
                     width=132,
                 )
     return {"upload": upload_clicked, "ingest": ingest_clicked, "clear": clear_clicked}
-
-
-def render_metric_card(label: str, value: str, delta: str, tone: str = "cool") -> None:
-    tone_class = {"warm": "delta-warm", "gold": "delta-gold"}.get(tone, "delta-cool")
-    st.markdown(
-        f"""
-<div class="metric-card">
-  <div class="metric-label">{html.escape(label)}</div>
-  <div class="metric-value">{html.escape(value)}</div>
-  <div class="metric-delta {tone_class}">{html.escape(delta)}</div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
 
 
 def get_status_card_icon_svg(icon_name: str) -> str:
@@ -3380,72 +4337,37 @@ def render_ingestion_status_cards(stats: dict[str, Any]) -> None:
     )
 
 
-def render_overview(stats: dict[str, Any], recent_messages: list[dict[str, Any]]) -> str | None:
-    st.markdown(
-        """
-<div class="hero-card">
-  <h2 class="hero-title">Turn documents into answers.</h2>
-  <div class="hero-copy">Ask questions across your documents and get grounded answers with clear citations.</div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
-
-    ask_col, button_col = st.columns([5, 1])
-    question = ask_col.text_input(
-        "Ask anything across your indexed PDFs",
-        placeholder="Ask a question about your documents...",
-        label_visibility="collapsed",
-        key="overview_question",
-    )
-    submit = button_col.button("Ask", key="overview_ask", type="primary", use_container_width=True)
-
-    chips = [
-        "What are the key risks mentioned in the report?",
-        "Summarize the employee onboarding process.",
-        "Compare Q1 and Q2 performance metrics.",
-    ]
-    chip_cols = st.columns(3)
-    chip_question = None
-    for col, chip in zip(chip_cols, chips):
-        if col.button(chip, key=f"overview_chip_{chip}", use_container_width=True):
-            chip_question = chip
-
-    metric_cols = st.columns(4)
-    with metric_cols[0]:
-        render_metric_card("Documents indexed", str(stats.get("total_documents", 0)), "Persistent ChromaDB", "warm")
-    with metric_cols[1]:
-        render_metric_card("Chunks stored", f'{stats.get("total_chunks", 0):,}', "Semantic retrieval-ready")
-    with metric_cols[2]:
-        confidence = "Ready" if stats.get("total_chunks", 0) else "Needs docs"
-        render_metric_card("Answer relevance", confidence, "Reranking enabled", "gold")
-    with metric_cols[3]:
-        questions = len([m for m in recent_messages if m.get("role") == "user"])
-        render_metric_card("Questions asked", str(questions), "This session")
-
-    st.markdown(
-        """
-<div class="section-card">
-  <div class="section-title">How it works</div>
-  <div class="workflow">
-    <div class="workflow-step"><span class="step-index">1</span><strong>Upload</strong><br/><span>Add PDFs to the knowledge base.</span></div>
-    <div class="workflow-step"><span class="step-index">2</span><strong>Chunk &amp; Embed</strong><br/><span>Split documents into semantic chunks.</span></div>
-    <div class="workflow-step"><span class="step-index">3</span><strong>Retrieve</strong><br/><span>Find the most relevant evidence.</span></div>
-    <div class="workflow-step"><span class="step-index">4</span><strong>Answer</strong><br/><span>Generate responses with citations.</span></div>
-  </div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
-
-    return chip_question or (question if submit and question.strip() else None)
+def _strip_inline_source_citations(text: str) -> str:
+    cleaned = re.sub(r"\[source:[^\]]+\]", " ", text, flags=re.IGNORECASE | re.DOTALL)
+    cleaned = re.sub(r"[ \t]+([.,;:!?])", r"\1", cleaned)
+    cleaned = re.sub(r"\s+([)\]])", r"\1", cleaned)
+    cleaned = re.sub(r"([(])\s+", r"\1", cleaned)
+    lines = [line.strip() for line in cleaned.splitlines()]
+    lines = [line for line in lines if line and line not in {".", ",", ";", ":"}]
+    cleaned = "\n".join(lines)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+    return cleaned or "See cited sources below."
 
 
 def _format_answer_html(answer: str) -> str:
-    escaped = html.escape(answer)
-    pattern = re.compile(r"(\[source:.*?\])", flags=re.IGNORECASE)
-    escaped = pattern.sub(r'<span class="citation-pill">\1</span>', escaped)
-    return escaped
+    return html.escape(_strip_inline_source_citations(answer))
+
+
+def _unique_source_filenames(sources: list[dict[str, Any]]) -> list[str]:
+    filenames: list[str] = []
+    seen: set[str] = set()
+    for source in sources:
+        filename = str(source.get("source", "") or "").strip()
+        if not filename:
+            continue
+        key = filename.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        filenames.append(filename)
+    if sources and not filenames:
+        return ["Unknown source"]
+    return filenames
 
 
 def render_chat_message(message: dict[str, Any]) -> None:
@@ -3469,6 +4391,412 @@ def render_chat_message(message: dict[str, Any]) -> None:
         render_sources_panel(message["sources"], title="Sources used")
     if message.get("debug"):
         render_debug_panel(message["debug"])
+
+
+def _coerce_score(value: Any) -> float | None:
+    try:
+        score = float(value)
+    except (TypeError, ValueError):
+        return None
+    if score < 0:
+        return 0.0
+    if score > 1:
+        return 1.0
+    return score
+
+
+def _format_score(value: Any) -> str:
+    score = _coerce_score(value)
+    return "n/a" if score is None else f"{score:.2f}"
+
+
+def _score_width(value: Any) -> int:
+    score = _coerce_score(value)
+    return 0 if score is None else int(score * 100)
+
+
+def _truncate_text(value: Any, limit: int = 290) -> str:
+    text = " ".join(str(value or "").split())
+    if not text:
+        return "No snippet preview is available for this source."
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 3)].rstrip() + "..."
+
+
+def _selected_answer_preview_text(message: dict[str, Any], limit: int = 170) -> str:
+    content = str(message.get("content", "") or "")
+    content = re.sub(r"\[source:[^\]]+\]", " ", content, flags=re.IGNORECASE)
+    text = " ".join(content.split())
+    if not text:
+        return "No answer preview is available."
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 3)].rstrip() + "..."
+
+
+def _source_document_target(source: dict[str, Any]) -> str:
+    filename = str(source.get("source", "") or "").strip()
+    document_hash = str(source.get("document_hash", "") or "").strip()
+    return document_hash or filename or "Unknown source"
+
+
+def _source_modal_href(source: dict[str, Any], source_section: str = "Chat / Answer") -> str:
+    target = quote(_source_document_target(source), safe="")
+    section = quote(source_section, safe="")
+    return f"?view_doc={target}&from_section={section}"
+
+
+def build_evidence_source_card_html(source: dict[str, Any], source_section: str = "Chat / Answer") -> str:
+    filename = str(source.get("source", "") or "").strip() or "Unknown source"
+    page = str(source.get("page_number", "") or "?")
+    chunk_id = str(source.get("chunk_id", "") or "n/a")
+    similarity = source.get("similarity")
+    rerank = source.get("rerank_score")
+    snippet = _truncate_text(source.get("text"))
+    href = _source_modal_href(source, source_section)
+    similarity_width = _score_width(similarity)
+    rerank_width = _score_width(rerank)
+    similarity_label = _format_score(similarity)
+    rerank_label = _format_score(rerank)
+    return f"""
+<details class="evidence-source-card">
+  <summary class="evidence-source-summary">
+    <div class="evidence-pdf-badge">PDF</div>
+    <div class="evidence-source-title-wrap">
+      <div class="evidence-source-name" title="{html.escape(filename)}">{html.escape(filename)}</div>
+      <div class="evidence-source-meta">Page {html.escape(page)} &middot; Chunk {html.escape(chunk_id)}</div>
+      <div class="evidence-source-compact-meta">
+        <span class="evidence-compact-score">Similarity <strong>{html.escape(similarity_label)}</strong></span>
+        <span class="evidence-compact-score">Rerank <strong>{html.escape(rerank_label)}</strong></span>
+      </div>
+    </div>
+    <span class="evidence-source-chevron" aria-hidden="true">&rsaquo;</span>
+  </summary>
+  <div class="evidence-source-expanded">
+    <div class="evidence-score-row">
+      <span>Similarity</span>
+      <strong>{html.escape(similarity_label)}</strong>
+      <div class="evidence-score-track"><span style="width: {similarity_width}%"></span></div>
+    </div>
+    <div class="evidence-score-row">
+      <span>Rerank</span>
+      <strong>{html.escape(rerank_label)}</strong>
+      <div class="evidence-score-track"><span style="width: {rerank_width}%"></span></div>
+    </div>
+    <div class="evidence-snippet">{html.escape(snippet)}</div>
+    <div class="evidence-source-actions">
+      <a class="evidence-action-link" href="{html.escape(href, quote=True)}" target="_self">Open source</a>
+      <a class="evidence-action-link is-primary" href="{html.escape(href, quote=True)}" target="_self">View document</a>
+    </div>
+  </div>
+</details>
+"""
+
+
+def render_chat_user_bubble(message: dict[str, Any]) -> None:
+    content = str(message.get("content", "") or "")
+    timestamp = str(message.get("timestamp", "") or "Now")
+    st.markdown(
+        f"""
+<div class="chat-user-row">
+  <div class="chat-user-bubble">
+    <span>{html.escape(content)}</span>
+    <span class="chat-user-time">{html.escape(timestamp)}</span>
+    <span class="chat-user-avatar" aria-hidden="true"></span>
+  </div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def render_chat_answer_card(message: dict[str, Any], index: int, selected: bool = False) -> None:
+    content = str(message.get("content", "") or "")
+    timestamp = str(message.get("timestamp", "") or "Now")
+    sources = message.get("sources", []) or []
+    selected_class = " is-selected" if selected else ""
+    app_icon_uri = _load_app_icon_data_uri()
+    source_filenames = _unique_source_filenames(sources)
+    source_label = "source" if len(source_filenames) == 1 else "sources"
+    source_text = "; ".join(source_filenames)
+    source_pill = (
+        f'<span class="chat-source-pill">{html.escape(source_label)}: {html.escape(source_text)}</span>'
+        if source_filenames
+        else ""
+    )
+    st.markdown(
+        f"""
+<div class="chat-assistant-row{selected_class}" data-chat-message-index="{index}">
+  <div class="chat-bot-avatar" aria-hidden="true"><img src="{app_icon_uri}" alt="" loading="lazy" /></div>
+  <div class="chat-answer-card">
+    <div class="chat-answer-head">
+      <div class="assistant-label">RAG Knowledge Assistant</div>
+      <div class="chat-assistant-time">{html.escape(timestamp)}</div>
+    </div>
+    <div class="answer-body">{_format_answer_html(content)}</div>
+    {source_pill}
+  </div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def render_evidence_sources(sources: list[dict[str, Any]], source_section: str = "Chat / Answer") -> None:
+    if not sources:
+        st.markdown(
+            """
+<div class="evidence-empty">No cited sources are attached to this answer.</div>
+""",
+            unsafe_allow_html=True,
+        )
+        return
+    cards = "".join(build_evidence_source_card_html(source, source_section) for source in sources)
+    st.markdown(cards, unsafe_allow_html=True)
+
+
+def render_evidence_debug(debug: dict[str, Any] | None) -> None:
+    if not debug:
+        st.markdown(
+            """
+<div class="evidence-empty">Behind-the-scenes details are not available for this answer.</div>
+""",
+            unsafe_allow_html=True,
+        )
+        return
+
+    token_usage = debug.get("token_usage", {}) or {}
+    token_total = token_usage.get("total", {}) or {}
+    answer_total = debug.get("answer_total_tokens") or token_total.get("total_tokens", 0)
+    response_time = debug.get("response_time", 0) or 0
+    rows = [
+        ("Original query", debug.get("original_query", "")),
+        ("Rewritten query", debug.get("rewritten_query", "")),
+        ("Model", debug.get("model", CHAT_MODEL)),
+        ("Response time", f"{float(response_time):.2f}s"),
+        ("Total tokens", f"{int(token_total.get('total_tokens', 0) or 0):,}"),
+        ("Answer tokens", f"{int(answer_total or 0):,}"),
+    ]
+    debug_rows = "".join(
+        f'<div class="evidence-debug-row"><span>{html.escape(label)}</span><strong>{html.escape(str(value))}</strong></div>'
+        for label, value in rows
+    )
+    steps = token_usage.get("steps", []) or []
+    step_rows = "".join(
+        "<tr>"
+        f"<td>{html.escape(str(step.get('task', '')))}</td>"
+        f"<td>{int(step.get('prompt_tokens', 0) or 0):,}</td>"
+        f"<td>{int(step.get('completion_tokens', 0) or 0):,}</td>"
+        f"<td>{int(step.get('total_tokens', 0) or 0):,}</td>"
+        "</tr>"
+        for step in steps
+    )
+    token_table = (
+        f"""
+<div class="evidence-section-title compact">Token usage by step</div>
+<table class="evidence-token-table">
+  <thead><tr><th>Step</th><th>Input tokens</th><th>Output tokens</th><th>Total tokens</th></tr></thead>
+  <tbody>{step_rows}</tbody>
+</table>
+"""
+        if step_rows
+        else ""
+    )
+    st.markdown(
+        f"""
+<div class="evidence-debug-card">
+  {debug_rows}
+</div>
+{token_table}
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def _render_chat_pipeline_status_legacy_unused(
+    debug: dict[str, Any] | None = None,
+    *,
+    active_step: int | None = None,
+    completed_steps: int = 0,
+    is_loading: bool = False,
+    response_time: Any = None,
+    failed_step: int | None = None,
+) -> None:
+    if not debug and not is_loading and failed_step is None:
+        return
+    response_time = response_time if response_time is not None else ((debug or {}).get("response_time", 0) or 0)
+    if debug and failed_step is None and debug.get("pipeline_failed_step") is not None:
+        try:
+            failed_step = int(debug.get("pipeline_failed_step"))
+        except (TypeError, ValueError):
+            failed_step = 0
+        try:
+            completed_steps = int(debug.get("pipeline_completed_steps", failed_step) or 0)
+        except (TypeError, ValueError):
+            completed_steps = failed_step
+    elif debug and not is_loading and failed_step is None:
+        completed_steps = 4
+    steps = ["Query rewrite", "Retrieve top 10", "Rerank top 5", "Generate answer"]
+    step_markup = "".join(
+        f'<div class="pipeline-step"><span class="pipeline-check">✓</span><span>{html.escape(step)}</span></div>'
+        for step in steps
+    )
+    st.markdown(
+        f"""
+<div class="chat-pipeline-strip">
+  {step_markup}
+  <div class="pipeline-time">{float(response_time):.2f}s</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def render_chat_pipeline_status(
+    debug: dict[str, Any] | None = None,
+    *,
+    active_step: int | None = None,
+    completed_steps: int = 0,
+    is_loading: bool = False,
+    response_time: Any = None,
+    failed_step: int | None = None,
+) -> None:
+    if not debug and not is_loading and failed_step is None:
+        return
+    response_time = response_time if response_time is not None else ((debug or {}).get("response_time", 0) or 0)
+    if debug and failed_step is None and debug.get("pipeline_failed_step") is not None:
+        try:
+            failed_step = int(debug.get("pipeline_failed_step"))
+        except (TypeError, ValueError):
+            failed_step = 0
+        try:
+            completed_steps = int(debug.get("pipeline_completed_steps", failed_step) or 0)
+        except (TypeError, ValueError):
+            completed_steps = failed_step
+    elif debug and not is_loading and failed_step is None:
+        completed_steps = 4
+
+    steps = ["Query rewrite", "Retrieve top 10", "Rerank top 5", "Generate answer"]
+    step_markup_parts = []
+    for index, step in enumerate(steps):
+        if failed_step == index:
+            state = "failed"
+            indicator = "!"
+        elif index < completed_steps:
+            state = "complete"
+            indicator = "&#10003;"
+        elif active_step == index:
+            state = "active"
+            indicator = ""
+        else:
+            state = "pending"
+            indicator = ""
+        step_markup_parts.append(
+            f'<div class="pipeline-step is-{state}"><span class="pipeline-check is-{state}">{indicator}</span><span>{html.escape(step)}</span></div>'
+        )
+        if index < len(steps) - 1:
+            step_markup_parts.append('<span class="pipeline-arrow" aria-hidden="true"></span>')
+
+    if failed_step is not None:
+        time_markup = '<div class="pipeline-time is-failed">Failed</div>'
+    elif is_loading:
+        time_markup = '<div class="pipeline-time is-loading">Working...</div>'
+    else:
+        time_markup = (
+            '<div class="pipeline-time">'
+            '<span class="pipeline-clock" aria-hidden="true"></span>'
+            f'<span>{float(response_time or 0):.2f}s</span>'
+            '</div>'
+        )
+    st.markdown(
+        f"""
+<div class="chat-pipeline-strip">
+  {"".join(step_markup_parts)}
+  {time_markup}
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def render_chat_evidence_panel(message: dict[str, Any] | None, mode: str = "sources") -> None:
+    opened = "Behind the scenes" if mode == "debug" else "Sources used"
+    if not message:
+        empty_icon_svg = _build_evidence_empty_icon_svg()
+        st.markdown(
+            f"""
+<div class="evidence-header-row">
+  <div class="evidence-header">Answer Evidence</div>
+</div>
+<div class="evidence-empty large">
+  <div class="evidence-empty-icon">{empty_icon_svg}</div>
+  <strong>No answer selected yet</strong>
+  <span>Ask a question or select an answer control to inspect citations and RAG details.</span>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
+        return
+
+    sources = message.get("sources", []) or []
+    debug = message.get("debug")
+    preview_text = _selected_answer_preview_text(message)
+    app_icon_uri = html.escape(_load_app_icon_data_uri(), quote=True)
+    info_icon_uri = html.escape(_load_indexed_docs_icon_data_uri("info-icon.png"), quote=True)
+    st.markdown(
+        f"""
+<div class="evidence-header-row">
+  <div class="evidence-header">Answer Evidence</div>
+  <div class="evidence-selected-pill">
+    <span class="evidence-selected-pill-icon" aria-hidden="true"><img src="{info_icon_uri}" alt="" loading="lazy" /></span>
+    <span>Showing evidence for selected answer</span>
+  </div>
+</div>
+<div class="evidence-selected-preview">
+  <div class="evidence-selected-preview-title">Selected answer preview</div>
+  <div class="evidence-selected-preview-body">
+    <div class="evidence-selected-preview-icon" aria-hidden="true"><img src="{app_icon_uri}" alt="" loading="lazy" /></div>
+    <div class="evidence-selected-preview-text">{html.escape(preview_text)}</div>
+  </div>
+</div>
+<div class="evidence-opened-pill">Opened from: <strong>{html.escape(opened)}</strong></div>
+""",
+        unsafe_allow_html=True,
+    )
+    if mode == "debug":
+        st.markdown('<div class="evidence-section-title">Behind the scenes</div>', unsafe_allow_html=True)
+        render_evidence_debug(debug)
+        st.markdown('<div class="evidence-section-title">Sources used</div>', unsafe_allow_html=True)
+        render_evidence_sources(sources)
+    else:
+        st.markdown('<div class="evidence-section-title">Sources used</div>', unsafe_allow_html=True)
+        render_evidence_sources(sources)
+        st.markdown('<div class="evidence-section-title">Behind the scenes</div>', unsafe_allow_html=True)
+        render_evidence_debug(debug)
+
+
+def render_chat_empty_canvas(stats: dict[str, Any]) -> None:
+    total_chunks = int(stats.get("total_chunks", 0) or 0)
+    if total_chunks <= 0:
+        title = "No indexed documents yet"
+        copy = "Upload PDFs in Documents, then ask questions grounded only in indexed files."
+    else:
+        title = "Ask across your indexed PDFs"
+        copy = "Your assistant will retrieve, rerank, and cite evidence from the documents you ingested."
+    flow_uri = _load_chat_empty_state_asset_data_uri("empty_state_flow.png")
+    st.markdown(
+        f"""
+<div class="chat-empty-state">
+  <div class="chat-empty-graphic" aria-label="Source documents are retrieved, reranked, and used to generate a grounded answer.">
+    <img class="chat-empty-flow-image" src="{html.escape(flow_uri, quote=True)}" alt="Source Documents to Retrieve, Rerank, Generate, and Grounded answer flow" loading="lazy" />
+  </div>
+  <div class="chat-empty-title">{html.escape(title)}</div>
+  <div class="chat-empty-copy">{html.escape(copy)}</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
 
 
 def render_sources_panel(sources: list[dict[str, Any]], title: str = "Sources used") -> None:
