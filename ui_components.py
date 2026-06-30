@@ -932,15 +932,15 @@ html, body, [class*="css"] {
   color: #105EDD !important;
   background: #F7FBFF !important;
 }
-[class*="st-key-answer_sources_active_"] button,
-[class*="st-key-answer_debug_active_"] button {
+[class*="st-key-answer_sources_button_active_"] button,
+[class*="st-key-answer_debug_button_active_"] button {
   border-color: #105EDD !important;
   background: #105EDD !important;
   color: #FFFFFF !important;
   box-shadow: 0 10px 20px rgba(16,94,221,0.18) !important;
 }
-[class*="st-key-answer_sources_active_"] button:hover,
-[class*="st-key-answer_debug_active_"] button:hover {
+[class*="st-key-answer_sources_button_active_"] button:hover,
+[class*="st-key-answer_debug_button_active_"] button:hover {
   border-color: #0C4EC2 !important;
   background: #0C4EC2 !important;
   color: #FFFFFF !important;
@@ -1206,6 +1206,20 @@ html, body, [class*="css"] {
   font-weight: 850;
   white-space: nowrap;
 }
+.evidence-selected-pill-icon {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 14px;
+}
+.evidence-selected-pill-icon img {
+  width: 14px;
+  height: 14px;
+  display: block;
+  object-fit: contain;
+}
 .evidence-selected-preview {
   margin: 0.45rem 0 0.62rem;
   padding: 0.72rem;
@@ -1222,7 +1236,7 @@ html, body, [class*="css"] {
 }
 .evidence-selected-preview-body {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
+  grid-template-columns: 34px minmax(0, 1fr);
   gap: 0.55rem;
   align-items: center;
 }
@@ -1245,12 +1259,6 @@ html, body, [class*="css"] {
   color: #1D2E52;
   font-size: 0.76rem;
   line-height: 1.38;
-}
-.evidence-selected-preview-link {
-  color: #105EDD;
-  font-size: 0.72rem;
-  font-weight: 900;
-  white-space: nowrap;
 }
 .evidence-opened-pill {
   display: inline-flex;
@@ -3909,9 +3917,6 @@ div.stButton > button[kind="primary"] {
   .evidence-selected-preview-body {
     grid-template-columns: 34px minmax(0, 1fr);
   }
-  .evidence-selected-preview-link {
-    grid-column: 2;
-  }
   .evidence-score-row {
     grid-template-columns: 70px 38px minmax(0, 1fr);
   }
@@ -4623,18 +4628,21 @@ def render_chat_evidence_panel(message: dict[str, Any] | None, mode: str = "sour
     debug = message.get("debug")
     preview_text = _selected_answer_preview_text(message)
     app_icon_uri = html.escape(_load_app_icon_data_uri(), quote=True)
+    info_icon_uri = html.escape(_load_indexed_docs_icon_data_uri("info-icon.png"), quote=True)
     st.markdown(
         f"""
 <div class="evidence-header-row">
   <div class="evidence-header">Answer evidence</div>
-  <div class="evidence-selected-pill">Showing evidence for selected answer</div>
+  <div class="evidence-selected-pill">
+    <span class="evidence-selected-pill-icon" aria-hidden="true"><img src="{info_icon_uri}" alt="" loading="lazy" /></span>
+    <span>Showing evidence for selected answer</span>
+  </div>
 </div>
 <div class="evidence-selected-preview">
   <div class="evidence-selected-preview-title">Selected answer preview</div>
   <div class="evidence-selected-preview-body">
     <div class="evidence-selected-preview-icon" aria-hidden="true"><img src="{app_icon_uri}" alt="" loading="lazy" /></div>
     <div class="evidence-selected-preview-text">{html.escape(preview_text)}</div>
-    <div class="evidence-selected-preview-link">View full</div>
   </div>
 </div>
 <div class="evidence-opened-pill">Opened from: <strong>{html.escape(opened)}</strong></div>

@@ -2150,13 +2150,25 @@ def render_chat_answer_footer(message: dict[str, Any], index: int, selected_mode
     debug_active = selected and selected_mode == "debug"
     footer_cols = st.columns([0.28, 0.3, 0.42], gap="small")
     with footer_cols[0]:
-        sources_key = f"answer_sources_{'active' if sources_active else 'idle'}_{index}"
-        if st.button(f"Sources used ({len(sources)})", key=sources_key, use_container_width=True):
-            set_chat_evidence_selection(index, "sources")
+        sources_state = "active" if sources_active else "idle"
+        with st.container(key=f"answer_sources_button_{sources_state}_{index}"):
+            st.button(
+                f"Sources used ({len(sources)})",
+                key=f"answer_sources_{index}",
+                use_container_width=True,
+                on_click=set_chat_evidence_selection,
+                args=(index, "sources"),
+            )
     with footer_cols[1]:
-        debug_key = f"answer_debug_{'active' if debug_active else 'idle'}_{index}"
-        if st.button("Behind the scenes", key=debug_key, use_container_width=True):
-            set_chat_evidence_selection(index, "debug")
+        debug_state = "active" if debug_active else "idle"
+        with st.container(key=f"answer_debug_button_{debug_state}_{index}"):
+            st.button(
+                "Behind the scenes",
+                key=f"answer_debug_{index}",
+                use_container_width=True,
+                on_click=set_chat_evidence_selection,
+                args=(index, "debug"),
+            )
     with footer_cols[2]:
         label = "Active evidence" if selected else "Evidence ready"
         mode = "debug" if selected_mode == "debug" and selected else "sources"
