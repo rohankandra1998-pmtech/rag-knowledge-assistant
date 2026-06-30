@@ -2145,15 +2145,19 @@ def set_chat_evidence_selection(index: int, mode: str) -> None:
 
 def render_chat_answer_footer(message: dict[str, Any], index: int, selected_mode: str) -> None:
     sources = message.get("sources", []) or []
+    selected = st.session_state.get("chat_evidence_message_index") == index
+    sources_active = selected and selected_mode == "sources"
+    debug_active = selected and selected_mode == "debug"
     footer_cols = st.columns([0.28, 0.3, 0.42], gap="small")
     with footer_cols[0]:
-        if st.button(f"Sources used ({len(sources)})", key=f"answer_sources_{index}", use_container_width=True):
+        sources_key = f"answer_sources_{'active' if sources_active else 'idle'}_{index}"
+        if st.button(f"Sources used ({len(sources)})", key=sources_key, use_container_width=True):
             set_chat_evidence_selection(index, "sources")
     with footer_cols[1]:
-        if st.button("Behind the scenes", key=f"answer_debug_{index}", use_container_width=True):
+        debug_key = f"answer_debug_{'active' if debug_active else 'idle'}_{index}"
+        if st.button("Behind the scenes", key=debug_key, use_container_width=True):
             set_chat_evidence_selection(index, "debug")
     with footer_cols[2]:
-        selected = st.session_state.get("chat_evidence_message_index") == index
         label = "Active evidence" if selected else "Evidence ready"
         mode = "debug" if selected_mode == "debug" and selected else "sources"
         st.markdown(

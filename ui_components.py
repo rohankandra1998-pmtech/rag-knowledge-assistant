@@ -861,8 +861,9 @@ html, body, [class*="css"] {
   margin: 0.1rem 0 0.35rem;
 }
 .chat-assistant-row.is-selected .chat-answer-card {
-  border-color: rgba(16, 94, 221, 0.28);
-  box-shadow: 0 14px 36px rgba(16, 94, 221, 0.11);
+  border-color: rgba(16, 94, 221, 0.58);
+  background: linear-gradient(180deg, rgba(255,255,255,0.99), rgba(247,251,255,0.98));
+  box-shadow: 0 0 0 2px rgba(16,94,221,0.12), 0 18px 42px rgba(16, 94, 221, 0.16);
 }
 .chat-bot-avatar {
   width: 42px;
@@ -930,6 +931,19 @@ html, body, [class*="css"] {
   border-color: #105EDD !important;
   color: #105EDD !important;
   background: #F7FBFF !important;
+}
+[class*="st-key-answer_sources_active_"] button,
+[class*="st-key-answer_debug_active_"] button {
+  border-color: #105EDD !important;
+  background: #105EDD !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 10px 20px rgba(16,94,221,0.18) !important;
+}
+[class*="st-key-answer_sources_active_"] button:hover,
+[class*="st-key-answer_debug_active_"] button:hover {
+  border-color: #0C4EC2 !important;
+  background: #0C4EC2 !important;
+  color: #FFFFFF !important;
 }
 .chat-footer-status {
   height: 36px;
@@ -1164,13 +1178,79 @@ html, body, [class*="css"] {
   border: 1px solid rgba(16, 94, 221, 0.14);
   border-radius: 16px;
   background: rgba(255,255,255,0.98);
-  box-shadow: 0 18px 46px rgba(11, 48, 117, 0.08);
+  box-shadow: inset 4px 0 0 #105EDD, 0 18px 46px rgba(11, 48, 117, 0.08);
+}
+.evidence-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-bottom: 0.55rem;
 }
 .evidence-header {
   color: var(--navy);
   font-size: 1rem;
   font-weight: 900;
-  margin-bottom: 0.55rem;
+  margin-bottom: 0;
+}
+.evidence-selected-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.3rem 0.52rem;
+  border: 1px solid #CFE1FB;
+  border-radius: 999px;
+  background: #F3F8FF;
+  color: #105EDD;
+  font-size: 0.72rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+.evidence-selected-preview {
+  margin: 0.45rem 0 0.62rem;
+  padding: 0.72rem;
+  border: 1px solid #D6E5F8;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #F8FBFF, #FFFFFF);
+  box-shadow: 0 10px 24px rgba(11, 48, 117, 0.05);
+}
+.evidence-selected-preview-title {
+  margin-bottom: 0.48rem;
+  color: var(--navy);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+.evidence-selected-preview-body {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 0.55rem;
+  align-items: center;
+}
+.evidence-selected-preview-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid #CFE1FB;
+  background: #FFFFFF;
+  box-shadow: 0 8px 14px rgba(16,94,221,0.08);
+}
+.evidence-selected-preview-icon img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+.evidence-selected-preview-text {
+  min-width: 0;
+  color: #1D2E52;
+  font-size: 0.76rem;
+  line-height: 1.38;
+}
+.evidence-selected-preview-link {
+  color: #105EDD;
+  font-size: 0.72rem;
+  font-weight: 900;
+  white-space: nowrap;
 }
 .evidence-opened-pill {
   display: inline-flex;
@@ -1430,12 +1510,15 @@ html, body, [class*="css"] {
   font-size: 0.82rem;
 }
 .evidence-empty.large {
-  min-height: 360px;
+  min-height: 335px;
+  margin: 0.45rem 0 0.35rem;
+  padding: 1.2rem;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 0.28rem;
+  gap: 0.36rem;
   text-align: center;
+  line-height: 1.45;
 }
 .evidence-empty.large strong {
   color: var(--navy);
@@ -3816,6 +3899,19 @@ div.stButton > button[kind="primary"] {
     width: 100%;
     margin-left: 0;
   }
+  .evidence-header-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .evidence-selected-pill {
+    white-space: normal;
+  }
+  .evidence-selected-preview-body {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+  .evidence-selected-preview-link {
+    grid-column: 2;
+  }
   .evidence-score-row {
     grid-template-columns: 70px 38px minmax(0, 1fr);
   }
@@ -4215,6 +4311,17 @@ def _truncate_text(value: Any, limit: int = 290) -> str:
     return text[: max(0, limit - 3)].rstrip() + "..."
 
 
+def _selected_answer_preview_text(message: dict[str, Any], limit: int = 170) -> str:
+    content = str(message.get("content", "") or "")
+    content = re.sub(r"\[source:[^\]]+\]", " ", content, flags=re.IGNORECASE)
+    text = " ".join(content.split())
+    if not text:
+        return "No answer preview is available."
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 3)].rstrip() + "..."
+
+
 def _source_document_target(source: dict[str, Any]) -> str:
     filename = str(source.get("source", "") or "").strip()
     document_hash = str(source.get("document_hash", "") or "").strip()
@@ -4500,7 +4607,9 @@ def render_chat_evidence_panel(message: dict[str, Any] | None, mode: str = "sour
     if not message:
         st.markdown(
             f"""
-<div class="evidence-header">Answer evidence</div>
+<div class="evidence-header-row">
+  <div class="evidence-header">Answer evidence</div>
+</div>
 <div class="evidence-empty large">
   <strong>No answer selected yet</strong>
   <span>Ask a question or select an answer control to inspect citations and RAG details.</span>
@@ -4512,9 +4621,22 @@ def render_chat_evidence_panel(message: dict[str, Any] | None, mode: str = "sour
 
     sources = message.get("sources", []) or []
     debug = message.get("debug")
+    preview_text = _selected_answer_preview_text(message)
+    app_icon_uri = html.escape(_load_app_icon_data_uri(), quote=True)
     st.markdown(
         f"""
-<div class="evidence-header">Answer evidence</div>
+<div class="evidence-header-row">
+  <div class="evidence-header">Answer evidence</div>
+  <div class="evidence-selected-pill">Showing evidence for selected answer</div>
+</div>
+<div class="evidence-selected-preview">
+  <div class="evidence-selected-preview-title">Selected answer preview</div>
+  <div class="evidence-selected-preview-body">
+    <div class="evidence-selected-preview-icon" aria-hidden="true"><img src="{app_icon_uri}" alt="" loading="lazy" /></div>
+    <div class="evidence-selected-preview-text">{html.escape(preview_text)}</div>
+    <div class="evidence-selected-preview-link">View full</div>
+  </div>
+</div>
 <div class="evidence-opened-pill">Opened from: <strong>{html.escape(opened)}</strong></div>
 <div class="evidence-section-title">Sources used</div>
 """,
