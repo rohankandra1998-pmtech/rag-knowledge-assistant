@@ -146,6 +146,10 @@ def _load_chat_ui_icon_data_uri(filename: str) -> str:
     return _load_png_data_uri_fast(str(CHAT_UI_ICON_DIR / filename))
 
 
+def _load_chat_empty_state_asset_data_uri(filename: str) -> str:
+    return _load_png_data_uri_fast(str(CHAT_UI_ICON_DIR / "empty-state" / filename))
+
+
 def load_header_action_icon_data_uri(filename: str) -> str:
     return _load_header_icon_data_uri(filename)
 
@@ -1239,23 +1243,60 @@ html, body, [class*="css"] {
   outline-offset: 3px !important;
 }
 .chat-empty-state {
-  min-height: 420px;
+  min-height: 455px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   text-align: center;
-  gap: 0.45rem;
+  gap: 0.7rem;
   color: var(--navy);
+  padding: 1.25rem 0.75rem 1.1rem;
+  overflow: hidden;
+}
+.chat-empty-graphic {
+  position: relative;
+  width: min(100%, 940px);
+  margin: 0 auto 0.35rem;
+}
+.chat-empty-flow-image {
+  display: block;
+  width: min(100%, 900px);
+  height: auto;
+  object-fit: contain;
+  margin: 0 auto;
+  filter: drop-shadow(0 22px 42px rgba(11, 48, 117, 0.10));
 }
 .chat-empty-title {
   font-size: 1.25rem;
   font-weight: 900;
+  line-height: 1.2;
 }
 .chat-empty-copy {
   max-width: 520px;
   color: #53637F;
   font-size: 0.94rem;
+  line-height: 1.55;
+}
+@media (max-width: 920px) {
+  .chat-empty-state {
+    min-height: 480px;
+  }
+  .chat-empty-graphic {
+    width: 100%;
+  }
+  .chat-empty-flow-image {
+    width: min(100%, 720px);
+  }
+}
+@media (max-width: 640px) {
+  .chat-empty-state {
+    min-height: 540px;
+    padding-inline: 0.25rem;
+  }
+  .chat-empty-flow-image {
+    width: 100%;
+  }
 }
 .st-key-chat_evidence_panel_shell {
   padding: 0.95rem;
@@ -4780,9 +4821,13 @@ def render_chat_empty_canvas(stats: dict[str, Any]) -> None:
     else:
         title = "Ask across your indexed PDFs"
         copy = "Your assistant will retrieve, rerank, and cite evidence from the documents you ingested."
+    flow_uri = _load_chat_empty_state_asset_data_uri("empty_state_flow.png")
     st.markdown(
         f"""
 <div class="chat-empty-state">
+  <div class="chat-empty-graphic" aria-label="Source documents are retrieved, reranked, and used to generate a grounded answer.">
+    <img class="chat-empty-flow-image" src="{html.escape(flow_uri, quote=True)}" alt="Source Documents to Retrieve, Rerank, Generate, and Grounded answer flow" loading="lazy" />
+  </div>
   <div class="chat-empty-title">{html.escape(title)}</div>
   <div class="chat-empty-copy">{html.escape(copy)}</div>
 </div>

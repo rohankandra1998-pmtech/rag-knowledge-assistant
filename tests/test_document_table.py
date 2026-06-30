@@ -91,5 +91,56 @@ class EvidenceSourceCardMarkupTest(unittest.TestCase):
         self.assertIn("No snippet preview is available for this source.", markup)
 
 
+class ChatEmptyCanvasMarkupTest(unittest.TestCase):
+    def test_empty_canvas_uses_no_indexed_documents_copy(self) -> None:
+        captured_markup: list[str] = []
+        original_st = ui_components.st
+        original_loader = ui_components._load_chat_empty_state_asset_data_uri
+        ui_components.st = SimpleNamespace(markdown=lambda markup, **_: captured_markup.append(markup))
+        ui_components._load_chat_empty_state_asset_data_uri = lambda filename: f"data:image/png;base64,{filename}"
+
+        try:
+            ui_components.render_chat_empty_canvas({"total_chunks": 0})
+        finally:
+            ui_components.st = original_st
+            ui_components._load_chat_empty_state_asset_data_uri = original_loader
+
+        markup = "".join(captured_markup)
+        self.assertIn("No indexed documents yet", markup)
+        self.assertIn("Upload PDFs in Documents, then ask questions grounded only in indexed files.", markup)
+        self.assertIn('class="chat-empty-graphic"', markup)
+        self.assertIn('class="chat-empty-flow-image"', markup)
+        self.assertIn("empty_state_flow.png", markup)
+        self.assertNotIn('class="chat-empty-assistant-badge"', markup)
+        self.assertNotIn('class="chat-empty-step"', markup)
+        self.assertNotIn("Example questions", markup)
+        self.assertNotIn("chat_example", markup)
+
+    def test_empty_canvas_uses_indexed_documents_copy(self) -> None:
+        captured_markup: list[str] = []
+        original_st = ui_components.st
+        original_loader = ui_components._load_chat_empty_state_asset_data_uri
+        ui_components.st = SimpleNamespace(markdown=lambda markup, **_: captured_markup.append(markup))
+        ui_components._load_chat_empty_state_asset_data_uri = lambda filename: f"data:image/png;base64,{filename}"
+
+        try:
+            ui_components.render_chat_empty_canvas({"total_chunks": 12})
+        finally:
+            ui_components.st = original_st
+            ui_components._load_chat_empty_state_asset_data_uri = original_loader
+
+        markup = "".join(captured_markup)
+        self.assertIn("Ask across your indexed PDFs", markup)
+        self.assertIn("Your assistant will retrieve, rerank, and cite evidence from the documents you ingested.", markup)
+        self.assertIn("empty_state_flow.png", markup)
+        self.assertNotIn("empty_state_source_documents.png", markup)
+        self.assertNotIn("empty_state_retrieve_step.png", markup)
+        self.assertNotIn("empty_state_rerank_step.png", markup)
+        self.assertNotIn("empty_state_generate_step.png", markup)
+        self.assertNotIn("empty_state_grounded_answer.png", markup)
+        self.assertNotIn("Example questions", markup)
+        self.assertNotIn("chat_example", markup)
+
+
 if __name__ == "__main__":
     unittest.main()
