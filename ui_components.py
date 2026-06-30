@@ -1097,8 +1097,8 @@ html, body, [class*="css"] {
   min-height: 46px !important;
   padding: 0 !important;
   border-radius: 999px !important;
-  border-color: var(--blue) !important;
-  background: var(--blue) !important;
+  border-color: transparent !important;
+  background: transparent !important;
   color: #FFFFFF !important;
   box-shadow: 0 12px 22px rgba(16, 94, 221, 0.24) !important;
 }
@@ -1108,22 +1108,12 @@ html, body, [class*="css"] {
   min-width: 0;
   margin: 0;
 }
-.st-key-chat_composer_card button p::before {
-  content: "›";
-  display: inline-block;
-  transform: rotate(-35deg);
-  font-size: 2rem;
-  line-height: 1;
-}
-.st-key-chat_composer_card button p::before {
-  content: none !important;
-}
 .st-key-chat_composer_card button::before {
   content: "";
-  width: 22px;
-  min-width: 22px;
-  height: 22px;
-  flex: 0 0 22px;
+  width: 46px;
+  min-width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
   display: block;
   background: center / contain no-repeat var(--composer-send-icon);
 }
