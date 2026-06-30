@@ -812,6 +812,10 @@ html, body, [class*="css"] {
     #FFFFFF;
   box-shadow: 0 18px 46px rgba(11, 48, 117, 0.08);
 }
+.st-key-chat_canvas_card:has(.chat-empty-state) {
+  min-height: 535px;
+  padding-bottom: 0.45rem;
+}
 .chat-thread {
   display: flex;
   flex-direction: column;
@@ -1243,7 +1247,7 @@ html, body, [class*="css"] {
   outline-offset: 3px !important;
 }
 .chat-empty-state {
-  min-height: 455px;
+  min-height: 420px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1251,7 +1255,7 @@ html, body, [class*="css"] {
   text-align: center;
   gap: 0.7rem;
   color: var(--navy);
-  padding: 1.25rem 0.75rem 1.1rem;
+  padding: 1.05rem 0.75rem 0.35rem;
   overflow: hidden;
 }
 .chat-empty-graphic {
@@ -1280,7 +1284,7 @@ html, body, [class*="css"] {
 }
 @media (max-width: 920px) {
   .chat-empty-state {
-    min-height: 480px;
+    min-height: 445px;
   }
   .chat-empty-graphic {
     width: 100%;
@@ -1291,8 +1295,11 @@ html, body, [class*="css"] {
 }
 @media (max-width: 640px) {
   .chat-empty-state {
-    min-height: 540px;
+    min-height: 460px;
     padding-inline: 0.25rem;
+  }
+  .st-key-chat_canvas_card:has(.chat-empty-state) {
+    min-height: 480px;
   }
   .chat-empty-flow-image {
     width: 100%;
@@ -1650,10 +1657,25 @@ html, body, [class*="css"] {
   padding: 1.2rem;
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
   gap: 0.36rem;
   text-align: center;
   line-height: 1.45;
+}
+.evidence-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 94px;
+  margin: 0 0 0.25rem;
+}
+.evidence-empty-icon img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 14px 26px rgba(16, 94, 221, 0.10));
 }
 .evidence-empty.large strong {
   color: var(--navy);
@@ -4762,12 +4784,14 @@ def render_chat_pipeline_status(
 def render_chat_evidence_panel(message: dict[str, Any] | None, mode: str = "sources") -> None:
     opened = "Behind the scenes" if mode == "debug" else "Sources used"
     if not message:
+        empty_icon_uri = html.escape(_load_chat_ui_icon_data_uri("answer-evidence-empty-icon.png"), quote=True)
         st.markdown(
             f"""
 <div class="evidence-header-row">
   <div class="evidence-header">Answer Evidence</div>
 </div>
 <div class="evidence-empty large">
+  <div class="evidence-empty-icon"><img src="{empty_icon_uri}" alt="" aria-hidden="true" loading="lazy" /></div>
   <strong>No answer selected yet</strong>
   <span>Ask a question or select an answer control to inspect citations and RAG details.</span>
 </div>
