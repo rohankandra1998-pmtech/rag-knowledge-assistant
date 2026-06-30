@@ -852,35 +852,23 @@ html, body, [class*="css"] {
   box-shadow: 0 14px 36px rgba(16, 94, 221, 0.11);
 }
 .chat-bot-avatar {
-  width: 32px;
-  height: 32px;
-  margin-top: 0.05rem;
+  width: 38px;
+  height: 38px;
+  margin-top: 0;
   border-radius: 12px;
-  border: 1px solid #D8E7FF;
-  background: #ECF4FF;
+  border: 1px solid #CFE1FB;
+  background: linear-gradient(180deg, #FFFFFF, #ECF4FF);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 10px 20px rgba(16, 94, 221, 0.08);
 }
-.chat-bot-avatar span {
-  width: 18px;
-  height: 13px;
-  border-radius: 6px;
-  background: var(--navy);
-  position: relative;
+.chat-bot-avatar img {
+  width: 30px;
+  height: 30px;
+  display: block;
+  object-fit: contain;
 }
-.chat-bot-avatar span::before,
-.chat-bot-avatar span::after {
-  content: "";
-  position: absolute;
-  top: 5px;
-  width: 3px;
-  height: 3px;
-  border-radius: 999px;
-  background: #FFFFFF;
-}
-.chat-bot-avatar span::before { left: 4px; }
-.chat-bot-avatar span::after { right: 4px; }
 .chat-answer-card {
   padding: 0.92rem 1rem 0.7rem;
   border: 1px solid #DCE7F5;
@@ -990,6 +978,60 @@ html, body, [class*="css"] {
   font-size: 0.78rem;
   font-weight: 900;
 }
+.pipeline-step {
+  color: #7B879D;
+}
+.pipeline-step:not(:last-of-type)::after {
+  content: "->";
+}
+.pipeline-step.is-complete {
+  color: var(--navy);
+}
+.pipeline-step.is-active {
+  color: var(--blue);
+}
+.pipeline-step.is-failed {
+  color: var(--terracotta);
+}
+.pipeline-check {
+  border: 1px solid #C8D5E8;
+  background: #F4F7FB;
+  color: transparent;
+}
+.pipeline-check.is-complete {
+  border-color: #13A73F;
+  background: #13A73F;
+  color: #FFFFFF;
+}
+.pipeline-check.is-active {
+  position: relative;
+  border-color: var(--blue);
+  background: var(--blue);
+  box-shadow: 0 0 0 4px rgba(16, 94, 221, 0.12);
+}
+.pipeline-check.is-active::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  border: 2px solid rgba(255,255,255,0.45);
+  border-top-color: #FFFFFF;
+  animation: pipeline-spin 850ms linear infinite;
+}
+.pipeline-check.is-failed {
+  border-color: var(--terracotta);
+  background: var(--terracotta);
+  color: #FFFFFF;
+}
+.pipeline-time.is-loading {
+  color: var(--blue);
+}
+.pipeline-time.is-failed {
+  color: var(--terracotta);
+}
+@keyframes pipeline-spin {
+  to { transform: rotate(360deg); }
+}
 .st-key-chat_composer_card {
   margin-top: 0.55rem;
   padding: 0.55rem;
@@ -1031,6 +1073,7 @@ html, body, [class*="css"] {
   white-space: nowrap;
 }
 .st-key-chat_composer_card button {
+  position: relative;
   width: 46px !important;
   height: 46px !important;
   min-height: 46px !important;
@@ -1043,6 +1086,9 @@ html, body, [class*="css"] {
 }
 .st-key-chat_composer_card button p {
   font-size: 0;
+  width: 0;
+  min-width: 0;
+  margin: 0;
 }
 .st-key-chat_composer_card button p::before {
   content: "›";
@@ -1050,6 +1096,20 @@ html, body, [class*="css"] {
   transform: rotate(-35deg);
   font-size: 2rem;
   line-height: 1;
+}
+.st-key-chat_composer_card button p::before {
+  content: none !important;
+}
+.st-key-chat_composer_card button::before {
+  content: "";
+  width: 19px;
+  min-width: 19px;
+  height: 19px;
+  flex: 0 0 19px;
+  display: block;
+  background: #FFFFFF;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg%20viewBox%3D%270%200%2024%2024%27%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%3E%3Cpath%20d%3D%27M3.8%203.7c-.7-.3-1.4.4-1.1%201.1l2.6%206.2c.1.3.4.5.7.6l7.4.4-7.4.4c-.3.1-.6.3-.7.6l-2.6%206.2c-.3.7.4%201.4%201.1%201.1l16.8-7.6c.7-.3.7-1.3%200-1.6L3.8%203.7z%27/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg%20viewBox%3D%270%200%2024%2024%27%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%3E%3Cpath%20d%3D%27M3.8%203.7c-.7-.3-1.4.4-1.1%201.1l2.6%206.2c.1.3.4.5.7.6l7.4.4-7.4.4c-.3.1-.6.3-.7.6l-2.6%206.2c-.3.7.4%201.4%201.1%201.1l16.8-7.6c.7-.3.7-1.3%200-1.6L3.8%203.7z%27/%3E%3C/svg%3E") center / contain no-repeat;
 }
 .chat-empty-state {
   min-height: 420px;
@@ -4130,6 +4190,7 @@ def render_chat_answer_card(message: dict[str, Any], index: int, selected: bool 
     content = str(message.get("content", "") or "")
     sources = message.get("sources", []) or []
     selected_class = " is-selected" if selected else ""
+    app_icon_uri = _load_app_icon_data_uri()
     first_source = sources[0] if sources else {}
     source_name = str(first_source.get("source", "") or "source")
     source_page = str(first_source.get("page_number", "") or "?")
@@ -4141,12 +4202,11 @@ def render_chat_answer_card(message: dict[str, Any], index: int, selected: bool 
     st.markdown(
         f"""
 <div class="chat-assistant-row{selected_class}" data-chat-message-index="{index}">
-  <div class="chat-bot-avatar" aria-hidden="true"><span></span></div>
+  <div class="chat-bot-avatar" aria-hidden="true"><img src="{app_icon_uri}" alt="" loading="lazy" /></div>
   <div class="chat-answer-card">
     <div class="assistant-label">RAG Knowledge Assistant</div>
     <div class="answer-body">{_format_answer_html(content)}</div>
     {source_pill}
-    <div class="chat-answer-divider"></div>
   </div>
 </div>
 """,
@@ -4225,10 +4285,29 @@ def render_evidence_debug(debug: dict[str, Any] | None) -> None:
     )
 
 
-def render_chat_pipeline_status(debug: dict[str, Any] | None) -> None:
-    if not debug:
+def _render_chat_pipeline_status_legacy_unused(
+    debug: dict[str, Any] | None = None,
+    *,
+    active_step: int | None = None,
+    completed_steps: int = 0,
+    is_loading: bool = False,
+    response_time: Any = None,
+    failed_step: int | None = None,
+) -> None:
+    if not debug and not is_loading and failed_step is None:
         return
-    response_time = debug.get("response_time", 0) or 0
+    response_time = response_time if response_time is not None else ((debug or {}).get("response_time", 0) or 0)
+    if debug and failed_step is None and debug.get("pipeline_failed_step") is not None:
+        try:
+            failed_step = int(debug.get("pipeline_failed_step"))
+        except (TypeError, ValueError):
+            failed_step = 0
+        try:
+            completed_steps = int(debug.get("pipeline_completed_steps", failed_step) or 0)
+        except (TypeError, ValueError):
+            completed_steps = failed_step
+    elif debug and not is_loading and failed_step is None:
+        completed_steps = 4
     steps = ["Query rewrite", "Retrieve top 10", "Rerank top 5", "Generate answer"]
     step_markup = "".join(
         f'<div class="pipeline-step"><span class="pipeline-check">✓</span><span>{html.escape(step)}</span></div>'
@@ -4239,6 +4318,66 @@ def render_chat_pipeline_status(debug: dict[str, Any] | None) -> None:
 <div class="chat-pipeline-strip">
   {step_markup}
   <div class="pipeline-time">{float(response_time):.2f}s</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def render_chat_pipeline_status(
+    debug: dict[str, Any] | None = None,
+    *,
+    active_step: int | None = None,
+    completed_steps: int = 0,
+    is_loading: bool = False,
+    response_time: Any = None,
+    failed_step: int | None = None,
+) -> None:
+    if not debug and not is_loading and failed_step is None:
+        return
+    response_time = response_time if response_time is not None else ((debug or {}).get("response_time", 0) or 0)
+    if debug and failed_step is None and debug.get("pipeline_failed_step") is not None:
+        try:
+            failed_step = int(debug.get("pipeline_failed_step"))
+        except (TypeError, ValueError):
+            failed_step = 0
+        try:
+            completed_steps = int(debug.get("pipeline_completed_steps", failed_step) or 0)
+        except (TypeError, ValueError):
+            completed_steps = failed_step
+    elif debug and not is_loading and failed_step is None:
+        completed_steps = 4
+
+    steps = ["Query rewrite", "Retrieve top 10", "Rerank top 5", "Generate answer"]
+    step_markup_parts = []
+    for index, step in enumerate(steps):
+        if failed_step == index:
+            state = "failed"
+            indicator = "!"
+        elif index < completed_steps:
+            state = "complete"
+            indicator = "&#10003;"
+        elif active_step == index:
+            state = "active"
+            indicator = ""
+        else:
+            state = "pending"
+            indicator = ""
+        step_markup_parts.append(
+            f'<div class="pipeline-step is-{state}"><span class="pipeline-check is-{state}">{indicator}</span><span>{html.escape(step)}</span></div>'
+        )
+
+    if failed_step is not None:
+        time_markup = '<div class="pipeline-time is-failed">Failed</div>'
+    elif is_loading:
+        time_markup = '<div class="pipeline-time is-loading">Working...</div>'
+    else:
+        time_markup = f'<div class="pipeline-time">{float(response_time or 0):.2f}s</div>'
+    st.markdown(
+        f"""
+<div class="chat-pipeline-strip">
+  {"".join(step_markup_parts)}
+  {time_markup}
 </div>
 """,
         unsafe_allow_html=True,

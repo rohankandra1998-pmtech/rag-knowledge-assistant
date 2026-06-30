@@ -1976,7 +1976,26 @@ def render_client_pdf_modals(documents: list[dict[str, Any]], source_section: st
     render_client_pdf_modal_controller()
 
 
-def answer_question(question: str) -> None:
+def render_chat_generation_progress(
+    progress_placeholder,
+    *,
+    active_step: int | None = None,
+    completed_steps: int = 0,
+    failed_step: int | None = None,
+) -> None:
+    if progress_placeholder is None:
+        return
+    progress_placeholder.empty()
+    with progress_placeholder.container():
+        render_chat_pipeline_status(
+            active_step=active_step,
+            completed_steps=completed_steps,
+            is_loading=failed_step is None,
+            failed_step=failed_step,
+        )
+
+
+def answer_question(question: str, progress_placeholder=None) -> None:
     question = question.strip()
     if not question:
         return
@@ -2008,25 +2027,37 @@ def answer_question(question: str) -> None:
                 },
             }
         )
+        st.session_state.chat_evidence_message_index = len(st.session_state.messages) - 1
+        st.session_state.chat_evidence_mode = "sources"
         st.session_state.pending_nav = "Chat / Answer"
         st.rerun()
 
+    current_stage = 0
     try:
-        with st.spinner("Rewriting query, retrieving evidence, reranking chunks, and generating an answer..."):
-            history = st.session_state.messages[:-1]
-            rewrite_result = rewrite_query_result(question, history)
-            rewritten_query = rewrite_result["query"]
-            retrieval_result = retrieve_context_with_usage(rewritten_query, collection=collection, top_k=10)
-            retrieved = retrieval_result["chunks"]
-            rerank_result = rerank_chunks_with_usage(rewritten_query, retrieved, top_n=5)
-            reranked = rerank_result["chunks"]
-            result = generate_answer(question, rewritten_query, reranked, history)
-            token_usage = build_token_usage_summary(
-                rewrite_result.get("usage", {}),
-                retrieval_result.get("usage", {}),
-                rerank_result.get("usage", {}),
-                result.get("usage", {}),
-            )
+        render_chat_generation_progress(progress_placeholder, active_step=0, completed_steps=0)
+        history = st.session_state.messages[:-1]
+        rewrite_result = rewrite_query_result(question, history)
+        rewritten_query = rewrite_result["query"]
+
+        current_stage = 1
+        render_chat_generation_progress(progress_placeholder, active_step=1, completed_steps=1)
+        retrieval_result = retrieve_context_with_usage(rewritten_query, collection=collection, top_k=10)
+        retrieved = retrieval_result["chunks"]
+
+        current_stage = 2
+        render_chat_generation_progress(progress_placeholder, active_step=2, completed_steps=2)
+        rerank_result = rerank_chunks_with_usage(rewritten_query, retrieved, top_n=5)
+        reranked = rerank_result["chunks"]
+
+        current_stage = 3
+        render_chat_generation_progress(progress_placeholder, active_step=3, completed_steps=3)
+        result = generate_answer(question, rewritten_query, reranked, history)
+        token_usage = build_token_usage_summary(
+            rewrite_result.get("usage", {}),
+            retrieval_result.get("usage", {}),
+            rerank_result.get("usage", {}),
+            result.get("usage", {}),
+        )
 
         st.session_state.messages.append(
             {
@@ -2049,7 +2080,10 @@ def answer_question(question: str) -> None:
                 },
             }
         )
+        st.session_state.chat_evidence_message_index = len(st.session_state.messages) - 1
+        st.session_state.chat_evidence_mode = "sources"
     except Exception as exc:
+        render_chat_generation_progress(progress_placeholder, completed_steps=current_stage, failed_step=current_stage)
         st.session_state.messages.append(
             {
                 "role": "assistant",
@@ -2064,6 +2098,8 @@ def answer_question(question: str) -> None:
                     "response_time": 0,
                     "prompt_tokens_estimate": 0,
                     "completion_tokens_estimate": 0,
+                    "pipeline_failed_step": current_stage,
+                    "pipeline_completed_steps": current_stage,
                     "token_usage": build_token_usage_summary(
                         {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
                         {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
@@ -2073,6 +2109,8 @@ def answer_question(question: str) -> None:
                 },
             }
         )
+        st.session_state.chat_evidence_message_index = len(st.session_state.messages) - 1
+        st.session_state.chat_evidence_mode = "debug"
 
     st.session_state.pending_nav = "Chat / Answer"
     st.rerun()
@@ -2137,7 +2175,7 @@ def render_chat_example_chips() -> None:
                 answer_question(question)
 
 
-def render_chat_composer() -> None:
+def render_chat_composer() -> str | None:
     with st.container(key="chat_composer_card"):
         with st.form("chat_answer_composer", clear_on_submit=True):
             input_col, cite_col, rerank_col, send_col = st.columns([1, 0.18, 0.2, 0.08], gap="small")
@@ -2154,7 +2192,8 @@ def render_chat_composer() -> None:
             with send_col:
                 submitted = st.form_submit_button("Send", use_container_width=True)
         if submitted and prompt.strip():
-            answer_question(prompt)
+            return prompt
+    return None
 
 
 def render_chat_screen(stats: dict[str, Any]) -> None:
@@ -2187,7 +2226,10 @@ def render_chat_screen(stats: dict[str, Any]) -> None:
                 st.markdown("</div>", unsafe_allow_html=True)
                 if selected_message:
                     render_chat_pipeline_status(selected_message.get("debug"))
-        render_chat_composer()
+            pipeline_placeholder = st.empty()
+        prompt = render_chat_composer()
+        if prompt:
+            answer_question(prompt, progress_placeholder=pipeline_placeholder)
 
     with evidence_col:
         with st.container(key="chat_evidence_panel_shell"):
