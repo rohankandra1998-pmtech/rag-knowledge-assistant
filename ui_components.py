@@ -217,6 +217,8 @@ def inject_custom_css() -> None:
     pipeline_arrow_icon_uri = _load_chat_ui_icon_data_uri("pipeline-arrow.png")
     pipeline_clock_icon_uri = _load_chat_ui_icon_data_uri("pipeline-clock.png")
     composer_send_icon_uri = _load_chat_ui_icon_data_uri("composer-send.png")
+    sources_used_icon_uri = _load_chat_ui_icon_data_uri("sources-used.png")
+    behind_scenes_icon_uri = _load_chat_ui_icon_data_uri("behind-the-scenes.png")
     st.markdown(
         f"""
 <style>
@@ -224,6 +226,8 @@ def inject_custom_css() -> None:
   --pipeline-arrow-icon: url("{pipeline_arrow_icon_uri}");
   --pipeline-clock-icon: url("{pipeline_clock_icon_uri}");
   --composer-send-icon: url("{composer_send_icon_uri}");
+  --answer-sources-icon: url("{sources_used_icon_uri}");
+  --answer-debug-icon: url("{behind_scenes_icon_uri}");
 }}
 .st-key-header_actions .st-key-header_upload [data-testid^="stBaseButton"]::before {{
   content: "";
@@ -896,11 +900,16 @@ html, body, [class*="css"] {
   object-fit: contain;
 }
 .chat-answer-card {
-  padding: 0.92rem 1rem 0.7rem;
+  padding: 0.92rem 1rem 0.86rem;
   border: 1px solid #DCE7F5;
   border-radius: 12px;
   background: rgba(255,255,255,0.98);
   box-shadow: 0 10px 28px rgba(11, 48, 117, 0.06);
+}
+.chat-assistant-row:has(+ [class*="st-key-answer_footer_"]) .chat-answer-card {
+  border-bottom-color: transparent;
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 8px 20px rgba(11, 48, 117, 0.045);
 }
 .chat-answer-card .answer-body {
   font-size: 0.9rem;
@@ -917,6 +926,9 @@ html, body, [class*="css"] {
   color: var(--blue);
   font-size: 0.75rem;
   font-weight: 900;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 .chat-answer-divider {
   height: 1px;
@@ -926,23 +938,79 @@ html, body, [class*="css"] {
 [class*="st-key-answer_footer_"] {
   max-width: calc(83% - 42px);
   margin-left: 42px;
-  margin-top: -1.05rem;
-  margin-bottom: 0.8rem;
-  padding: 0 0.82rem 0.72rem;
+  margin-top: -0.36rem;
+  margin-bottom: 0.95rem;
+  padding: 0.52rem 0.85rem 0.56rem;
+  border: 1px solid #DCE7F5;
+  border-top-color: #E5EDF7;
+  border-radius: 0 0 12px 12px;
+  background: rgba(255,255,255,0.98);
+  box-shadow: 0 12px 24px rgba(11, 48, 117, 0.045);
 }
 [class*="st-key-answer_footer_"] button {
-  min-height: 36px !important;
+  min-height: 38px !important;
+  height: 38px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   border-radius: 8px !important;
   border-color: #DCE7F5 !important;
   background: #FFFFFF !important;
   color: var(--navy) !important;
   box-shadow: none !important;
   font-size: 0.8rem !important;
+  font-weight: 850 !important;
+  line-height: 1 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, color 160ms ease, transform 160ms ease;
+}
+[class*="st-key-answer_footer_"] button p {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  line-height: 1;
+  white-space: nowrap;
+}
+[class*="st-key-answer_footer_"] button [data-testid="stMarkdownContainer"] {
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+[class*="st-key-answer_sources_button_"] button p::before,
+[class*="st-key-answer_debug_button_"] button p::before {
+  content: "";
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  display: inline-block;
+  margin-right: 0.44rem;
+  transform: translateY(0);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+[class*="st-key-answer_sources_button_"] button p::before {
+  background-image: var(--answer-sources-icon);
+}
+[class*="st-key-answer_debug_button_"] button p::before {
+  background-image: var(--answer-debug-icon);
 }
 [class*="st-key-answer_footer_"] button:hover {
   border-color: #105EDD !important;
   color: #105EDD !important;
   background: #F7FBFF !important;
+  box-shadow: 0 8px 16px rgba(16,94,221,0.10) !important;
+  transform: translateY(-1px);
+}
+[class*="st-key-answer_footer_"] button:active {
+  transform: translateY(0);
+}
+[class*="st-key-answer_footer_"] button:focus-visible {
+  outline: 3px solid rgba(88, 172, 244, 0.30) !important;
+  outline-offset: 2px !important;
 }
 [class*="st-key-answer_sources_button_active_"] button,
 [class*="st-key-answer_debug_button_active_"] button {
@@ -951,14 +1019,19 @@ html, body, [class*="css"] {
   color: #FFFFFF !important;
   box-shadow: 0 10px 20px rgba(16,94,221,0.18) !important;
 }
+[class*="st-key-answer_sources_button_active_"] button p::before,
+[class*="st-key-answer_debug_button_active_"] button p::before {
+  filter: brightness(0) invert(1);
+}
 [class*="st-key-answer_sources_button_active_"] button:hover,
 [class*="st-key-answer_debug_button_active_"] button:hover {
   border-color: #0C4EC2 !important;
   background: #0C4EC2 !important;
   color: #FFFFFF !important;
+  box-shadow: 0 12px 22px rgba(16,94,221,0.22) !important;
 }
 .chat-footer-status {
-  height: 36px;
+  min-height: 38px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -4269,11 +4342,37 @@ def render_overview(stats: dict[str, Any], recent_messages: list[dict[str, Any]]
     return chip_question or (question if submit and question.strip() else None)
 
 
+def _strip_inline_source_citations(text: str) -> str:
+    cleaned = re.sub(r"\[source:[^\]]+\]", " ", text, flags=re.IGNORECASE | re.DOTALL)
+    cleaned = re.sub(r"[ \t]+([.,;:!?])", r"\1", cleaned)
+    cleaned = re.sub(r"\s+([)\]])", r"\1", cleaned)
+    cleaned = re.sub(r"([(])\s+", r"\1", cleaned)
+    lines = [line.strip() for line in cleaned.splitlines()]
+    lines = [line for line in lines if line and line not in {".", ",", ";", ":"}]
+    cleaned = "\n".join(lines)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+    return cleaned or "See cited sources below."
+
+
 def _format_answer_html(answer: str) -> str:
-    escaped = html.escape(answer)
-    pattern = re.compile(r"(\[source:.*?\])", flags=re.IGNORECASE)
-    escaped = pattern.sub(r'<span class="citation-pill">\1</span>', escaped)
-    return escaped
+    return html.escape(_strip_inline_source_citations(answer))
+
+
+def _unique_source_filenames(sources: list[dict[str, Any]]) -> list[str]:
+    filenames: list[str] = []
+    seen: set[str] = set()
+    for source in sources:
+        filename = str(source.get("source", "") or "").strip()
+        if not filename:
+            continue
+        key = filename.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        filenames.append(filename)
+    if sources and not filenames:
+        return ["Unknown source"]
+    return filenames
 
 
 def render_chat_message(message: dict[str, Any]) -> None:
@@ -4423,12 +4522,12 @@ def render_chat_answer_card(message: dict[str, Any], index: int, selected: bool 
     sources = message.get("sources", []) or []
     selected_class = " is-selected" if selected else ""
     app_icon_uri = _load_app_icon_data_uri()
-    first_source = sources[0] if sources else {}
-    source_name = str(first_source.get("source", "") or "source")
-    source_page = str(first_source.get("page_number", "") or "?")
+    source_filenames = _unique_source_filenames(sources)
+    source_label = "source" if len(source_filenames) == 1 else "sources"
+    source_text = "; ".join(source_filenames)
     source_pill = (
-        f'<span class="chat-source-pill">source: {html.escape(source_name)}, page {html.escape(source_page)}</span>'
-        if sources
+        f'<span class="chat-source-pill">{html.escape(source_label)}: {html.escape(source_text)}</span>'
+        if source_filenames
         else ""
     )
     st.markdown(

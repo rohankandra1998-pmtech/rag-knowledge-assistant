@@ -2155,7 +2155,7 @@ def render_chat_answer_footer(message: dict[str, Any], index: int, selected_mode
     selected = st.session_state.get("chat_evidence_message_index") == index
     sources_active = selected and selected_mode == "sources"
     debug_active = selected and selected_mode == "debug"
-    footer_cols = st.columns([0.28, 0.3, 0.42], gap="small")
+    footer_cols = st.columns([0.3, 0.32, 0.38], gap="small")
     with footer_cols[0]:
         sources_state = "active" if sources_active else "idle"
         with st.container(key=f"answer_sources_button_{sources_state}_{index}"):
