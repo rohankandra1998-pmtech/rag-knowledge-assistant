@@ -2178,17 +2178,13 @@ def render_chat_example_chips() -> None:
 def render_chat_composer() -> str | None:
     with st.container(key="chat_composer_card"):
         with st.form("chat_answer_composer", clear_on_submit=True):
-            input_col, cite_col, rerank_col, send_col = st.columns([1, 0.18, 0.2, 0.08], gap="small")
+            input_col, send_col = st.columns([1, 0.08], gap="small")
             with input_col:
                 prompt = st.text_input(
                     "Ask a question about your documents",
                     placeholder="Ask a question about your documents...",
                     label_visibility="collapsed",
                 )
-            with cite_col:
-                st.markdown('<div class="composer-chip">Cite sources</div>', unsafe_allow_html=True)
-            with rerank_col:
-                st.markdown('<div class="composer-chip">Top 5 reranked</div>', unsafe_allow_html=True)
             with send_col:
                 submitted = st.form_submit_button("Send", use_container_width=True)
         if submitted and prompt.strip():

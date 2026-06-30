@@ -33,6 +33,7 @@ INDEXED_DOCS_ICON_DIR = Path(__file__).parent / "assets" / "indexed-documents"
 INDEXED_DOCS_OPTIMIZED_ICON_DIR = Path(__file__).parent / "assets" / "indexed-documents-optimized"
 PDF_MODAL_ICON_DIR = Path(__file__).parent / "assets" / "pdf-modal-icons"
 UPLOAD_ICON_DIR = Path(__file__).parent / "assets" / "upload-icons"
+CHAT_UI_ICON_DIR = Path(__file__).parent / "assets" / "chat-ui"
 SIDEBAR_NAV_ITEMS = [
     {"label": "App overview", "icon": "App_Overview_Icon.png"},
     {"label": "Chat / Answer", "icon": "Chat_Answer_Icon.png"},
@@ -142,6 +143,10 @@ def load_upload_icon_data_uri(filename: str) -> str:
     return _load_png_data_uri_fast(str(UPLOAD_ICON_DIR / filename))
 
 
+def _load_chat_ui_icon_data_uri(filename: str) -> str:
+    return _load_png_data_uri_fast(str(CHAT_UI_ICON_DIR / filename))
+
+
 def load_header_action_icon_data_uri(filename: str) -> str:
     return _load_header_icon_data_uri(filename)
 
@@ -209,9 +214,17 @@ def inject_custom_css() -> None:
     upload_icon_uri = _load_header_icon_data_uri("upload.png")
     ingest_icon_uri = _load_header_icon_data_uri("ingest.png")
     clear_icon_uri = _load_header_icon_data_uri("clear-chat.png")
+    pipeline_arrow_icon_uri = _load_chat_ui_icon_data_uri("pipeline-arrow.png")
+    pipeline_clock_icon_uri = _load_chat_ui_icon_data_uri("pipeline-clock.png")
+    composer_send_icon_uri = _load_chat_ui_icon_data_uri("composer-send.png")
     st.markdown(
         f"""
 <style>
+:root {{
+  --pipeline-arrow-icon: url("{pipeline_arrow_icon_uri}");
+  --pipeline-clock-icon: url("{pipeline_clock_icon_uri}");
+  --composer-send-icon: url("{composer_send_icon_uri}");
+}}
 .st-key-header_actions .st-key-header_upload [data-testid^="stBaseButton"]::before {{
   content: "";
   width: 22px;
@@ -852,20 +865,20 @@ html, body, [class*="css"] {
   box-shadow: 0 14px 36px rgba(16, 94, 221, 0.11);
 }
 .chat-bot-avatar {
-  width: 38px;
-  height: 38px;
+  width: 42px;
+  height: 42px;
   margin-top: 0;
   border-radius: 12px;
-  border: 1px solid #CFE1FB;
-  background: linear-gradient(180deg, #FFFFFF, #ECF4FF);
+  border: 1px solid rgba(207, 225, 251, 0.72);
+  background: rgba(255,255,255,0.42);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   box-shadow: 0 10px 20px rgba(16, 94, 221, 0.08);
 }
 .chat-bot-avatar img {
-  width: 30px;
-  height: 30px;
+  width: 40px;
+  height: 40px;
   display: block;
   object-fit: contain;
 }
@@ -974,15 +987,15 @@ html, body, [class*="css"] {
 }
 .pipeline-time {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
   color: var(--navy);
   font-size: 0.78rem;
   font-weight: 900;
 }
 .pipeline-step {
   color: #7B879D;
-}
-.pipeline-step:not(:last-of-type)::after {
-  content: "->";
 }
 .pipeline-step.is-complete {
   color: var(--navy);
@@ -992,6 +1005,9 @@ html, body, [class*="css"] {
 }
 .pipeline-step.is-failed {
   color: var(--terracotta);
+}
+.pipeline-step::after {
+  content: none !important;
 }
 .pipeline-check {
   border: 1px solid #C8D5E8;
@@ -1029,6 +1045,22 @@ html, body, [class*="css"] {
 .pipeline-time.is-failed {
   color: var(--terracotta);
 }
+.pipeline-arrow {
+  width: 16px;
+  height: 12px;
+  flex: 0 0 16px;
+  background: #8DA2C0;
+  -webkit-mask: var(--pipeline-arrow-icon) center / contain no-repeat;
+  mask: var(--pipeline-arrow-icon) center / contain no-repeat;
+}
+.pipeline-clock {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  background: currentColor;
+  -webkit-mask: var(--pipeline-clock-icon) center / contain no-repeat;
+  mask: var(--pipeline-clock-icon) center / contain no-repeat;
+}
 @keyframes pipeline-spin {
   to { transform: rotate(360deg); }
 }
@@ -1057,20 +1089,6 @@ html, body, [class*="css"] {
   border: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
-}
-.composer-chip {
-  min-height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 0.55rem;
-  border: 1px solid #DCE7F5;
-  border-radius: 9px;
-  background: #F8FBFF;
-  color: var(--blue);
-  font-size: 0.78rem;
-  font-weight: 900;
-  white-space: nowrap;
 }
 .st-key-chat_composer_card button {
   position: relative;
@@ -1102,14 +1120,12 @@ html, body, [class*="css"] {
 }
 .st-key-chat_composer_card button::before {
   content: "";
-  width: 19px;
-  min-width: 19px;
-  height: 19px;
-  flex: 0 0 19px;
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
   display: block;
-  background: #FFFFFF;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg%20viewBox%3D%270%200%2024%2024%27%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%3E%3Cpath%20d%3D%27M3.8%203.7c-.7-.3-1.4.4-1.1%201.1l2.6%206.2c.1.3.4.5.7.6l7.4.4-7.4.4c-.3.1-.6.3-.7.6l-2.6%206.2c-.3.7.4%201.4%201.1%201.1l16.8-7.6c.7-.3.7-1.3%200-1.6L3.8%203.7z%27/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg%20viewBox%3D%270%200%2024%2024%27%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%3E%3Cpath%20d%3D%27M3.8%203.7c-.7-.3-1.4.4-1.1%201.1l2.6%206.2c.1.3.4.5.7.6l7.4.4-7.4.4c-.3.1-.6.3-.7.6l-2.6%206.2c-.3.7.4%201.4%201.1%201.1l16.8-7.6c.7-.3.7-1.3%200-1.6L3.8%203.7z%27/%3E%3C/svg%3E") center / contain no-repeat;
+  background: center / contain no-repeat var(--composer-send-icon);
 }
 .chat-empty-state {
   min-height: 420px;
@@ -3717,10 +3733,6 @@ div.stButton > button[kind="primary"] {
     width: 100%;
     margin-left: 0;
   }
-  .composer-chip {
-    font-size: 0.72rem;
-    padding-inline: 0.4rem;
-  }
   .evidence-score-row {
     grid-template-columns: 70px 38px minmax(0, 1fr);
   }
@@ -4366,13 +4378,20 @@ def render_chat_pipeline_status(
         step_markup_parts.append(
             f'<div class="pipeline-step is-{state}"><span class="pipeline-check is-{state}">{indicator}</span><span>{html.escape(step)}</span></div>'
         )
+        if index < len(steps) - 1:
+            step_markup_parts.append('<span class="pipeline-arrow" aria-hidden="true"></span>')
 
     if failed_step is not None:
         time_markup = '<div class="pipeline-time is-failed">Failed</div>'
     elif is_loading:
         time_markup = '<div class="pipeline-time is-loading">Working...</div>'
     else:
-        time_markup = f'<div class="pipeline-time">{float(response_time or 0):.2f}s</div>'
+        time_markup = (
+            '<div class="pipeline-time">'
+            '<span class="pipeline-clock" aria-hidden="true"></span>'
+            f'<span>{float(response_time or 0):.2f}s</span>'
+            '</div>'
+        )
     st.markdown(
         f"""
 <div class="chat-pipeline-strip">
