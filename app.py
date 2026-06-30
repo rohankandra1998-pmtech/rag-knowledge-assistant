@@ -2201,7 +2201,7 @@ def render_chat_screen(stats: dict[str, Any]) -> None:
     selected_index, selected_message = get_selected_evidence_message(messages)
     selected_mode = str(st.session_state.get("chat_evidence_mode", "sources") or "sources")
 
-    main_col, evidence_col = st.columns([0.7, 0.3], gap="large")
+    main_col, evidence_col = st.columns([0.68, 0.32], gap="medium")
     with main_col:
         with st.container(key="chat_canvas_card"):
             if not messages:

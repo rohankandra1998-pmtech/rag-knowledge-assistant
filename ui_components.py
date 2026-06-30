@@ -1197,12 +1197,35 @@ html, body, [class*="css"] {
   margin-top: 0.7rem;
 }
 .evidence-source-card {
-  padding: 0.75rem;
   margin: 0.45rem 0 0.65rem;
+  overflow: hidden;
   border: 1px solid #DCE7F5;
   border-radius: 10px;
   background: #FFFFFF;
   box-shadow: 0 8px 20px rgba(11, 48, 117, 0.05);
+}
+.evidence-source-card[open] {
+  border-color: #C7DCF5;
+  box-shadow: 0 12px 24px rgba(11, 48, 117, 0.07);
+}
+.evidence-source-summary {
+  list-style: none;
+  display: grid;
+  grid-template-columns: 35px minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.7rem 0.72rem;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+.evidence-source-summary::-webkit-details-marker {
+  display: none;
+}
+.evidence-source-summary::marker {
+  content: "";
+}
+.evidence-source-summary:hover {
+  background: #F7FAFF;
 }
 .evidence-source-top {
   display: flex;
@@ -1238,6 +1261,53 @@ html, body, [class*="css"] {
   color: #425275;
   font-size: 0.74rem;
   margin-top: 0.12rem;
+}
+.evidence-source-compact-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.34rem;
+}
+.evidence-compact-score {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  min-height: 21px;
+  padding: 0.12rem 0.38rem;
+  border: 1px solid #DCE7F5;
+  border-radius: 999px;
+  background: #F8FBFF;
+  color: #425275;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+.evidence-compact-score strong {
+  color: var(--navy);
+  font-size: 0.68rem;
+}
+.evidence-source-chevron {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #DCE7F5;
+  border-radius: 999px;
+  background: #FFFFFF;
+  color: var(--blue);
+  font-size: 0.9rem;
+  font-weight: 900;
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+.evidence-source-card[open] .evidence-source-chevron {
+  transform: rotate(90deg);
+  border-color: #BBD6F5;
+  background: #EEF6FF;
+}
+.evidence-source-expanded {
+  padding: 0.62rem 0.72rem 0.72rem;
+  border-top: 1px solid #E8EEF7;
+  background: #FFFFFF;
 }
 .evidence-score-row {
   display: grid;
@@ -4167,31 +4237,40 @@ def build_evidence_source_card_html(source: dict[str, Any], source_section: str 
     href = _source_modal_href(source, source_section)
     similarity_width = _score_width(similarity)
     rerank_width = _score_width(rerank)
+    similarity_label = _format_score(similarity)
+    rerank_label = _format_score(rerank)
     return f"""
-<div class="evidence-source-card">
-  <div class="evidence-source-top">
+<details class="evidence-source-card">
+  <summary class="evidence-source-summary">
     <div class="evidence-pdf-badge">PDF</div>
     <div class="evidence-source-title-wrap">
       <div class="evidence-source-name" title="{html.escape(filename)}">{html.escape(filename)}</div>
       <div class="evidence-source-meta">Page {html.escape(page)} &middot; Chunk {html.escape(chunk_id)}</div>
+      <div class="evidence-source-compact-meta">
+        <span class="evidence-compact-score">Similarity <strong>{html.escape(similarity_label)}</strong></span>
+        <span class="evidence-compact-score">Rerank <strong>{html.escape(rerank_label)}</strong></span>
+      </div>
+    </div>
+    <span class="evidence-source-chevron" aria-hidden="true">&rsaquo;</span>
+  </summary>
+  <div class="evidence-source-expanded">
+    <div class="evidence-score-row">
+      <span>Similarity</span>
+      <strong>{html.escape(similarity_label)}</strong>
+      <div class="evidence-score-track"><span style="width: {similarity_width}%"></span></div>
+    </div>
+    <div class="evidence-score-row">
+      <span>Rerank</span>
+      <strong>{html.escape(rerank_label)}</strong>
+      <div class="evidence-score-track"><span style="width: {rerank_width}%"></span></div>
+    </div>
+    <div class="evidence-snippet">{html.escape(snippet)}</div>
+    <div class="evidence-source-actions">
+      <a class="evidence-action-link" href="{html.escape(href, quote=True)}" target="_self">Open source</a>
+      <a class="evidence-action-link is-primary" href="{html.escape(href, quote=True)}" target="_self">View document</a>
     </div>
   </div>
-  <div class="evidence-score-row">
-    <span>Similarity</span>
-    <strong>{html.escape(_format_score(similarity))}</strong>
-    <div class="evidence-score-track"><span style="width: {similarity_width}%"></span></div>
-  </div>
-  <div class="evidence-score-row">
-    <span>Rerank</span>
-    <strong>{html.escape(_format_score(rerank))}</strong>
-    <div class="evidence-score-track"><span style="width: {rerank_width}%"></span></div>
-  </div>
-  <div class="evidence-snippet">{html.escape(snippet)}</div>
-  <div class="evidence-source-actions">
-    <a class="evidence-action-link" href="{html.escape(href, quote=True)}" target="_self">Open source</a>
-    <a class="evidence-action-link is-primary" href="{html.escape(href, quote=True)}" target="_self">View document</a>
-  </div>
-</div>
+</details>
 """
 
 
