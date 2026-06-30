@@ -60,9 +60,10 @@ NAV_SECTIONS = {
     "Documents",
     "Ingestion status",
     "Models",
-    "Example questions",
     "Settings / Debug",
 }
+DEFAULT_NAV_SECTION = "Chat / Answer"
+LEGACY_EXAMPLE_SECTION = "Example questions"
 
 CLIENT_MODAL_RENDERED_PREVIEW_LIMIT = 4
 
@@ -90,6 +91,8 @@ def init_state() -> None:
 
     if "pending_nav" in st.session_state:
         st.session_state.nav_section = st.session_state.pop("pending_nav")
+    if st.session_state.get("nav_section") == LEGACY_EXAMPLE_SECTION:
+        st.session_state.nav_section = DEFAULT_NAV_SECTION
 
 
 def add_ingestion_event(message: str) -> None:
@@ -589,6 +592,9 @@ def clear_modal_query_params(*, rerun: bool = False) -> None:
 
 def consume_navigation_query_param() -> None:
     query_section = get_query_param("section")
+    if query_section == LEGACY_EXAMPLE_SECTION:
+        st.session_state.nav_section = DEFAULT_NAV_SECTION
+        clear_modal_query_params(rerun=True)
     if query_section in NAV_SECTIONS:
         st.session_state.nav_section = query_section
         clear_modal_query_params(rerun=True)
@@ -598,6 +604,9 @@ def apply_modal_source_section() -> None:
     if not get_query_param("view_doc"):
         return
     source_section = get_query_param("from_section")
+    if source_section == LEGACY_EXAMPLE_SECTION:
+        st.session_state.nav_section = DEFAULT_NAV_SECTION
+        return
     if source_section in NAV_SECTIONS:
         st.session_state.nav_section = source_section
 
@@ -2185,19 +2194,6 @@ def render_chat_answer_footer(message: dict[str, Any], index: int, selected_mode
         )
 
 
-def render_chat_example_chips() -> None:
-    questions = [
-        "What are the strongest citations in my documents?",
-        "Summarize the key details from the indexed PDFs.",
-        "Which chunks support the answer best?",
-    ]
-    chip_cols = st.columns(3, gap="small")
-    for col, question in zip(chip_cols, questions):
-        with col:
-            if st.button(question, key=f"chat_example_{question}", use_container_width=True):
-                answer_question(question)
-
-
 def render_chat_composer() -> str | None:
     with st.container(key="chat_composer_card"):
         with st.form("chat_answer_composer", clear_on_submit=True):
@@ -2229,8 +2225,6 @@ def render_chat_screen(stats: dict[str, Any]) -> None:
         with st.container(key="chat_canvas_card"):
             if not messages:
                 render_chat_empty_canvas(stats)
-                if int(stats.get("total_chunks", 0) or 0) > 0:
-                    render_chat_example_chips()
             else:
                 st.markdown('<div class="chat-thread">', unsafe_allow_html=True)
                 for index, message in enumerate(messages):
@@ -3068,21 +3062,6 @@ def render_models_screen() -> None:
         )
 
 
-def render_examples_screen() -> None:
-    st.markdown('<div class="section-title">Example questions</div>', unsafe_allow_html=True)
-    questions = [
-        "What are the key risks mentioned in the report?",
-        "Summarize the employee onboarding process.",
-        "What is the refund policy for our products?",
-        "Compare Q1 and Q2 performance metrics.",
-        "Explain the architecture of the system.",
-        "What policy details should leadership review?",
-    ]
-    for question in questions:
-        if st.button(question, key=f"example_{question}", use_container_width=True):
-            answer_question(question)
-
-
 def render_collection_stats_panel(stats: dict[str, Any]) -> None:
     documents = stats.get("documents", []) or []
     total_documents = int(stats.get("total_documents", 0) or 0)
@@ -3259,8 +3238,6 @@ def main() -> None:
         render_ingestion_status(stats)
     elif section == "Models":
         render_models_screen()
-    elif section == "Example questions":
-        render_examples_screen()
     elif section == "Settings / Debug":
         render_settings_screen(stats)
 

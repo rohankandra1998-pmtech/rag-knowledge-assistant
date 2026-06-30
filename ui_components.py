@@ -40,7 +40,6 @@ SIDEBAR_NAV_ITEMS = [
     {"label": "Documents", "icon": "Documents_Icon.png"},
     {"label": "Ingestion status", "icon": "Ingestion_Status_Icon.png"},
     {"label": "Models", "icon": "Models_Icon.png"},
-    {"label": "Example questions", "icon": "Example_Questions_Icon.png"},
     {"label": "Settings / Debug", "icon": "Settings_Debug_Icon.png"},
 ]
 
@@ -4126,12 +4125,6 @@ def render_sidebar(stats: dict[str, Any]) -> str:
 
         st.markdown(
             """
-<div class="side-card">
-  <div class="side-card-title">Example questions</div>
-  <div class="side-row"><span>Summarize a report</span></div>
-  <div class="side-row"><span>Compare policies</span></div>
-  <div class="side-row"><span>Find risks</span></div>
-</div>
 <div class="side-card">
   <div class="side-row"><strong>Admin</strong><span class="side-pill">Local</span></div>
   <div class="side-row"><span>portfolio-ready build</span></div>
