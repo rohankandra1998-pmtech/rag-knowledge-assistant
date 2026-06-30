@@ -35,12 +35,10 @@ PDF_MODAL_ICON_DIR = Path(__file__).parent / "assets" / "pdf-modal-icons"
 UPLOAD_ICON_DIR = Path(__file__).parent / "assets" / "upload-icons"
 CHAT_UI_ICON_DIR = Path(__file__).parent / "assets" / "chat-ui"
 SIDEBAR_NAV_ITEMS = [
-    {"label": "App overview", "icon": "App_Overview_Icon.png"},
     {"label": "Chat / Answer", "icon": "Chat_Answer_Icon.png"},
     {"label": "Documents", "icon": "Documents_Icon.png"},
     {"label": "Ingestion status", "icon": "Ingestion_Status_Icon.png"},
     {"label": "Models", "icon": "Models_Icon.png"},
-    {"label": "Settings / Debug", "icon": "Settings_Debug_Icon.png"},
 ]
 
 
@@ -148,6 +146,23 @@ def _load_chat_ui_icon_data_uri(filename: str) -> str:
 
 def _load_chat_empty_state_asset_data_uri(filename: str) -> str:
     return _load_png_data_uri_fast(str(CHAT_UI_ICON_DIR / "empty-state" / filename))
+
+
+def _build_evidence_empty_icon_svg() -> str:
+    return """
+<svg viewBox="0 0 120 90" role="img" aria-label="Evidence document search" focusable="false">
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M43 12h30l18 18v42c0 6.1-4.9 11-11 11H43c-6.1 0-11-4.9-11-11V23c0-6.1 4.9-11 11-11Z" stroke="#105EDD" stroke-width="6.4"/>
+    <path d="M73 13v17h17" stroke="#105EDD" stroke-width="6.4"/>
+    <circle cx="58" cy="52" r="11.5" stroke="#105EDD" stroke-width="6.4"/>
+    <path d="m67 61 12 12" stroke="#105EDD" stroke-width="6.4"/>
+    <path d="M20 45c7.2-2.1 10.9-5.9 13-13 2.1 7.1 5.8 10.9 13 13-7.2 2.1-10.9 5.9-13 13-2.1-7.1-5.8-10.9-13-13Z" stroke="#F8B400" stroke-width="4.8"/>
+    <path d="M91 63c4.8-1.4 7.2-3.8 8.7-8.6 1.4 4.8 3.9 7.2 8.6 8.6-4.8 1.4-7.2 3.9-8.6 8.6-1.5-4.8-3.9-7.2-8.7-8.6Z" stroke="#F8B400" stroke-width="4.4"/>
+  </g>
+  <circle cx="26" cy="29" r="4" fill="#F8B400"/>
+  <circle cx="101" cy="47" r="3.6" fill="#F8B400"/>
+</svg>
+"""
 
 
 def load_header_action_icon_data_uri(filename: str) -> str:
@@ -1670,11 +1685,10 @@ html, body, [class*="css"] {
   width: 94px;
   margin: 0 0 0.25rem;
 }
-.evidence-empty-icon img {
+.evidence-empty-icon svg {
   display: block;
   width: 100%;
   height: auto;
-  object-fit: contain;
   filter: drop-shadow(0 14px 26px rgba(16, 94, 221, 0.10));
 }
 .evidence-empty.large strong {
@@ -4241,20 +4255,6 @@ def render_header() -> dict[str, bool]:
     return {"upload": upload_clicked, "ingest": ingest_clicked, "clear": clear_clicked}
 
 
-def render_metric_card(label: str, value: str, delta: str, tone: str = "cool") -> None:
-    tone_class = {"warm": "delta-warm", "gold": "delta-gold"}.get(tone, "delta-cool")
-    st.markdown(
-        f"""
-<div class="metric-card">
-  <div class="metric-label">{html.escape(label)}</div>
-  <div class="metric-value">{html.escape(value)}</div>
-  <div class="metric-delta {tone_class}">{html.escape(delta)}</div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
-
-
 def get_status_card_icon_svg(icon_name: str) -> str:
     icons = {
         "document": """
@@ -4335,67 +4335,6 @@ def render_ingestion_status_cards(stats: dict[str, Any]) -> None:
 """,
         unsafe_allow_html=True,
     )
-
-
-def render_overview(stats: dict[str, Any], recent_messages: list[dict[str, Any]]) -> str | None:
-    st.markdown(
-        """
-<div class="hero-card">
-  <h2 class="hero-title">Turn documents into answers.</h2>
-  <div class="hero-copy">Ask questions across your documents and get grounded answers with clear citations.</div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
-
-    ask_col, button_col = st.columns([5, 1])
-    question = ask_col.text_input(
-        "Ask anything across your indexed PDFs",
-        placeholder="Ask a question about your documents...",
-        label_visibility="collapsed",
-        key="overview_question",
-    )
-    submit = button_col.button("Ask", key="overview_ask", type="primary", use_container_width=True)
-
-    chips = [
-        "What are the key risks mentioned in the report?",
-        "Summarize the employee onboarding process.",
-        "Compare Q1 and Q2 performance metrics.",
-    ]
-    chip_cols = st.columns(3)
-    chip_question = None
-    for col, chip in zip(chip_cols, chips):
-        if col.button(chip, key=f"overview_chip_{chip}", use_container_width=True):
-            chip_question = chip
-
-    metric_cols = st.columns(4)
-    with metric_cols[0]:
-        render_metric_card("Documents indexed", str(stats.get("total_documents", 0)), "Persistent ChromaDB", "warm")
-    with metric_cols[1]:
-        render_metric_card("Chunks stored", f'{stats.get("total_chunks", 0):,}', "Semantic retrieval-ready")
-    with metric_cols[2]:
-        confidence = "Ready" if stats.get("total_chunks", 0) else "Needs docs"
-        render_metric_card("Answer relevance", confidence, "Reranking enabled", "gold")
-    with metric_cols[3]:
-        questions = len([m for m in recent_messages if m.get("role") == "user"])
-        render_metric_card("Questions asked", str(questions), "This session")
-
-    st.markdown(
-        """
-<div class="section-card">
-  <div class="section-title">How it works</div>
-  <div class="workflow">
-    <div class="workflow-step"><span class="step-index">1</span><strong>Upload</strong><br/><span>Add PDFs to the knowledge base.</span></div>
-    <div class="workflow-step"><span class="step-index">2</span><strong>Chunk &amp; Embed</strong><br/><span>Split documents into semantic chunks.</span></div>
-    <div class="workflow-step"><span class="step-index">3</span><strong>Retrieve</strong><br/><span>Find the most relevant evidence.</span></div>
-    <div class="workflow-step"><span class="step-index">4</span><strong>Answer</strong><br/><span>Generate responses with citations.</span></div>
-  </div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
-
-    return chip_question or (question if submit and question.strip() else None)
 
 
 def _strip_inline_source_citations(text: str) -> str:
@@ -4784,14 +4723,14 @@ def render_chat_pipeline_status(
 def render_chat_evidence_panel(message: dict[str, Any] | None, mode: str = "sources") -> None:
     opened = "Behind the scenes" if mode == "debug" else "Sources used"
     if not message:
-        empty_icon_uri = html.escape(_load_chat_ui_icon_data_uri("answer-evidence-empty-icon.png"), quote=True)
+        empty_icon_svg = _build_evidence_empty_icon_svg()
         st.markdown(
             f"""
 <div class="evidence-header-row">
   <div class="evidence-header">Answer Evidence</div>
 </div>
 <div class="evidence-empty large">
-  <div class="evidence-empty-icon"><img src="{empty_icon_uri}" alt="" aria-hidden="true" loading="lazy" /></div>
+  <div class="evidence-empty-icon">{empty_icon_svg}</div>
   <strong>No answer selected yet</strong>
   <span>Ask a question or select an answer control to inspect citations and RAG details.</span>
 </div>

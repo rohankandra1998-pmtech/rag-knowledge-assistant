@@ -143,23 +143,24 @@ class ChatEmptyCanvasMarkupTest(unittest.TestCase):
 
 
 class ChatEvidencePanelEmptyMarkupTest(unittest.TestCase):
-    def test_empty_evidence_panel_renders_clean_icon(self) -> None:
+    def test_empty_evidence_panel_renders_clean_svg_icon(self) -> None:
         captured_markup: list[str] = []
         original_st = ui_components.st
-        original_loader = ui_components._load_chat_ui_icon_data_uri
         ui_components.st = SimpleNamespace(markdown=lambda markup, **_: captured_markup.append(markup))
-        ui_components._load_chat_ui_icon_data_uri = lambda filename: f"data:image/png;base64,{filename}"
 
         try:
             ui_components.render_chat_evidence_panel(None)
         finally:
             ui_components.st = original_st
-            ui_components._load_chat_ui_icon_data_uri = original_loader
 
         markup = "".join(captured_markup)
         self.assertIn("Answer Evidence", markup)
         self.assertIn('class="evidence-empty-icon"', markup)
-        self.assertIn("answer-evidence-empty-icon.png", markup)
+        self.assertIn("<svg", markup)
+        self.assertIn('aria-label="Evidence document search"', markup)
+        self.assertIn("#105EDD", markup)
+        self.assertIn("#F8B400", markup)
+        self.assertNotIn("answer-evidence-empty-icon.png", markup)
         self.assertIn("No answer selected yet", markup)
         self.assertIn("Ask a question or select an answer control to inspect citations and RAG details.", markup)
 

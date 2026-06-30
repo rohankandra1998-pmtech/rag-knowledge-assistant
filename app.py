@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import base64
 import html
-import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -24,7 +23,6 @@ from rag_utils import (
     get_document_hash,
     ingest_folder,
     ingest_pdf,
-    reset_vector_db,
     retrieve_context_with_usage,
     rerank_chunks_with_usage,
     rewrite_query_result,
@@ -46,8 +44,6 @@ from ui_components import (
     render_error_state,
     render_header,
     render_ingestion_status_cards,
-    render_metric_card,
-    render_overview,
     render_sidebar,
     render_upload_badges,
     load_header_action_icon_data_uri,
@@ -55,15 +51,17 @@ from ui_components import (
 )
 
 NAV_SECTIONS = {
-    "App overview",
     "Chat / Answer",
     "Documents",
     "Ingestion status",
     "Models",
-    "Settings / Debug",
 }
 DEFAULT_NAV_SECTION = "Chat / Answer"
-LEGACY_EXAMPLE_SECTION = "Example questions"
+REMOVED_NAV_SECTIONS = {
+    "Example questions",
+    "App overview",
+    "Settings / Debug",
+}
 
 CLIENT_MODAL_RENDERED_PREVIEW_LIMIT = 4
 
@@ -91,7 +89,8 @@ def init_state() -> None:
 
     if "pending_nav" in st.session_state:
         st.session_state.nav_section = st.session_state.pop("pending_nav")
-    if st.session_state.get("nav_section") == LEGACY_EXAMPLE_SECTION:
+    current_nav_section = st.session_state.get("nav_section")
+    if current_nav_section in REMOVED_NAV_SECTIONS or (current_nav_section and current_nav_section not in NAV_SECTIONS):
         st.session_state.nav_section = DEFAULT_NAV_SECTION
 
 
@@ -592,9 +591,10 @@ def clear_modal_query_params(*, rerun: bool = False) -> None:
 
 def consume_navigation_query_param() -> None:
     query_section = get_query_param("section")
-    if query_section == LEGACY_EXAMPLE_SECTION:
+    if query_section in REMOVED_NAV_SECTIONS:
         st.session_state.nav_section = DEFAULT_NAV_SECTION
         clear_modal_query_params(rerun=True)
+        return
     if query_section in NAV_SECTIONS:
         st.session_state.nav_section = query_section
         clear_modal_query_params(rerun=True)
@@ -604,7 +604,7 @@ def apply_modal_source_section() -> None:
     if not get_query_param("view_doc"):
         return
     source_section = get_query_param("from_section")
-    if source_section == LEGACY_EXAMPLE_SECTION:
+    if source_section in REMOVED_NAV_SECTIONS:
         st.session_state.nav_section = DEFAULT_NAV_SECTION
         return
     if source_section in NAV_SECTIONS:
@@ -1406,7 +1406,9 @@ def render_pdf_modal_shell(
             preview_html = '<div class="pdf-missing-source">Source PDF not found in docs/ or uploaded_docs/.</div>'
     source_section = source_section or get_query_param("from_section")
     if source_section not in NAV_SECTIONS:
-        source_section = str(st.session_state.get("nav_section", "App overview"))
+        source_section = str(st.session_state.get("nav_section", DEFAULT_NAV_SECTION))
+    if source_section not in NAV_SECTIONS:
+        source_section = DEFAULT_NAV_SECTION
     close_href = f"?section={quote(source_section, safe='')}"
     open_pdf_html = (
         f'<a class="pdf-modal-action primary" href="{escaped_pdf_uri}" target="_blank" download="{html.escape(filename)}">Open full PDF</a>'
@@ -3062,128 +3064,6 @@ def render_models_screen() -> None:
         )
 
 
-def render_collection_stats_panel(stats: dict[str, Any]) -> None:
-    documents = stats.get("documents", []) or []
-    total_documents = int(stats.get("total_documents", 0) or 0)
-    total_chunks = int(stats.get("total_chunks", 0) or 0)
-    storage_mb = float(stats.get("storage_estimate_mb", 0) or 0)
-    max_chunks = max((int(document.get("chunks", 0) or 0) for document in documents), default=0)
-
-    document_rows = []
-    for document in documents[:5]:
-        filename = str(document.get("filename", "") or "Unknown document")
-        pages = int(document.get("pages", 0) or 0)
-        chunks = int(document.get("chunks", 0) or 0)
-        status = str(document.get("status", "Indexed") or "Indexed").title()
-        last_ingested = format_ingested_timestamp(document.get("last_ingested"))
-        file_size = format_file_size(document.get("file_size"))
-        details = f"{pages:,} pages &middot; {chunks:,} chunks"
-        if file_size != "Unknown":
-            details = f"{details} &middot; {html.escape(file_size)}"
-        document_rows.append(
-            f"""
-      <div class="collection-doc-row">
-        <div>
-          <div class="collection-doc-name" title="{html.escape(filename)}">{html.escape(filename)}</div>
-          <div class="collection-doc-meta">{details}</div>
-        </div>
-        <span class="collection-mini-pill">{html.escape(status)}</span>
-        <div class="collection-doc-meta">{html.escape(str(document.get("chunking_strategy", "semantic")).title())}</div>
-        <div class="collection-doc-date">{html.escape(last_ingested)}</div>
-      </div>
-"""
-        )
-
-    if document_rows:
-        documents_html = f'<div class="collection-doc-list">{"".join(document_rows)}</div>'
-    else:
-        documents_html = '<div class="collection-empty">No indexed documents yet. Upload and ingest PDFs to populate collection stats.</div>'
-
-    bar_rows = []
-    for document in documents[:5]:
-        filename = str(document.get("filename", "") or "Unknown document")
-        chunks = int(document.get("chunks", 0) or 0)
-        width = int((chunks / max_chunks) * 100) if max_chunks else 0
-        bar_rows.append(
-            f"""
-      <div class="collection-bar-row">
-        <div class="collection-bar-label" title="{html.escape(filename)}">{html.escape(filename)}</div>
-        <div class="collection-bar-track"><span class="collection-bar-fill" style="width: {width}%"></span></div>
-        <div class="collection-bar-value">{chunks:,}</div>
-      </div>
-"""
-        )
-    bars_html = "".join(bar_rows) if bar_rows else '<div class="collection-empty">Chunk distribution will appear after ingestion.</div>'
-
-    st.markdown(
-        f"""
-<div class="collection-stats-card">
-  <div class="collection-stats-header">
-    <div>
-      <div class="collection-stats-title">Collection stats</div>
-      <div class="collection-stats-copy">Current local ChromaDB index health and document coverage.</div>
-    </div>
-    <div class="collection-stats-badge">ChromaDB</div>
-  </div>
-  <div class="collection-stats-grid">
-    <div class="collection-stat-tile">
-      <div class="collection-stat-label">Documents indexed</div>
-      <div class="collection-stat-value">{total_documents:,}</div>
-      <div class="collection-stat-helper">Deduped source PDFs</div>
-    </div>
-    <div class="collection-stat-tile">
-      <div class="collection-stat-label">Chunks stored</div>
-      <div class="collection-stat-value">{total_chunks:,}</div>
-      <div class="collection-stat-helper">Retrieval-ready passages</div>
-    </div>
-    <div class="collection-stat-tile">
-      <div class="collection-stat-label">Storage estimate</div>
-      <div class="collection-stat-value">{storage_mb:.2f} MB</div>
-      <div class="collection-stat-helper">Source PDF footprint</div>
-    </div>
-  </div>
-  <div class="collection-stats-section-title">Indexed documents</div>
-  {documents_html}
-  <div class="collection-stats-section-title">Chunks by document</div>
-  <div class="collection-bars">{bars_html}</div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
-
-
-def render_settings_screen(stats: dict[str, Any]) -> None:
-    st.markdown('<div class="section-title">Settings / Debug</div>', unsafe_allow_html=True)
-    st.markdown(
-        """
-<div class="section-card">
-  <div class="section-title">Environment</div>
-  <p>Secrets are loaded server-side from .env or environment variables. API keys are never rendered in the UI.</p>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
-    render_collection_stats_panel(stats)
-    with st.expander("Raw stats payload", expanded=False):
-        st.json(stats, expanded=1)
-
-    st.warning("Resetting the vector database deletes all indexed chunks. Source PDFs are not deleted.")
-    confirmed = st.checkbox("I understand this will delete the local ChromaDB collection.")
-    if st.button("Reset vector DB", disabled=not confirmed):
-        reset_vector_db()
-        invalidate_collection_stats_cache()
-        st.session_state.messages = []
-        st.success("Vector database reset.")
-        st.rerun()
-
-    if st.button("Delete uploaded PDFs", disabled=not confirmed):
-        shutil.rmtree(UPLOADED_DOCS_DIR, ignore_errors=True)
-        Path(UPLOADED_DOCS_DIR).mkdir(parents=True, exist_ok=True)
-        invalidate_collection_stats_cache()
-        st.success("uploaded_docs/ cleared.")
-        st.rerun()
-
-
 def main() -> None:
     init_state()
     inject_custom_css()
@@ -3212,25 +3092,7 @@ def main() -> None:
         ingest_all_known_pdfs()
         stats = get_cached_collection_stats(collection, force_refresh=True)
 
-    if section == "App overview":
-        question = render_overview(stats, st.session_state.messages)
-        if question:
-            answer_question(question)
-        recent_docs, recent_convos = st.columns(2)
-        with recent_docs:
-            recent_documents = stats.get("documents", [])[:6]
-            render_document_table(recent_documents, title="Recent documents", source_section="App overview")
-            render_client_pdf_modals(recent_documents, "App overview")
-        with recent_convos:
-            st.markdown('<div class="section-card"><div class="section-title">Recent conversations</div>', unsafe_allow_html=True)
-            user_questions = [m["content"] for m in st.session_state.messages if m.get("role") == "user"][-6:]
-            if user_questions:
-                for item in reversed(user_questions):
-                    st.caption(item)
-            else:
-                st.caption("No questions asked yet.")
-            st.markdown("</div>", unsafe_allow_html=True)
-    elif section == "Chat / Answer":
+    if section == "Chat / Answer":
         render_chat_screen(stats)
     elif section == "Documents":
         render_documents_screen(stats)
@@ -3238,15 +3100,13 @@ def main() -> None:
         render_ingestion_status(stats)
     elif section == "Models":
         render_models_screen()
-    elif section == "Settings / Debug":
-        render_settings_screen(stats)
 
     selected_document = get_pdf_modal_document(stats)
     if selected_document:
         render_pdf_preview_dialog(selected_document)
     elif get_query_param("view_doc"):
         clear_modal_query_params(rerun=True)
-    elif section_changed or section == "Settings / Debug":
+    elif section_changed:
         scroll_page_to_top()
 
 
