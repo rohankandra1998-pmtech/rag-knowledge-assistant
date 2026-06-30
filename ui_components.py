@@ -730,7 +730,19 @@ html, body, [class*="css"] {
 .assistant-label {
   color: var(--navy);
   font-weight: 900;
+}
+.chat-answer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
   margin-bottom: 0.55rem;
+}
+.chat-assistant-time {
+  color: #5F6D83;
+  font-size: 0.72rem;
+  font-weight: 750;
+  white-space: nowrap;
 }
 .answer-body {
   color: #1E2A4A;
@@ -1182,21 +1194,24 @@ html, body, [class*="css"] {
 }
 .evidence-header-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.65rem;
-  margin-bottom: 0.55rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin-bottom: 0.65rem;
 }
 .evidence-header {
   color: var(--navy);
   font-size: 1rem;
   font-weight: 900;
+  line-height: 1.15;
   margin-bottom: 0;
+  white-space: nowrap;
 }
 .evidence-selected-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.28rem;
+  max-width: 100%;
   padding: 0.3rem 0.52rem;
   border: 1px solid #CFE1FB;
   border-radius: 999px;
@@ -1204,7 +1219,6 @@ html, body, [class*="css"] {
   color: #105EDD;
   font-size: 0.72rem;
   font-weight: 850;
-  white-space: nowrap;
 }
 .evidence-selected-pill-icon {
   width: 14px;
@@ -4388,12 +4402,13 @@ def build_evidence_source_card_html(source: dict[str, Any], source_section: str 
 
 def render_chat_user_bubble(message: dict[str, Any]) -> None:
     content = str(message.get("content", "") or "")
+    timestamp = str(message.get("timestamp", "") or "Now")
     st.markdown(
         f"""
 <div class="chat-user-row">
   <div class="chat-user-bubble">
     <span>{html.escape(content)}</span>
-    <span class="chat-user-time">Now</span>
+    <span class="chat-user-time">{html.escape(timestamp)}</span>
     <span class="chat-user-avatar" aria-hidden="true"></span>
   </div>
 </div>
@@ -4404,6 +4419,7 @@ def render_chat_user_bubble(message: dict[str, Any]) -> None:
 
 def render_chat_answer_card(message: dict[str, Any], index: int, selected: bool = False) -> None:
     content = str(message.get("content", "") or "")
+    timestamp = str(message.get("timestamp", "") or "Now")
     sources = message.get("sources", []) or []
     selected_class = " is-selected" if selected else ""
     app_icon_uri = _load_app_icon_data_uri()
@@ -4420,7 +4436,10 @@ def render_chat_answer_card(message: dict[str, Any], index: int, selected: bool 
 <div class="chat-assistant-row{selected_class}" data-chat-message-index="{index}">
   <div class="chat-bot-avatar" aria-hidden="true"><img src="{app_icon_uri}" alt="" loading="lazy" /></div>
   <div class="chat-answer-card">
-    <div class="assistant-label">RAG Knowledge Assistant</div>
+    <div class="chat-answer-head">
+      <div class="assistant-label">RAG Knowledge Assistant</div>
+      <div class="chat-assistant-time">{html.escape(timestamp)}</div>
+    </div>
     <div class="answer-body">{_format_answer_html(content)}</div>
     {source_pill}
   </div>
@@ -4613,7 +4632,7 @@ def render_chat_evidence_panel(message: dict[str, Any] | None, mode: str = "sour
         st.markdown(
             f"""
 <div class="evidence-header-row">
-  <div class="evidence-header">Answer evidence</div>
+  <div class="evidence-header">Answer Evidence</div>
 </div>
 <div class="evidence-empty large">
   <strong>No answer selected yet</strong>
@@ -4632,7 +4651,7 @@ def render_chat_evidence_panel(message: dict[str, Any] | None, mode: str = "sour
     st.markdown(
         f"""
 <div class="evidence-header-row">
-  <div class="evidence-header">Answer evidence</div>
+  <div class="evidence-header">Answer Evidence</div>
   <div class="evidence-selected-pill">
     <span class="evidence-selected-pill-icon" aria-hidden="true"><img src="{info_icon_uri}" alt="" loading="lazy" /></span>
     <span>Showing evidence for selected answer</span>
@@ -4646,13 +4665,19 @@ def render_chat_evidence_panel(message: dict[str, Any] | None, mode: str = "sour
   </div>
 </div>
 <div class="evidence-opened-pill">Opened from: <strong>{html.escape(opened)}</strong></div>
-<div class="evidence-section-title">Sources used</div>
 """,
         unsafe_allow_html=True,
     )
-    render_evidence_sources(sources)
-    st.markdown('<div class="evidence-section-title">Behind the scenes</div>', unsafe_allow_html=True)
-    render_evidence_debug(debug)
+    if mode == "debug":
+        st.markdown('<div class="evidence-section-title">Behind the scenes</div>', unsafe_allow_html=True)
+        render_evidence_debug(debug)
+        st.markdown('<div class="evidence-section-title">Sources used</div>', unsafe_allow_html=True)
+        render_evidence_sources(sources)
+    else:
+        st.markdown('<div class="evidence-section-title">Sources used</div>', unsafe_allow_html=True)
+        render_evidence_sources(sources)
+        st.markdown('<div class="evidence-section-title">Behind the scenes</div>', unsafe_allow_html=True)
+        render_evidence_debug(debug)
 
 
 def render_chat_empty_canvas(stats: dict[str, Any]) -> None:

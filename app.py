@@ -395,6 +395,10 @@ def format_ingested_timestamp(timestamp: Any) -> str:
         return timestamp_text
 
 
+def format_chat_timestamp(dt: datetime | None = None) -> str:
+    return (dt or datetime.now()).strftime("%I:%M %p").lstrip("0")
+
+
 def resolve_source_pdf_path(document: dict[str, Any]) -> Path | None:
     filename = str(document.get("filename", "") or "")
     document_hash = str(document.get("document_hash", "") or "")
@@ -2001,13 +2005,14 @@ def answer_question(question: str, progress_placeholder=None) -> None:
         return
 
     collection = get_chroma_collection()
-    st.session_state.messages.append({"role": "user", "content": question})
+    st.session_state.messages.append({"role": "user", "content": question, "timestamp": format_chat_timestamp()})
 
     if collection.count() == 0:
         st.session_state.messages.append(
             {
                 "role": "assistant",
                 "content": "I don't know based on the uploaded documents. Upload and ingest PDFs first, then ask again.",
+                "timestamp": format_chat_timestamp(),
                 "sources": [],
                 "debug": {
                     "original_query": question,
@@ -2063,6 +2068,7 @@ def answer_question(question: str, progress_placeholder=None) -> None:
             {
                 "role": "assistant",
                 "content": result["answer"],
+                "timestamp": format_chat_timestamp(),
                 "sources": result.get("sources", []),
                 "debug": {
                     "original_query": question,
@@ -2088,6 +2094,7 @@ def answer_question(question: str, progress_placeholder=None) -> None:
             {
                 "role": "assistant",
                 "content": f"I could not generate an answer because: {exc}",
+                "timestamp": format_chat_timestamp(),
                 "sources": [],
                 "debug": {
                     "original_query": question,
