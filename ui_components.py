@@ -1101,6 +1101,8 @@ html, body, [class*="css"] {
   background: transparent !important;
   color: #FFFFFF !important;
   box-shadow: 0 12px 22px rgba(16, 94, 221, 0.24) !important;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, border-color 160ms ease, outline-color 160ms ease;
 }
 .st-key-chat_composer_card button p {
   font-size: 0;
@@ -1116,6 +1118,27 @@ html, body, [class*="css"] {
   flex: 0 0 46px;
   display: block;
   background: center / contain no-repeat var(--composer-send-icon);
+  transition: filter 160ms ease;
+}
+.st-key-chat_composer_card button:hover {
+  background: #081A52 !important;
+  border-color: #081A52 !important;
+  box-shadow: 0 16px 28px rgba(16, 94, 221, 0.30) !important;
+  transform: translateY(-1px);
+}
+.st-key-chat_composer_card button:hover::before {
+  filter: brightness(0.94) saturate(1.08);
+}
+.st-key-chat_composer_card button:active {
+  transform: translateY(0);
+  box-shadow: 0 8px 16px rgba(16, 94, 221, 0.20) !important;
+}
+.st-key-chat_composer_card button:active::before {
+  filter: brightness(0.9) saturate(1.05);
+}
+.st-key-chat_composer_card button:focus-visible {
+  outline: 3px solid rgba(88, 172, 244, 0.36) !important;
+  outline-offset: 3px !important;
 }
 .chat-empty-state {
   min-height: 420px;

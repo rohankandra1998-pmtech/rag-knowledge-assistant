@@ -2220,9 +2220,10 @@ def render_chat_screen(stats: dict[str, Any]) -> None:
                     with st.container(key=f"answer_footer_{index}"):
                         render_chat_answer_footer(message, index, selected_mode)
                 st.markdown("</div>", unsafe_allow_html=True)
-                if selected_message:
-                    render_chat_pipeline_status(selected_message.get("debug"))
             pipeline_placeholder = st.empty()
+            if selected_message:
+                with pipeline_placeholder.container():
+                    render_chat_pipeline_status(selected_message.get("debug"))
         prompt = render_chat_composer()
         if prompt:
             answer_question(prompt, progress_placeholder=pipeline_placeholder)
