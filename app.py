@@ -35,7 +35,12 @@ from ui_components import (
     inject_custom_css,
     load_pdf_document_detail_icon_data_uri,
     load_pdf_viewer_control_icon_data_uri,
+    render_chat_answer_card,
+    render_chat_empty_canvas,
+    render_chat_evidence_panel,
     render_chat_message,
+    render_chat_pipeline_status,
+    render_chat_user_bubble,
     render_document_table,
     render_empty_state,
     render_error_state,
@@ -76,6 +81,8 @@ def init_state() -> None:
         "ingestion_events": [],
         "last_ingestion_results": [],
         "ingestion_active": False,
+        "chat_evidence_message_index": None,
+        "chat_evidence_mode": "sources",
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -2071,20 +2078,120 @@ def answer_question(question: str) -> None:
     st.rerun()
 
 
-def render_chat_screen(stats: dict[str, Any]) -> None:
-    st.markdown('<div class="section-title">Chat / Answer</div>', unsafe_allow_html=True)
-    if stats.get("total_chunks", 0) == 0:
-        render_empty_state(
-            "No indexed documents yet",
-            "Upload PDFs in Documents, then click Ingest. The assistant will answer only from indexed files.",
+def get_latest_evidence_message_index(messages: list[dict[str, Any]]) -> int | None:
+    for index in range(len(messages) - 1, -1, -1):
+        message = messages[index]
+        if message.get("role") == "assistant" and (message.get("sources") is not None or message.get("debug") is not None):
+            return index
+    return None
+
+
+def get_selected_evidence_message(messages: list[dict[str, Any]]) -> tuple[int | None, dict[str, Any] | None]:
+    selected_index = st.session_state.get("chat_evidence_message_index")
+    if isinstance(selected_index, int) and 0 <= selected_index < len(messages):
+        selected = messages[selected_index]
+        if selected.get("role") == "assistant":
+            return selected_index, selected
+
+    latest_index = get_latest_evidence_message_index(messages)
+    if latest_index is None:
+        return None, None
+    st.session_state.chat_evidence_message_index = latest_index
+    return latest_index, messages[latest_index]
+
+
+def set_chat_evidence_selection(index: int, mode: str) -> None:
+    st.session_state.chat_evidence_message_index = index
+    st.session_state.chat_evidence_mode = mode
+
+
+def render_chat_answer_footer(message: dict[str, Any], index: int, selected_mode: str) -> None:
+    sources = message.get("sources", []) or []
+    footer_cols = st.columns([0.28, 0.3, 0.42], gap="small")
+    with footer_cols[0]:
+        if st.button(f"Sources used ({len(sources)})", key=f"answer_sources_{index}", use_container_width=True):
+            set_chat_evidence_selection(index, "sources")
+    with footer_cols[1]:
+        if st.button("Behind the scenes", key=f"answer_debug_{index}", use_container_width=True):
+            set_chat_evidence_selection(index, "debug")
+    with footer_cols[2]:
+        selected = st.session_state.get("chat_evidence_message_index") == index
+        label = "Active evidence" if selected else "Evidence ready"
+        mode = "debug" if selected_mode == "debug" and selected else "sources"
+        st.markdown(
+            f'<div class="chat-footer-status is-{mode}">{html.escape(label)}</div>',
+            unsafe_allow_html=True,
         )
 
-    for message in st.session_state.messages:
-        render_chat_message(message)
 
-    prompt = st.chat_input("Ask a question about your documents...")
-    if prompt:
-        answer_question(prompt)
+def render_chat_example_chips() -> None:
+    questions = [
+        "What are the strongest citations in my documents?",
+        "Summarize the key details from the indexed PDFs.",
+        "Which chunks support the answer best?",
+    ]
+    chip_cols = st.columns(3, gap="small")
+    for col, question in zip(chip_cols, questions):
+        with col:
+            if st.button(question, key=f"chat_example_{question}", use_container_width=True):
+                answer_question(question)
+
+
+def render_chat_composer() -> None:
+    with st.container(key="chat_composer_card"):
+        with st.form("chat_answer_composer", clear_on_submit=True):
+            input_col, cite_col, rerank_col, send_col = st.columns([1, 0.18, 0.2, 0.08], gap="small")
+            with input_col:
+                prompt = st.text_input(
+                    "Ask a question about your documents",
+                    placeholder="Ask a question about your documents...",
+                    label_visibility="collapsed",
+                )
+            with cite_col:
+                st.markdown('<div class="composer-chip">Cite sources</div>', unsafe_allow_html=True)
+            with rerank_col:
+                st.markdown('<div class="composer-chip">Top 5 reranked</div>', unsafe_allow_html=True)
+            with send_col:
+                submitted = st.form_submit_button("Send", use_container_width=True)
+        if submitted and prompt.strip():
+            answer_question(prompt)
+
+
+def render_chat_screen(stats: dict[str, Any]) -> None:
+    st.markdown(
+        '<div class="chat-section-head"><div class="section-title">Chat / Answer</div><div class="chat-section-rule"></div></div>',
+        unsafe_allow_html=True,
+    )
+    messages = st.session_state.messages
+    selected_index, selected_message = get_selected_evidence_message(messages)
+    selected_mode = str(st.session_state.get("chat_evidence_mode", "sources") or "sources")
+
+    main_col, evidence_col = st.columns([0.7, 0.3], gap="large")
+    with main_col:
+        with st.container(key="chat_canvas_card"):
+            if not messages:
+                render_chat_empty_canvas(stats)
+                if int(stats.get("total_chunks", 0) or 0) > 0:
+                    render_chat_example_chips()
+            else:
+                st.markdown('<div class="chat-thread">', unsafe_allow_html=True)
+                for index, message in enumerate(messages):
+                    if message.get("role") == "user":
+                        render_chat_user_bubble(message)
+                        continue
+                    if message.get("role") != "assistant":
+                        continue
+                    render_chat_answer_card(message, index, selected=(index == selected_index))
+                    with st.container(key=f"answer_footer_{index}"):
+                        render_chat_answer_footer(message, index, selected_mode)
+                st.markdown("</div>", unsafe_allow_html=True)
+                if selected_message:
+                    render_chat_pipeline_status(selected_message.get("debug"))
+        render_chat_composer()
+
+    with evidence_col:
+        with st.container(key="chat_evidence_panel_shell"):
+            render_chat_evidence_panel(selected_message, selected_mode)
 
 
 def format_storage_estimate(value_mb: Any) -> str:

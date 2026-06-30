@@ -755,6 +755,534 @@ html, body, [class*="css"] {
   background: linear-gradient(90deg, #58ACF4, #105EDD);
 }
 
+.chat-section-head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.1rem 0 0.75rem;
+}
+.chat-section-head .section-title {
+  margin: 0;
+  white-space: nowrap;
+}
+.chat-section-rule {
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(90deg, rgba(11,48,117,0.22), rgba(11,48,117,0));
+}
+.st-key-chat_canvas_card {
+  min-height: 610px;
+  padding: 1rem 1.05rem 0.9rem;
+  border: 1px solid rgba(16, 94, 221, 0.14);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,251,255,0.94)),
+    #FFFFFF;
+  box-shadow: 0 18px 46px rgba(11, 48, 117, 0.08);
+}
+.chat-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.chat-user-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0.25rem 0 0.1rem;
+}
+.chat-user-bubble {
+  display: flex;
+  align-items: center;
+  gap: 0.62rem;
+  width: fit-content;
+  max-width: 74%;
+  min-height: 45px;
+  padding: 0.62rem 0.78rem 0.62rem 1rem;
+  border: 1px solid rgba(245, 180, 0, 0.68);
+  border-radius: 11px;
+  background: linear-gradient(180deg, #FFFDF7, #FFF9E8);
+  color: #1E2435;
+  font-size: 0.92rem;
+  font-weight: 800;
+  box-shadow: 0 10px 24px rgba(245, 180, 0, 0.08);
+}
+.chat-user-time {
+  color: #5F6D83;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.chat-user-avatar {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  border-radius: 999px;
+  background: #24170F;
+}
+.chat-user-avatar::before,
+.chat-user-avatar::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #FFFFFF;
+}
+.chat-user-avatar::before {
+  top: 5px;
+  width: 7px;
+  height: 7px;
+}
+.chat-user-avatar::after {
+  bottom: 5px;
+  width: 14px;
+  height: 8px;
+}
+.chat-assistant-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 0.45rem;
+  align-items: start;
+  max-width: 83%;
+  margin: 0.1rem 0 0.35rem;
+}
+.chat-assistant-row.is-selected .chat-answer-card {
+  border-color: rgba(16, 94, 221, 0.28);
+  box-shadow: 0 14px 36px rgba(16, 94, 221, 0.11);
+}
+.chat-bot-avatar {
+  width: 32px;
+  height: 32px;
+  margin-top: 0.05rem;
+  border-radius: 12px;
+  border: 1px solid #D8E7FF;
+  background: #ECF4FF;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.chat-bot-avatar span {
+  width: 18px;
+  height: 13px;
+  border-radius: 6px;
+  background: var(--navy);
+  position: relative;
+}
+.chat-bot-avatar span::before,
+.chat-bot-avatar span::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: #FFFFFF;
+}
+.chat-bot-avatar span::before { left: 4px; }
+.chat-bot-avatar span::after { right: 4px; }
+.chat-answer-card {
+  padding: 0.92rem 1rem 0.7rem;
+  border: 1px solid #DCE7F5;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.98);
+  box-shadow: 0 10px 28px rgba(11, 48, 117, 0.06);
+}
+.chat-answer-card .answer-body {
+  font-size: 0.9rem;
+  line-height: 1.52;
+}
+.chat-source-pill {
+  display: inline-flex;
+  max-width: 100%;
+  margin-top: 0.52rem;
+  padding: 0.16rem 0.52rem;
+  border: 1px solid #BBD6FF;
+  border-radius: 7px;
+  background: #EAF3FF;
+  color: var(--blue);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+.chat-answer-divider {
+  height: 1px;
+  margin-top: 0.62rem;
+  background: #E5EDF7;
+}
+[class*="st-key-answer_footer_"] {
+  max-width: calc(83% - 42px);
+  margin-left: 42px;
+  margin-top: -1.05rem;
+  margin-bottom: 0.8rem;
+  padding: 0 0.82rem 0.72rem;
+}
+[class*="st-key-answer_footer_"] button {
+  min-height: 36px !important;
+  border-radius: 8px !important;
+  border-color: #DCE7F5 !important;
+  background: #FFFFFF !important;
+  color: var(--navy) !important;
+  box-shadow: none !important;
+  font-size: 0.8rem !important;
+}
+[class*="st-key-answer_footer_"] button:hover {
+  border-color: #105EDD !important;
+  color: #105EDD !important;
+  background: #F7FBFF !important;
+}
+.chat-footer-status {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  color: #68758E;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+.chat-footer-status::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  margin-right: 0.38rem;
+  border-radius: 999px;
+  background: #105EDD;
+  box-shadow: 0 0 0 3px rgba(16,94,221,0.12);
+}
+.chat-pipeline-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  margin: 0.55rem 0 0;
+  padding: 0.55rem 0.72rem;
+  border: 1px solid #DCE7F5;
+  border-radius: 12px;
+  background: #FFFFFF;
+}
+.pipeline-step {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--navy);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+.pipeline-step:not(:last-of-type)::after {
+  content: "→";
+  color: #98A8C0;
+  margin-left: 0.25rem;
+}
+.pipeline-check {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #13A73F;
+  color: #FFFFFF;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+.pipeline-time {
+  margin-left: auto;
+  color: var(--navy);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+.st-key-chat_composer_card {
+  margin-top: 0.55rem;
+  padding: 0.55rem;
+  border: 1px solid #DCE7F5;
+  border-radius: 16px;
+  background: #FFFFFF;
+  box-shadow: 0 12px 28px rgba(11, 48, 117, 0.06);
+}
+.st-key-chat_composer_card [data-testid="stForm"] {
+  border: 0;
+  padding: 0;
+}
+.st-key-chat_composer_card [data-testid="stHorizontalBlock"] {
+  align-items: center;
+}
+.st-key-chat_composer_card input {
+  border: 0 !important;
+  box-shadow: none !important;
+  color: var(--navy) !important;
+  font-weight: 700;
+}
+.st-key-chat_composer_card [data-testid="stTextInputRootElement"] {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.composer-chip {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.55rem;
+  border: 1px solid #DCE7F5;
+  border-radius: 9px;
+  background: #F8FBFF;
+  color: var(--blue);
+  font-size: 0.78rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.st-key-chat_composer_card button {
+  width: 46px !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  border-color: var(--blue) !important;
+  background: var(--blue) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 12px 22px rgba(16, 94, 221, 0.24) !important;
+}
+.st-key-chat_composer_card button p {
+  font-size: 0;
+}
+.st-key-chat_composer_card button p::before {
+  content: "›";
+  display: inline-block;
+  transform: rotate(-35deg);
+  font-size: 2rem;
+  line-height: 1;
+}
+.chat-empty-state {
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 0.45rem;
+  color: var(--navy);
+}
+.chat-empty-title {
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+.chat-empty-copy {
+  max-width: 520px;
+  color: #53637F;
+  font-size: 0.94rem;
+}
+.st-key-chat_evidence_panel_shell {
+  padding: 0.95rem;
+  border: 1px solid rgba(16, 94, 221, 0.14);
+  border-radius: 16px;
+  background: rgba(255,255,255,0.98);
+  box-shadow: 0 18px 46px rgba(11, 48, 117, 0.08);
+}
+.evidence-header {
+  color: var(--navy);
+  font-size: 1rem;
+  font-weight: 900;
+  margin-bottom: 0.55rem;
+}
+.evidence-opened-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  max-width: 100%;
+  padding: 0.34rem 0.5rem;
+  border: 1px solid #CFE1FB;
+  border-radius: 7px;
+  background: #EDF5FF;
+  color: var(--navy);
+  font-size: 0.78rem;
+}
+.evidence-opened-pill strong {
+  color: var(--blue);
+}
+.evidence-section-title {
+  margin: 0.78rem 0 0.45rem;
+  color: var(--navy);
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+.evidence-section-title.compact {
+  margin-top: 0.7rem;
+}
+.evidence-source-card {
+  padding: 0.75rem;
+  margin: 0.45rem 0 0.65rem;
+  border: 1px solid #DCE7F5;
+  border-radius: 10px;
+  background: #FFFFFF;
+  box-shadow: 0 8px 20px rgba(11, 48, 117, 0.05);
+}
+.evidence-source-top {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+}
+.evidence-pdf-badge {
+  width: 35px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 35px;
+  border-radius: 7px;
+  background: linear-gradient(180deg, #E52D18, #B81F12);
+  color: #FFFFFF;
+  font-size: 0.68rem;
+  font-weight: 900;
+  box-shadow: 0 8px 16px rgba(229,45,24,0.18);
+}
+.evidence-source-title-wrap {
+  min-width: 0;
+}
+.evidence-source-name {
+  color: var(--navy);
+  font-size: 0.82rem;
+  font-weight: 900;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.evidence-source-meta {
+  color: #425275;
+  font-size: 0.74rem;
+  margin-top: 0.12rem;
+}
+.evidence-score-row {
+  display: grid;
+  grid-template-columns: 70px 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.52rem;
+  color: #20345B;
+  font-size: 0.74rem;
+}
+.evidence-score-row strong {
+  color: var(--navy);
+  font-size: 0.73rem;
+}
+.evidence-score-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #D9E3F2;
+}
+.evidence-score-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #58ACF4, #105EDD);
+}
+.evidence-snippet {
+  margin-top: 0.62rem;
+  padding: 0.58rem;
+  border: 1px solid #E2EAF5;
+  border-radius: 7px;
+  background: #F8FAFD;
+  color: #1D2E52;
+  font-size: 0.78rem;
+  line-height: 1.42;
+}
+.evidence-source-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+  margin-top: 0.5rem;
+}
+.evidence-action-link {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #DCE7F5;
+  border-radius: 7px;
+  background: #FFFFFF;
+  color: var(--blue) !important;
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-decoration: none !important;
+}
+.evidence-action-link.is-primary {
+  background: #F6FAFF;
+}
+.evidence-debug-card {
+  overflow: hidden;
+  border: 1px solid #DCE7F5;
+  border-radius: 9px;
+  background: #FFFFFF;
+}
+.evidence-debug-row {
+  display: grid;
+  grid-template-columns: 0.92fr 1.25fr;
+  gap: 0.5rem;
+  padding: 0.38rem 0.5rem;
+  border-bottom: 1px solid #E8EEF7;
+  color: #24395F;
+  font-size: 0.72rem;
+}
+.evidence-debug-row:last-child {
+  border-bottom: 0;
+}
+.evidence-debug-row span {
+  color: var(--navy);
+  font-weight: 800;
+}
+.evidence-debug-row strong {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.evidence-token-table {
+  width: 100%;
+  border-collapse: collapse;
+  overflow: hidden;
+  border: 1px solid #DCE7F5;
+  border-radius: 9px;
+  background: #FFFFFF;
+  color: #24395F;
+  font-size: 0.71rem;
+}
+.evidence-token-table th,
+.evidence-token-table td {
+  padding: 0.34rem 0.42rem;
+  border-bottom: 1px solid #E8EEF7;
+  border-right: 1px solid #E8EEF7;
+  text-align: left;
+}
+.evidence-token-table th {
+  color: var(--navy);
+  font-weight: 900;
+  background: #F8FBFF;
+}
+.evidence-token-table td:last-child,
+.evidence-token-table th:last-child {
+  border-right: 0;
+}
+.evidence-token-table tr:last-child td {
+  border-bottom: 0;
+}
+.evidence-empty {
+  padding: 0.8rem;
+  border: 1px dashed #CFE1FB;
+  border-radius: 10px;
+  background: #F8FBFF;
+  color: #53637F;
+  font-size: 0.82rem;
+}
+.evidence-empty.large {
+  min-height: 360px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.28rem;
+  text-align: center;
+}
+.evidence-empty.large strong {
+  color: var(--navy);
+  font-size: 1rem;
+}
+
 .doc-table-card {
   margin: 1rem 0;
   overflow: hidden;
@@ -3109,6 +3637,36 @@ div.stButton > button[kind="primary"] {
     text-align: left;
   }
   .chat-user { max-width: 92%; }
+  .st-key-chat_canvas_card {
+    min-height: 520px;
+  }
+  .chat-user-bubble,
+  .chat-assistant-row {
+    max-width: 100%;
+  }
+  [class*="st-key-answer_footer_"] {
+    max-width: 100%;
+    margin-left: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .chat-pipeline-strip {
+    align-items: flex-start;
+  }
+  .pipeline-time {
+    width: 100%;
+    margin-left: 0;
+  }
+  .composer-chip {
+    font-size: 0.72rem;
+    padding-inline: 0.4rem;
+  }
+  .evidence-score-row {
+    grid-template-columns: 70px 38px minmax(0, 1fr);
+  }
+  .evidence-source-actions {
+    grid-template-columns: 1fr;
+  }
   .doc-table-header {
     flex-direction: column;
     align-items: stretch;
@@ -3469,6 +4027,271 @@ def render_chat_message(message: dict[str, Any]) -> None:
         render_sources_panel(message["sources"], title="Sources used")
     if message.get("debug"):
         render_debug_panel(message["debug"])
+
+
+def _coerce_score(value: Any) -> float | None:
+    try:
+        score = float(value)
+    except (TypeError, ValueError):
+        return None
+    if score < 0:
+        return 0.0
+    if score > 1:
+        return 1.0
+    return score
+
+
+def _format_score(value: Any) -> str:
+    score = _coerce_score(value)
+    return "n/a" if score is None else f"{score:.2f}"
+
+
+def _score_width(value: Any) -> int:
+    score = _coerce_score(value)
+    return 0 if score is None else int(score * 100)
+
+
+def _truncate_text(value: Any, limit: int = 290) -> str:
+    text = " ".join(str(value or "").split())
+    if not text:
+        return "No snippet preview is available for this source."
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 3)].rstrip() + "..."
+
+
+def _source_document_target(source: dict[str, Any]) -> str:
+    filename = str(source.get("source", "") or "").strip()
+    document_hash = str(source.get("document_hash", "") or "").strip()
+    return document_hash or filename or "Unknown source"
+
+
+def _source_modal_href(source: dict[str, Any], source_section: str = "Chat / Answer") -> str:
+    target = quote(_source_document_target(source), safe="")
+    section = quote(source_section, safe="")
+    return f"?view_doc={target}&from_section={section}"
+
+
+def build_evidence_source_card_html(source: dict[str, Any], source_section: str = "Chat / Answer") -> str:
+    filename = str(source.get("source", "") or "").strip() or "Unknown source"
+    page = str(source.get("page_number", "") or "?")
+    chunk_id = str(source.get("chunk_id", "") or "n/a")
+    similarity = source.get("similarity")
+    rerank = source.get("rerank_score")
+    snippet = _truncate_text(source.get("text"))
+    href = _source_modal_href(source, source_section)
+    similarity_width = _score_width(similarity)
+    rerank_width = _score_width(rerank)
+    return f"""
+<div class="evidence-source-card">
+  <div class="evidence-source-top">
+    <div class="evidence-pdf-badge">PDF</div>
+    <div class="evidence-source-title-wrap">
+      <div class="evidence-source-name" title="{html.escape(filename)}">{html.escape(filename)}</div>
+      <div class="evidence-source-meta">Page {html.escape(page)} &middot; Chunk {html.escape(chunk_id)}</div>
+    </div>
+  </div>
+  <div class="evidence-score-row">
+    <span>Similarity</span>
+    <strong>{html.escape(_format_score(similarity))}</strong>
+    <div class="evidence-score-track"><span style="width: {similarity_width}%"></span></div>
+  </div>
+  <div class="evidence-score-row">
+    <span>Rerank</span>
+    <strong>{html.escape(_format_score(rerank))}</strong>
+    <div class="evidence-score-track"><span style="width: {rerank_width}%"></span></div>
+  </div>
+  <div class="evidence-snippet">{html.escape(snippet)}</div>
+  <div class="evidence-source-actions">
+    <a class="evidence-action-link" href="{html.escape(href, quote=True)}" target="_self">Open source</a>
+    <a class="evidence-action-link is-primary" href="{html.escape(href, quote=True)}" target="_self">View document</a>
+  </div>
+</div>
+"""
+
+
+def render_chat_user_bubble(message: dict[str, Any]) -> None:
+    content = str(message.get("content", "") or "")
+    st.markdown(
+        f"""
+<div class="chat-user-row">
+  <div class="chat-user-bubble">
+    <span>{html.escape(content)}</span>
+    <span class="chat-user-time">Now</span>
+    <span class="chat-user-avatar" aria-hidden="true"></span>
+  </div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def render_chat_answer_card(message: dict[str, Any], index: int, selected: bool = False) -> None:
+    content = str(message.get("content", "") or "")
+    sources = message.get("sources", []) or []
+    selected_class = " is-selected" if selected else ""
+    first_source = sources[0] if sources else {}
+    source_name = str(first_source.get("source", "") or "source")
+    source_page = str(first_source.get("page_number", "") or "?")
+    source_pill = (
+        f'<span class="chat-source-pill">source: {html.escape(source_name)}, page {html.escape(source_page)}</span>'
+        if sources
+        else ""
+    )
+    st.markdown(
+        f"""
+<div class="chat-assistant-row{selected_class}" data-chat-message-index="{index}">
+  <div class="chat-bot-avatar" aria-hidden="true"><span></span></div>
+  <div class="chat-answer-card">
+    <div class="assistant-label">RAG Knowledge Assistant</div>
+    <div class="answer-body">{_format_answer_html(content)}</div>
+    {source_pill}
+    <div class="chat-answer-divider"></div>
+  </div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def render_evidence_sources(sources: list[dict[str, Any]], source_section: str = "Chat / Answer") -> None:
+    if not sources:
+        st.markdown(
+            """
+<div class="evidence-empty">No cited sources are attached to this answer.</div>
+""",
+            unsafe_allow_html=True,
+        )
+        return
+    cards = "".join(build_evidence_source_card_html(source, source_section) for source in sources)
+    st.markdown(cards, unsafe_allow_html=True)
+
+
+def render_evidence_debug(debug: dict[str, Any] | None) -> None:
+    if not debug:
+        st.markdown(
+            """
+<div class="evidence-empty">Behind-the-scenes details are not available for this answer.</div>
+""",
+            unsafe_allow_html=True,
+        )
+        return
+
+    token_usage = debug.get("token_usage", {}) or {}
+    token_total = token_usage.get("total", {}) or {}
+    answer_total = debug.get("answer_total_tokens") or token_total.get("total_tokens", 0)
+    response_time = debug.get("response_time", 0) or 0
+    rows = [
+        ("Original query", debug.get("original_query", "")),
+        ("Rewritten query", debug.get("rewritten_query", "")),
+        ("Model", debug.get("model", CHAT_MODEL)),
+        ("Response time", f"{float(response_time):.2f}s"),
+        ("Total tokens", f"{int(token_total.get('total_tokens', 0) or 0):,}"),
+        ("Answer tokens", f"{int(answer_total or 0):,}"),
+    ]
+    debug_rows = "".join(
+        f'<div class="evidence-debug-row"><span>{html.escape(label)}</span><strong>{html.escape(str(value))}</strong></div>'
+        for label, value in rows
+    )
+    steps = token_usage.get("steps", []) or []
+    step_rows = "".join(
+        "<tr>"
+        f"<td>{html.escape(str(step.get('task', '')))}</td>"
+        f"<td>{int(step.get('prompt_tokens', 0) or 0):,}</td>"
+        f"<td>{int(step.get('completion_tokens', 0) or 0):,}</td>"
+        f"<td>{int(step.get('total_tokens', 0) or 0):,}</td>"
+        "</tr>"
+        for step in steps
+    )
+    token_table = (
+        f"""
+<div class="evidence-section-title compact">Token usage by step</div>
+<table class="evidence-token-table">
+  <thead><tr><th>Step</th><th>Input tokens</th><th>Output tokens</th><th>Total tokens</th></tr></thead>
+  <tbody>{step_rows}</tbody>
+</table>
+"""
+        if step_rows
+        else ""
+    )
+    st.markdown(
+        f"""
+<div class="evidence-debug-card">
+  {debug_rows}
+</div>
+{token_table}
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def render_chat_pipeline_status(debug: dict[str, Any] | None) -> None:
+    if not debug:
+        return
+    response_time = debug.get("response_time", 0) or 0
+    steps = ["Query rewrite", "Retrieve top 10", "Rerank top 5", "Generate answer"]
+    step_markup = "".join(
+        f'<div class="pipeline-step"><span class="pipeline-check">✓</span><span>{html.escape(step)}</span></div>'
+        for step in steps
+    )
+    st.markdown(
+        f"""
+<div class="chat-pipeline-strip">
+  {step_markup}
+  <div class="pipeline-time">{float(response_time):.2f}s</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def render_chat_evidence_panel(message: dict[str, Any] | None, mode: str = "sources") -> None:
+    opened = "Behind the scenes" if mode == "debug" else "Sources used"
+    if not message:
+        st.markdown(
+            f"""
+<div class="evidence-header">Answer evidence</div>
+<div class="evidence-empty large">
+  <strong>No answer selected yet</strong>
+  <span>Ask a question or select an answer control to inspect citations and RAG details.</span>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
+        return
+
+    sources = message.get("sources", []) or []
+    debug = message.get("debug")
+    st.markdown(
+        f"""
+<div class="evidence-header">Answer evidence</div>
+<div class="evidence-opened-pill">Opened from: <strong>{html.escape(opened)}</strong></div>
+<div class="evidence-section-title">Sources used</div>
+""",
+        unsafe_allow_html=True,
+    )
+    render_evidence_sources(sources)
+    st.markdown('<div class="evidence-section-title">Behind the scenes</div>', unsafe_allow_html=True)
+    render_evidence_debug(debug)
+
+
+def render_chat_empty_canvas(stats: dict[str, Any]) -> None:
+    total_chunks = int(stats.get("total_chunks", 0) or 0)
+    if total_chunks <= 0:
+        title = "No indexed documents yet"
+        copy = "Upload PDFs in Documents, then ask questions grounded only in indexed files."
+    else:
+        title = "Ask across your indexed PDFs"
+        copy = "Your assistant will retrieve, rerank, and cite evidence from the documents you ingested."
+    st.markdown(
+        f"""
+<div class="chat-empty-state">
+  <div class="chat-empty-title">{html.escape(title)}</div>
+  <div class="chat-empty-copy">{html.escape(copy)}</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
 
 
 def render_sources_panel(sources: list[dict[str, Any]], title: str = "Sources used") -> None:

@@ -50,5 +50,46 @@ class DocumentTableSelectionMarkupTest(unittest.TestCase):
         self.assertNotIn('class="doc-select-control" href="?section=Documents&selected_doc=hash-two" target="_blank"', markup)
 
 
+class EvidenceSourceCardMarkupTest(unittest.TestCase):
+    def test_evidence_source_card_uses_document_hash_modal_link(self) -> None:
+        markup = ui_components.build_evidence_source_card_html(
+            {
+                "source": "I765_Additional_Responses.pdf",
+                "page_number": 1,
+                "chunk_id": "72849a0b87ff875d-0001",
+                "similarity": 0.59,
+                "rerank_score": 0.95,
+                "text": "Evidence snippet",
+                "document_hash": "hash-source",
+            }
+        )
+
+        self.assertIn("?view_doc=hash-source&amp;from_section=Chat%20%2F%20Answer", markup)
+        self.assertIn("I765_Additional_Responses.pdf", markup)
+        self.assertIn("Page 1 &middot; Chunk 72849a0b87ff875d-0001", markup)
+        self.assertIn("Similarity", markup)
+        self.assertIn("width: 59%", markup)
+        self.assertIn("width: 95%", markup)
+
+    def test_evidence_source_card_handles_missing_scores(self) -> None:
+        markup = ui_components.build_evidence_source_card_html(
+            {
+                "source": "",
+                "page_number": None,
+                "chunk_id": None,
+                "similarity": "not-a-score",
+                "rerank_score": None,
+                "text": "",
+            }
+        )
+
+        self.assertIn("?view_doc=Unknown%20source&amp;from_section=Chat%20%2F%20Answer", markup)
+        self.assertIn("Unknown source", markup)
+        self.assertIn("Page ? &middot; Chunk n/a", markup)
+        self.assertIn(">n/a</strong>", markup)
+        self.assertIn("width: 0%", markup)
+        self.assertIn("No snippet preview is available for this source.", markup)
+
+
 if __name__ == "__main__":
     unittest.main()
