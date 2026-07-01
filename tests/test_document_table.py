@@ -65,8 +65,12 @@ class EvidenceSourceCardMarkupTest(unittest.TestCase):
         )
 
         self.assertIn("?view_doc=hash-source&amp;from_section=Chat%20%2F%20Answer", markup)
+        self.assertIn("?view_chunk=hash-source&amp;chunk_id=72849a0b87ff875d-0001&amp;from_section=Chat%20%2F%20Answer", markup)
         self.assertIn("I765_Additional_Responses.pdf", markup)
         self.assertIn("Page 1 &middot; Chunk 72849a0b87ff875d-0001", markup)
+        self.assertIn("Open Chunk", markup)
+        self.assertIn("View document", markup)
+        self.assertNotIn("Open source", markup)
         self.assertIn("Similarity", markup)
         self.assertIn("width: 59%", markup)
         self.assertIn("width: 95%", markup)

@@ -1695,6 +1695,87 @@ html, body, [class*="css"] {
   color: var(--navy);
   font-size: 1rem;
 }
+.evidence-chunk-modal-overlay {
+  z-index: 9998;
+}
+.evidence-chunk-dialog {
+  width: min(760px, calc(100vw - 2rem));
+  max-height: min(82vh, 760px);
+  overflow: auto;
+  border: 1px solid rgba(16, 94, 221, 0.16);
+  border-radius: 18px;
+  background: #FFFFFF;
+  box-shadow: 0 30px 80px rgba(11, 48, 117, 0.28);
+}
+.evidence-chunk-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid #E3ECF8;
+  background: linear-gradient(90deg, #FFFFFF, #F6FAFF);
+}
+.evidence-chunk-kicker {
+  color: #105EDD;
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.evidence-chunk-title {
+  margin-top: 0.18rem;
+  color: var(--navy);
+  font-size: 1.18rem;
+  font-weight: 900;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.evidence-chunk-meta {
+  margin: 1rem 1.1rem 0;
+  padding: 0.68rem 0.78rem;
+  border: 1px solid #CFE1FB;
+  border-radius: 10px;
+  background: #F3F8FF;
+  color: #20345B;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.evidence-chunk-copy {
+  margin: 0.8rem 1.1rem 1rem;
+  padding: 0.88rem;
+  max-height: 390px;
+  overflow: auto;
+  border: 1px solid #E2EAF5;
+  border-radius: 10px;
+  background: #F8FAFD;
+  color: #1D2E52;
+  font-size: 0.86rem;
+  line-height: 1.58;
+  white-space: pre-wrap;
+}
+.evidence-chunk-empty {
+  margin: 1rem 1.1rem;
+  padding: 0.9rem;
+  border: 1px dashed #CFE1FB;
+  border-radius: 10px;
+  background: #F8FBFF;
+  color: #53637F;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+.evidence-chunk-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  padding: 0 1.1rem 1.1rem;
+}
+.evidence-chunk-actions .evidence-action-link {
+  width: auto;
+  min-width: 160px;
+  padding: 0 0.8rem;
+}
 
 .doc-table-card {
   margin: 1rem 0;
@@ -4467,6 +4548,13 @@ def _source_modal_href(source: dict[str, Any], source_section: str = "Chat / Ans
     return f"?view_doc={target}&from_section={section}"
 
 
+def _source_chunk_href(source: dict[str, Any], source_section: str = "Chat / Answer") -> str:
+    target = quote(_source_document_target(source), safe="")
+    chunk_id = quote(str(source.get("chunk_id", "") or ""), safe="")
+    section = quote(source_section, safe="")
+    return f"?view_chunk={target}&chunk_id={chunk_id}&from_section={section}"
+
+
 def build_evidence_source_card_html(source: dict[str, Any], source_section: str = "Chat / Answer") -> str:
     filename = str(source.get("source", "") or "").strip() or "Unknown source"
     page_label = _source_page_label(source)
@@ -4474,7 +4562,8 @@ def build_evidence_source_card_html(source: dict[str, Any], source_section: str 
     similarity = source.get("similarity")
     rerank = source.get("rerank_score")
     snippet = _truncate_text(source.get("text"))
-    href = _source_modal_href(source, source_section)
+    document_href = _source_modal_href(source, source_section)
+    chunk_href = _source_chunk_href(source, source_section)
     similarity_width = _score_width(similarity)
     rerank_width = _score_width(rerank)
     similarity_label = _format_score(similarity)
@@ -4506,8 +4595,8 @@ def build_evidence_source_card_html(source: dict[str, Any], source_section: str 
     </div>
     <div class="evidence-snippet">{html.escape(snippet)}</div>
     <div class="evidence-source-actions">
-      <a class="evidence-action-link" href="{html.escape(href, quote=True)}" target="_self">Open source</a>
-      <a class="evidence-action-link is-primary" href="{html.escape(href, quote=True)}" target="_self">View document</a>
+      <a class="evidence-action-link" href="{html.escape(chunk_href, quote=True)}" target="_self">Open Chunk</a>
+      <a class="evidence-action-link is-primary" href="{html.escape(document_href, quote=True)}" target="_self">View document</a>
     </div>
   </div>
 </details>
