@@ -18,8 +18,10 @@ def print_sources(sources: list[dict]) -> None:
     for index, source in enumerate(sources, start=1):
         similarity = source.get("similarity")
         rerank = source.get("rerank_score")
+        page_range = str(source.get("page_range") or source.get("page_number") or "?")
+        page_label = "pages" if "-" in page_range else "page"
         print(
-            f"{index}. {source.get('source')} page {source.get('page_number')} "
+            f"{index}. {source.get('source')} {page_label} {page_range} "
             f"chunk {source.get('chunk_id')} | similarity={similarity} | rerank={rerank}"
         )
 

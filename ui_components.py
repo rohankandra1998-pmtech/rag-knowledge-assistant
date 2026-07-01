@@ -1596,9 +1596,15 @@ html, body, [class*="css"] {
   border-radius: 7px;
   background: #FFFFFF;
   color: var(--blue) !important;
+  cursor: pointer;
+  font-family: inherit;
   font-size: 0.76rem;
   font-weight: 900;
   text-decoration: none !important;
+}
+button.evidence-action-link {
+  width: 100%;
+  padding: 0;
 }
 .evidence-action-link.is-primary {
   background: #F6FAFF;
@@ -1694,6 +1700,87 @@ html, body, [class*="css"] {
 .evidence-empty.large strong {
   color: var(--navy);
   font-size: 1rem;
+}
+.evidence-chunk-modal-overlay {
+  z-index: 9998;
+}
+.evidence-chunk-dialog {
+  width: min(760px, calc(100vw - 2rem));
+  max-height: min(82vh, 760px);
+  overflow: auto;
+  border: 1px solid rgba(16, 94, 221, 0.16);
+  border-radius: 18px;
+  background: #FFFFFF;
+  box-shadow: 0 30px 80px rgba(11, 48, 117, 0.28);
+}
+.evidence-chunk-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid #E3ECF8;
+  background: linear-gradient(90deg, #FFFFFF, #F6FAFF);
+}
+.evidence-chunk-kicker {
+  color: #105EDD;
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.evidence-chunk-title {
+  margin-top: 0.18rem;
+  color: var(--navy);
+  font-size: 1.18rem;
+  font-weight: 900;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.evidence-chunk-meta {
+  margin: 1rem 1.1rem 0;
+  padding: 0.68rem 0.78rem;
+  border: 1px solid #CFE1FB;
+  border-radius: 10px;
+  background: #F3F8FF;
+  color: #20345B;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.evidence-chunk-copy {
+  margin: 0.8rem 1.1rem 1rem;
+  padding: 0.88rem;
+  max-height: 390px;
+  overflow: auto;
+  border: 1px solid #E2EAF5;
+  border-radius: 10px;
+  background: #F8FAFD;
+  color: #1D2E52;
+  font-size: 0.86rem;
+  line-height: 1.58;
+  white-space: pre-wrap;
+}
+.evidence-chunk-empty {
+  margin: 1rem 1.1rem;
+  padding: 0.9rem;
+  border: 1px dashed #CFE1FB;
+  border-radius: 10px;
+  background: #F8FBFF;
+  color: #53637F;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+.evidence-chunk-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  padding: 0 1.1rem 1.1rem;
+}
+.evidence-chunk-actions .evidence-action-link {
+  width: auto;
+  min-width: 160px;
+  padding: 0 0.8rem;
 }
 
 .doc-table-card {
@@ -2709,7 +2796,7 @@ body.pdf-modal-open {
 }
 .pdf-detail-row {
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr) minmax(88px, auto);
+  grid-template-columns: 20px minmax(118px, max-content) minmax(0, 1fr);
   gap: 0.48rem 0.65rem;
   align-items: center;
   padding: 0.43rem 0;
@@ -2728,12 +2815,16 @@ body.pdf-modal-open {
 .pdf-detail-label {
   color: #405072;
   font-weight: 750;
+  white-space: nowrap;
 }
 .pdf-detail-value {
   color: var(--navy);
   font-weight: 800;
+  min-width: 0;
   text-align: right;
-  word-break: break-word;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 .pdf-detail-value.is-yes {
   color: #1D7F3B;
@@ -4178,7 +4269,7 @@ def render_sidebar(stats: dict[str, Any]) -> str:
 <div class="side-card">
   <div class="side-card-title">Models</div>
   <div class="side-row"><span>LLM</span><span class="side-pill">{CHAT_MODEL}</span></div>
-  <div class="side-row"><span>Embeddings</span><span class="side-pill">3-small</span></div>
+  <div class="side-row"><span>Embeddings</span><span class="side-pill">{_embedding_model_short_label()}</span></div>
 </div>
 <div class="side-card">
   <div class="side-card-title">Ingestion status</div>
@@ -4410,6 +4501,22 @@ def _format_score(value: Any) -> str:
     return "n/a" if score is None else f"{score:.2f}"
 
 
+def _embedding_model_short_label() -> str:
+    return EMBEDDING_MODEL.replace("text-embedding-", "")
+
+
+def _source_page_label(source: dict[str, Any]) -> str:
+    page_range = str(source.get("page_range") or source.get("page_number") or "?")
+    label = "Pages" if "-" in page_range else "Page"
+    return f"{label} {page_range}"
+
+
+def _source_page_caption(source: dict[str, Any]) -> str:
+    page_range = str(source.get("page_range") or source.get("page_number") or "?")
+    prefix = "pp." if "-" in page_range else "p."
+    return f"{prefix}{page_range}"
+
+
 def _score_width(value: Any) -> int:
     score = _coerce_score(value)
     return 0 if score is None else int(score * 100)
@@ -4447,25 +4554,48 @@ def _source_modal_href(source: dict[str, Any], source_section: str = "Chat / Ans
     return f"?view_doc={target}&from_section={section}"
 
 
-def build_evidence_source_card_html(source: dict[str, Any], source_section: str = "Chat / Answer") -> str:
+def _source_pdf_modal_id(source: dict[str, Any]) -> str:
+    target = quote(_source_document_target(source), safe="")
+    return f"pdf-modal-{target}"
+
+
+def _evidence_chunk_modal_id(source: dict[str, Any], index: int) -> str:
+    target = _source_document_target(source)
+    chunk_id = str(source.get("chunk_id", "") or "chunk")
+    slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", f"{target}-{chunk_id}-{index}").strip("-")
+    return f"evidence-chunk-{slug or index}"
+
+
+def build_evidence_source_card_html(
+    source: dict[str, Any],
+    source_section: str = "Chat / Answer",
+    index: int = 0,
+) -> str:
     filename = str(source.get("source", "") or "").strip() or "Unknown source"
-    page = str(source.get("page_number", "") or "?")
+    page_label = _source_page_label(source)
     chunk_id = str(source.get("chunk_id", "") or "n/a")
     similarity = source.get("similarity")
     rerank = source.get("rerank_score")
     snippet = _truncate_text(source.get("text"))
-    href = _source_modal_href(source, source_section)
+    document_href = _source_modal_href(source, source_section)
+    pdf_modal_id = _source_pdf_modal_id(source)
+    modal_id = _evidence_chunk_modal_id(source, index)
     similarity_width = _score_width(similarity)
     rerank_width = _score_width(rerank)
     similarity_label = _format_score(similarity)
     rerank_label = _format_score(rerank)
+    chunk_text = str(source.get("text", "") or "").strip() or "No chunk text is available for this source."
+    chunk_meta = (
+        f"{filename} · {page_label} · Chunk {chunk_id} · "
+        f"Similarity {similarity_label} · Rerank {rerank_label}"
+    )
     return f"""
 <details class="evidence-source-card">
   <summary class="evidence-source-summary">
     <div class="evidence-pdf-badge">PDF</div>
     <div class="evidence-source-title-wrap">
       <div class="evidence-source-name" title="{html.escape(filename)}">{html.escape(filename)}</div>
-      <div class="evidence-source-meta">Page {html.escape(page)} &middot; Chunk {html.escape(chunk_id)}</div>
+      <div class="evidence-source-meta">{html.escape(page_label)} &middot; Chunk {html.escape(chunk_id)}</div>
       <div class="evidence-source-compact-meta">
         <span class="evidence-compact-score">Similarity <strong>{html.escape(similarity_label)}</strong></span>
         <span class="evidence-compact-score">Rerank <strong>{html.escape(rerank_label)}</strong></span>
@@ -4486,11 +4616,27 @@ def build_evidence_source_card_html(source: dict[str, Any], source_section: str 
     </div>
     <div class="evidence-snippet">{html.escape(snippet)}</div>
     <div class="evidence-source-actions">
-      <a class="evidence-action-link" href="{html.escape(href, quote=True)}" target="_self">Open source</a>
-      <a class="evidence-action-link is-primary" href="{html.escape(href, quote=True)}" target="_self">View document</a>
+      <button class="evidence-action-link" type="button" data-open-evidence-chunk="{html.escape(modal_id, quote=True)}">Open Chunk</button>
+      <a class="evidence-action-link is-primary" href="{html.escape(document_href, quote=True)}" target="_self" data-pdf-modal-target="{html.escape(pdf_modal_id, quote=True)}" data-pdf-modal-fallback="{html.escape(document_href, quote=True)}">View document</a>
     </div>
   </div>
 </details>
+<div id="{html.escape(modal_id, quote=True)}" class="pdf-modal-overlay evidence-chunk-modal-overlay is-hidden" aria-hidden="true" data-evidence-chunk-modal>
+  <div class="evidence-chunk-dialog" role="dialog" aria-modal="true" aria-labelledby="{html.escape(modal_id, quote=True)}-title">
+    <div class="evidence-chunk-header">
+      <div>
+        <div class="evidence-chunk-kicker">Selected evidence chunk</div>
+        <div id="{html.escape(modal_id, quote=True)}-title" class="evidence-chunk-title">{html.escape(filename)}</div>
+      </div>
+      <button class="pdf-modal-close" type="button" data-close-evidence-chunk aria-label="Close">&times;</button>
+    </div>
+    <div class="evidence-chunk-meta">{html.escape(chunk_meta)}</div>
+    <div class="evidence-chunk-copy">{html.escape(chunk_text)}</div>
+    <div class="evidence-chunk-actions">
+      <a class="evidence-action-link is-primary" href="{html.escape(document_href, quote=True)}" target="_self" data-pdf-modal-target="{html.escape(pdf_modal_id, quote=True)}" data-pdf-modal-fallback="{html.escape(document_href, quote=True)}" data-evidence-view-document>View full document</a>
+    </div>
+  </div>
+</div>
 """
 
 
@@ -4552,8 +4698,91 @@ def render_evidence_sources(sources: list[dict[str, Any]], source_section: str =
             unsafe_allow_html=True,
         )
         return
-    cards = "".join(build_evidence_source_card_html(source, source_section) for source in sources)
+    cards = "".join(
+        build_evidence_source_card_html(source, source_section, index)
+        for index, source in enumerate(sources)
+    )
     st.markdown(cards, unsafe_allow_html=True)
+    st.iframe(
+        """
+<script>
+(() => {
+  const parentDocument = window.parent.document;
+  const VERSION = "evidence-chunk-modal-v2";
+
+  const closeModal = (modal) => {
+    if (!modal) return;
+    modal.classList.add("is-hidden");
+    modal.setAttribute("aria-hidden", "true");
+    parentDocument.body.classList.remove("pdf-modal-open");
+  };
+
+  const openModal = (modalId) => {
+    const modal = parentDocument.getElementById(modalId);
+    if (!modal) return;
+    parentDocument.querySelectorAll("[data-evidence-chunk-modal]").forEach(closeModal);
+    modal.classList.remove("is-hidden");
+    modal.setAttribute("aria-hidden", "false");
+    parentDocument.body.classList.add("pdf-modal-open");
+    const closeButton = modal.querySelector("[data-close-evidence-chunk]");
+    if (closeButton && typeof closeButton.focus === "function") {
+      window.setTimeout(() => closeButton.focus({ preventScroll: true }), 20);
+    }
+  };
+
+  const handleClick = (event) => {
+    const openButton = event.target.closest("[data-open-evidence-chunk]");
+    if (openButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      openModal(openButton.getAttribute("data-open-evidence-chunk"));
+      return;
+    }
+
+    const documentLink = event.target.closest("[data-evidence-view-document]");
+    if (documentLink) {
+      closeModal(documentLink.closest("[data-evidence-chunk-modal]"));
+      return;
+    }
+
+    const closeButton = event.target.closest("[data-close-evidence-chunk]");
+    if (closeButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      closeModal(closeButton.closest("[data-evidence-chunk-modal]"));
+      return;
+    }
+
+    const modal = event.target.matches("[data-evidence-chunk-modal]") ? event.target : null;
+    if (modal) {
+      event.preventDefault();
+      event.stopPropagation();
+      closeModal(modal);
+    }
+  };
+
+  const handleKeydown = (event) => {
+    if (event.key !== "Escape") return;
+    const modal = parentDocument.querySelector("[data-evidence-chunk-modal]:not(.is-hidden)");
+    if (!modal) return;
+    event.preventDefault();
+    closeModal(modal);
+  };
+
+  if (parentDocument.__ragEvidenceChunkModalController) {
+    parentDocument.removeEventListener("click", parentDocument.__ragEvidenceChunkModalController.click, true);
+    parentDocument.removeEventListener("keydown", parentDocument.__ragEvidenceChunkModalController.keydown);
+  }
+  parentDocument.__ragEvidenceChunkModalController = { click: handleClick, keydown: handleKeydown, version: VERSION };
+  parentDocument.addEventListener("click", handleClick, true);
+  parentDocument.addEventListener("keydown", handleKeydown);
+  parentDocument.documentElement.dataset.evidenceChunkModalControllerVersion = VERSION;
+})();
+</script>
+""",
+        height=1,
+        width=1,
+    )
 
 
 def render_evidence_debug(debug: dict[str, Any] | None) -> None:
@@ -4813,7 +5042,7 @@ def render_sources_panel(sources: list[dict[str, Any]], title: str = "Sources us
                 f"""
 <div class="source-card">
   <div class="source-title">{html.escape(str(source.get("source", "Unknown source")))}</div>
-  <div class="source-meta">Page {html.escape(str(source.get("page_number", "?")))} · Chunk {html.escape(str(source.get("chunk_id", "")))}</div>
+  <div class="source-meta">{html.escape(_source_page_label(source))} · Chunk {html.escape(str(source.get("chunk_id", "")))}</div>
   <div class="source-meta">Similarity: {similarity if similarity is not None else "n/a"} · Rerank: {rerank if rerank is not None else "n/a"}</div>
   <div class="score-bar"><span style="width:{score_pct}%"></span></div>
   <p>{html.escape(snippet)}</p>
@@ -4862,14 +5091,14 @@ def render_debug_panel(debug: dict[str, Any]) -> None:
             st.markdown("**Top retrieved chunks**")
             for chunk in debug.get("retrieved_chunks", [])[:10]:
                 st.caption(
-                    f'{chunk.get("source")} p.{chunk.get("page_number")} · '
+                    f'{chunk.get("source")} {_source_page_caption(chunk)} · '
                     f'similarity {chunk.get("similarity")}'
                 )
         with col2:
             st.markdown("**Reranked chunks sent to model**")
             for chunk in debug.get("reranked_chunks", [])[:5]:
                 st.caption(
-                    f'{chunk.get("source")} p.{chunk.get("page_number")} · '
+                    f'{chunk.get("source")} {_source_page_caption(chunk)} · '
                     f'rerank {chunk.get("rerank_score")}'
                 )
         st.caption(

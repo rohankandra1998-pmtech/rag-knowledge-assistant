@@ -10,7 +10,7 @@ The app lets you upload PDFs, ingest them into a local vector database, ask conv
 flowchart LR
     A["PDFs in docs/ or uploaded_docs/"] --> B["pypdf page extraction"]
     B --> C["SemanticChunker"]
-    C --> D["OpenAI text-embedding-3-small"]
+    C --> D["OpenAI text-embedding-3-large"]
     D --> E["Persistent ChromaDB collection"]
     F["User question"] --> G["Query rewrite with gpt-4.1-mini"]
     G --> H["Vector retrieval top 10"]
@@ -27,8 +27,9 @@ flowchart LR
 - Duplicate prevention using SHA-256 document hashes.
 - Page-level PDF extraction with `pypdf`.
 - Semantic chunking with LangChain `SemanticChunker`.
+- Full adjacent-page overlap during ingestion so chunks can preserve context across page boundaries.
 - Fallback recursive character splitting if semantic chunking fails.
-- OpenAI `text-embedding-3-small` embeddings.
+- OpenAI `text-embedding-3-large` embeddings.
 - OpenAI `gpt-4.1-mini` for query rewriting, reranking, and answers.
 - Conversational memory using `st.session_state`.
 - Inline citations in the required `[source: filename.pdf, page 4, chunk abc]` format.
@@ -100,6 +101,8 @@ python -m streamlit run app.py
 
 Open the Documents section, upload PDFs if needed, then click **Ingest uploaded and docs folder**.
 
+The app uses full adjacent-page overlap during ingestion so chunks can preserve context across page boundaries.
+
 ## Run the App
 
 ```powershell
@@ -107,6 +110,8 @@ python -m streamlit run app.py
 ```
 
 The app loads the existing `rag_docs` collection from `chroma_db/`, so documents do not need to be re-ingested after every restart.
+
+Because the embedding model changed, the local ChromaDB index should be reset and documents re-ingested.
 
 ## Terminal Chat
 
@@ -122,7 +127,7 @@ Type `exit` to stop.
 
 1. The user asks a question.
 2. Recent chat history is used to rewrite follow-up questions into standalone queries.
-3. The standalone query is embedded with `text-embedding-3-small`.
+3. The standalone query is embedded with `text-embedding-3-large`.
 4. ChromaDB retrieves the top 10 similar chunks.
 5. `gpt-4.1-mini` reranks those chunks for relevance.
 6. The top chunks are sent to the answer prompt.

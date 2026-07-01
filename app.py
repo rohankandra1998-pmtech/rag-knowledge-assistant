@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import html
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -112,7 +113,7 @@ def clear_document_delete_result_state() -> None:
 
 
 def clear_stale_document_delete_query_params() -> None:
-    clear_document_query_params("confirm_delete_doc", "delete_doc", "view_doc", "from_section", "section")
+    clear_document_query_params("confirm_delete_doc", "delete_doc", "view_doc", "view_chunk", "chunk_id", "from_section", "section")
 
 
 def delete_result_matches_hash(result: dict[str, Any] | None, target: str) -> bool:
@@ -387,6 +388,31 @@ def format_file_size(size_bytes: Any) -> str:
     return f"{max(1, round(size / 1024)):,} KB"
 
 
+def format_chunking_strategy_label(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return "Semantic"
+
+    normalized = re.sub(r"([a-z])([A-Z])", r"\1 \2", raw)
+    normalized = re.sub(r"[_-]+", " ", normalized)
+    normalized = " ".join(normalized.split()).lower()
+    if not normalized:
+        return "Semantic"
+
+    known_labels = {
+        "semantic": "Semantic",
+        "recursive": "Recursive",
+        "semantic full adjacent page overlap": "Semantic full adjacent-page overlap",
+        "recursive full adjacent page overlap": "Recursive full adjacent-page overlap",
+    }
+    if normalized in known_labels:
+        return known_labels[normalized]
+
+    words = normalized.split()
+    words[0] = words[0].capitalize()
+    return " ".join(words)
+
+
 def format_ingested_timestamp(timestamp: Any) -> str:
     if not timestamp:
         return "Not available"
@@ -579,7 +605,7 @@ def get_query_param(name: str) -> str:
 
 
 def clear_modal_query_params(*, rerun: bool = False) -> None:
-    for name in ("view_doc", "from_section", "reingest_doc", "section"):
+    for name in ("view_doc", "view_chunk", "chunk_id", "from_section", "reingest_doc", "section"):
         try:
             if name in st.query_params:
                 del st.query_params[name]
@@ -1357,7 +1383,7 @@ def render_pdf_modal_shell(
     short_hash = document_hash[:12] if document_hash != "n/a" else "n/a"
     file_size = format_file_size(document.get("file_size") or (pdf_path.stat().st_size if pdf_path else 0))
     last_ingested = format_ingested_timestamp(document.get("last_ingested"))
-    chunking_strategy = str(document.get("chunking_strategy", "semantic") or "semantic").title()
+    chunking_strategy = format_chunking_strategy_label(document.get("chunking_strategy", "semantic"))
     page_label = f"{pages:,} page" if pages == 1 else f"{pages:,} pages"
     chunk_label = f"{chunks:,} chunk" if chunks == 1 else f"{chunks:,} chunks"
     pdf_uri = pdf_data_uri(pdf_path) if pdf_path else ""
@@ -2213,6 +2239,43 @@ def render_chat_composer() -> str | None:
     return None
 
 
+def documents_for_evidence_sources(stats: dict[str, Any], message: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not message:
+        return []
+
+    sources = message.get("sources", []) or []
+    if not sources:
+        return []
+
+    documents = stats.get("documents", []) or []
+    by_hash = {
+        str(document.get("document_hash", "") or "").strip(): document
+        for document in documents
+        if str(document.get("document_hash", "") or "").strip()
+    }
+    by_filename = {
+        str(document.get("filename", "") or "").strip(): document
+        for document in documents
+        if str(document.get("filename", "") or "").strip()
+    }
+
+    matched: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for source in sources:
+        document_hash = str(source.get("document_hash", "") or "").strip()
+        filename = str(source.get("source", "") or "").strip()
+        document = by_hash.get(document_hash) or by_filename.get(filename)
+        if not document:
+            continue
+        key = str(document.get("document_hash", "") or document.get("filename", "") or "")
+        if key in seen:
+            continue
+        seen.add(key)
+        matched.append(document)
+
+    return matched
+
+
 def render_chat_screen(stats: dict[str, Any]) -> None:
     st.markdown(
         '<div class="chat-section-head"><div class="section-title">Chat / Answer</div><div class="chat-section-rule"></div></div>',
@@ -2250,6 +2313,8 @@ def render_chat_screen(stats: dict[str, Any]) -> None:
     with evidence_col:
         with st.container(key="chat_evidence_panel_shell"):
             render_chat_evidence_panel(selected_message, selected_mode)
+
+    render_client_pdf_modals(documents_for_evidence_sources(stats, selected_message), "Chat / Answer")
 
 
 def format_storage_estimate(value_mb: Any) -> str:
@@ -2593,7 +2658,7 @@ def selected_document_panel_markup(document: dict[str, Any] | None) -> str:
     last_ingested = format_ingested_timestamp(document.get("last_ingested"))
     document_hash = str(document.get("document_hash", "") or "")
     short_hash = document_hash[:12] if document_hash else "n/a"
-    chunking = str(document.get("chunking_strategy", "Semantic") or "Semantic").title()
+    chunking = format_chunking_strategy_label(document.get("chunking_strategy", "Semantic"))
     location = get_document_location_label(document)
     target = quote(document_hash or filename, safe="")
     delete_href = f"?section=Documents&delete_doc={target}&selected_doc={target}"

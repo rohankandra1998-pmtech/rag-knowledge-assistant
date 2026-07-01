@@ -21,8 +21,10 @@ CHROMA_DB_DIR = "chroma_db"
 COLLECTION_NAME = "rag_docs"
 DOCS_DIR = "docs"
 UPLOADED_DOCS_DIR = "uploaded_docs"
-EMBEDDING_MODEL = "text-embedding-3-small"
+EMBEDDING_MODEL = "text-embedding-3-large"
 CHAT_MODEL = "gpt-4.1-mini"
+CROSS_PAGE_CONTEXT_MODE = "full_adjacent_pages"
+MAX_ADJACENT_PAGE_CONTEXT_CHARS = 4000
 
 
 def load_env() -> None:
@@ -169,6 +171,143 @@ def _fallback_character_chunks(text: str) -> list[str]:
     return splitter.split_text(text)
 
 
+def _format_page_range(start_page: int, end_page: int) -> str:
+    if start_page == end_page:
+        return str(start_page)
+    return f"{start_page}-{end_page}"
+
+
+def _trim_previous_page_context(text: str, max_chars: int) -> str:
+    cleaned = text.strip()
+    if len(cleaned) <= max_chars:
+        return cleaned
+    return cleaned[-max_chars:].strip()
+
+
+def _trim_next_page_context(text: str, max_chars: int) -> str:
+    cleaned = text.strip()
+    if len(cleaned) <= max_chars:
+        return cleaned
+    return cleaned[:max_chars].strip()
+
+
+def _page_context_window(pages: list[dict[str, Any]], index: int) -> dict[str, Any]:
+    page = pages[index]
+    primary_page = int(page["page_number"])
+    sections: list[tuple[int, str, str]] = []
+
+    if index > 0:
+        previous_page = pages[index - 1]
+        previous_page_number = int(previous_page["page_number"])
+        previous_text = _trim_previous_page_context(
+            str(previous_page.get("text", "")),
+            MAX_ADJACENT_PAGE_CONTEXT_CHARS,
+        )
+        if previous_text:
+            sections.append(
+                (
+                    previous_page_number,
+                    f"[Previous page context: page {previous_page_number}]",
+                    previous_text,
+                )
+            )
+
+    current_text = str(page.get("text", "")).strip()
+    sections.append((primary_page, f"[Current page: page {primary_page}]", current_text))
+
+    if index + 1 < len(pages):
+        next_page = pages[index + 1]
+        next_page_number = int(next_page["page_number"])
+        next_text = _trim_next_page_context(
+            str(next_page.get("text", "")),
+            MAX_ADJACENT_PAGE_CONTEXT_CHARS,
+        )
+        if next_text:
+            sections.append((next_page_number, f"[Next page context: page {next_page_number}]", next_text))
+
+    represented_pages = [page_number for page_number, _, text in sections if text.strip()]
+    start_page = min(represented_pages) if represented_pages else primary_page
+    end_page = max(represented_pages) if represented_pages else primary_page
+    combined_text = "\n\n".join(
+        f"{marker}\n{text.strip()}"
+        for _, marker, text in sections
+        if text.strip()
+    )
+
+    return {
+        "text": combined_text,
+        "primary_page": primary_page,
+        "page_number": primary_page,
+        "start_page": start_page,
+        "end_page": end_page,
+        "page_range": _format_page_range(start_page, end_page),
+        "included_previous_page_context": index > 0 and any(
+            marker.startswith("[Previous page context") and text.strip()
+            for _, marker, text in sections
+        ),
+        "included_next_page_context": index + 1 < len(pages) and any(
+            marker.startswith("[Next page context") and text.strip()
+            for _, marker, text in sections
+        ),
+        "current_page_text": current_text,
+    }
+
+
+def _normalized_chunk_text(text: str) -> str:
+    text = re.sub(r"\[(?:Previous page context|Current page|Next page context): page \d+\]", " ", text)
+    return " ".join(text.split()).casefold()
+
+
+def _chunk_has_current_page_context(chunk_text: str, current_page_text: str, primary_page: int) -> bool:
+    cleaned = chunk_text.strip()
+    if not cleaned:
+        return False
+
+    current_marker = f"[Current page: page {primary_page}]".casefold()
+    if current_marker in cleaned.casefold():
+        return True
+
+    chunk_core = _normalized_chunk_text(cleaned)
+    current_core = " ".join(current_page_text.split()).casefold()
+    if not chunk_core or not current_core:
+        return False
+
+    if len(chunk_core) >= 25 and chunk_core in current_core:
+        return True
+
+    current_fragments = [
+        " ".join(fragment.split()).casefold()
+        for fragment in re.split(r"(?:\n+|(?<=[.!?])\s+)", current_page_text)
+    ]
+    for fragment in current_fragments:
+        if len(fragment) >= 25 and fragment in chunk_core:
+            return True
+
+    current_words = {word for word in re.findall(r"\w+", current_core) if len(word) > 2}
+    chunk_words = {word for word in re.findall(r"\w+", chunk_core) if len(word) > 2}
+    if current_words and chunk_words:
+        overlap = current_words & chunk_words
+        required_overlap = min(4, max(1, len(chunk_words) // 2))
+        if len(overlap) >= required_overlap and len(overlap) / len(chunk_words) >= 0.45:
+            return True
+
+    return False
+
+
+def _chunk_from_window(window: dict[str, Any], text: str, chunking_strategy: str) -> dict[str, Any]:
+    return {
+        "source": window.get("source", ""),
+        "page_number": int(window["primary_page"]),
+        "primary_page": int(window["primary_page"]),
+        "start_page": int(window["start_page"]),
+        "end_page": int(window["end_page"]),
+        "page_range": str(window["page_range"]),
+        "text": text.strip(),
+        "chunking_strategy": chunking_strategy,
+        "cross_page_context_mode": CROSS_PAGE_CONTEXT_MODE,
+    }
+
+
 def semantic_chunk_text(pages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
     Split page text into meaning-aware chunks.
@@ -191,19 +330,32 @@ def semantic_chunk_text(pages: list[dict[str, Any]]) -> list[dict[str, Any]]:
             breakpoint_threshold_amount=75,
         )
 
-        for page in pages:
-            page_chunks = splitter.split_text(page["text"])
+        for page_index, page in enumerate(pages):
+            window = _page_context_window(pages, page_index)
+            window["source"] = page.get("source", "")
+            page_chunks = splitter.split_text(window["text"])
             for text in page_chunks:
                 cleaned = text.strip()
-                if cleaned:
-                    chunks.append({**page, "text": cleaned, "chunking_strategy": "semantic"})
+                if cleaned and _chunk_has_current_page_context(
+                    cleaned,
+                    str(window.get("current_page_text", "")),
+                    int(window["primary_page"]),
+                ):
+                    chunks.append(_chunk_from_window(window, cleaned, "semantic_full_adjacent_page_overlap"))
 
     except Exception:
-        for page in pages:
-            for text in _fallback_character_chunks(page["text"]):
+        chunks = []
+        for page_index, page in enumerate(pages):
+            window = _page_context_window(pages, page_index)
+            window["source"] = page.get("source", "")
+            for text in _fallback_character_chunks(window["text"]):
                 cleaned = text.strip()
-                if cleaned:
-                    chunks.append({**page, "text": cleaned, "chunking_strategy": "recursive"})
+                if cleaned and _chunk_has_current_page_context(
+                    cleaned,
+                    str(window.get("current_page_text", "")),
+                    int(window["primary_page"]),
+                ):
+                    chunks.append(_chunk_from_window(window, cleaned, "recursive_full_adjacent_page_overlap"))
 
     return chunks
 
@@ -341,11 +493,17 @@ def ingest_pdf(
             {
                 "source": path.name,
                 "page_number": int(chunk["page_number"]),
+                "primary_page": int(chunk.get("primary_page", chunk["page_number"])),
+                "start_page": int(chunk.get("start_page", chunk["page_number"])),
+                "end_page": int(chunk.get("end_page", chunk["page_number"])),
+                "page_range": str(chunk.get("page_range", chunk["page_number"])),
                 "chunk_id": chunk_id,
                 "chunk_index": int(index),
                 "document_hash": document_hash,
                 "ingestion_timestamp": ingestion_timestamp,
                 "chunking_strategy": chunk.get("chunking_strategy", "semantic"),
+                "embedding_model": EMBEDDING_MODEL,
+                "cross_page_context_mode": chunk.get("cross_page_context_mode", CROSS_PAGE_CONTEXT_MODE),
                 "file_size": int(file_size),
                 "status": "Indexed",
             }
@@ -494,6 +652,12 @@ def retrieve_context_with_usage(
                 "text": document,
                 "source": metadata.get("source", "Unknown source"),
                 "page_number": metadata.get("page_number", "?"),
+                "primary_page": metadata.get("primary_page", metadata.get("page_number", "?")),
+                "start_page": metadata.get("start_page", metadata.get("page_number", "?")),
+                "end_page": metadata.get("end_page", metadata.get("page_number", "?")),
+                "page_range": metadata.get("page_range", str(metadata.get("page_number", "?"))),
+                "embedding_model": metadata.get("embedding_model", ""),
+                "cross_page_context_mode": metadata.get("cross_page_context_mode", ""),
                 "chunk_id": chunk_id,
                 "document_hash": metadata.get("document_hash", ""),
                 "similarity": similarity,
@@ -536,7 +700,8 @@ def rerank_chunks_with_usage(
         {
             "chunk_id": chunk["chunk_id"],
             "source": chunk["source"],
-            "page": chunk["page_number"],
+            "page": chunk.get("primary_page", chunk["page_number"]),
+            "page_range": chunk.get("page_range", str(chunk["page_number"])),
             "text": chunk["text"][:1400],
         }
         for chunk in chunks
@@ -597,12 +762,14 @@ def rerank_chunks_with_usage(
 def build_rag_prompt(query: str, context_chunks: list[dict[str, Any]]) -> list[dict[str, str]]:
     context_blocks = []
     for index, chunk in enumerate(context_chunks, start=1):
+        page_range = str(chunk.get("page_range") or chunk.get("page_number", "?"))
+        page_label = "pages" if "-" in page_range else "page"
         context_blocks.append(
             "\n".join(
                 [
                     f"[Context {index}]",
                     f"source: {chunk['source']}",
-                    f"page: {chunk['page_number']}",
+                    f"{page_label}: {page_range}",
                     f"chunk: {chunk['chunk_id']}",
                     "text:",
                     chunk["text"],
@@ -617,7 +784,7 @@ Rules:
 - Answer only from the retrieved document context.
 - Do not use outside knowledge.
 - If the answer is not present in the context, say: "I don't know based on the uploaded documents."
-- Cite factual claims inline using this format: [source: filename.pdf, page 4, chunk abc-0001].
+- Cite factual claims inline using either [source: filename.pdf, page 4, chunk abc-0001] or [source: filename.pdf, pages 4-5, chunk abc-0001].
 - Cite only sources you actually use.
 - If sources are incomplete or disagree, say so clearly.
 - Be concise, helpful, and specific.
@@ -755,9 +922,15 @@ def get_collection_stats(collection=None) -> dict[str, Any]:
                     "last_ingested": metadata.get("ingestion_timestamp", ""),
                     "file_size": int(metadata.get("file_size", 0) or 0),
                     "chunking_strategy": metadata.get("chunking_strategy", "semantic"),
+                    "embedding_model": metadata.get("embedding_model", ""),
+                    "cross_page_context_mode": metadata.get("cross_page_context_mode", ""),
                 },
             )
             doc["chunks"] += 1
+            if metadata.get("embedding_model") and not doc.get("embedding_model"):
+                doc["embedding_model"] = metadata.get("embedding_model", "")
+            if metadata.get("cross_page_context_mode") and not doc.get("cross_page_context_mode"):
+                doc["cross_page_context_mode"] = metadata.get("cross_page_context_mode", "")
             try:
                 doc["pages"] = max(int(doc["pages"]), int(metadata.get("page_number", 0) or 0))
             except ValueError:
