@@ -587,44 +587,6 @@ def get_pdf_modal_document(stats: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
-def _source_document_target(source: dict[str, Any]) -> str:
-    document_hash = str(source.get("document_hash", "") or "").strip()
-    filename = str(source.get("source", "") or "").strip()
-    return document_hash or filename
-
-
-def _source_matches_target(source: dict[str, Any], target: str) -> bool:
-    selected = unquote(target or "").strip()
-    if not selected:
-        return False
-    document_hash = str(source.get("document_hash", "") or "").strip()
-    filename = str(source.get("source", "") or "").strip()
-    return selected in {document_hash, filename}
-
-
-def find_evidence_chunk_from_query() -> tuple[dict[str, Any] | None, str, str]:
-    target = get_query_param("view_chunk")
-    chunk_id = unquote(get_query_param("chunk_id")).strip()
-    if not target:
-        return None, "", chunk_id
-
-    for message_index in range(len(st.session_state.messages) - 1, -1, -1):
-        message = st.session_state.messages[message_index]
-        if message.get("role") != "assistant":
-            continue
-        for source in message.get("sources", []) or []:
-            source_chunk_id = str(source.get("chunk_id", "") or "").strip()
-            if chunk_id and source_chunk_id != chunk_id:
-                continue
-            if not _source_matches_target(source, target):
-                continue
-            st.session_state.chat_evidence_message_index = message_index
-            st.session_state.chat_evidence_mode = "sources"
-            return source, _source_document_target(source), chunk_id
-
-    return None, unquote(target).strip(), chunk_id
-
-
 def pdf_modal_id(document: dict[str, Any]) -> str:
     filename = str(document.get("filename", "") or "document")
     document_hash = str(document.get("document_hash", "") or "").strip()
@@ -665,7 +627,7 @@ def consume_navigation_query_param() -> None:
 
 
 def apply_modal_source_section() -> None:
-    if not get_query_param("view_doc") and not get_query_param("view_chunk"):
+    if not get_query_param("view_doc"):
         return
     source_section = get_query_param("from_section")
     if source_section in REMOVED_NAV_SECTIONS:
@@ -1618,88 +1580,6 @@ def render_pdf_modal_shell(
 def render_pdf_preview_dialog(document: dict[str, Any]) -> None:
     pdf_path = resolve_source_pdf_path(document)
     render_pdf_modal_shell(document, pdf_path)
-
-
-def format_source_score(value: Any) -> str:
-    try:
-        score = float(value)
-    except (TypeError, ValueError):
-        return "n/a"
-    return f"{max(0.0, min(1.0, score)):.2f}"
-
-
-def _source_page_label(source: dict[str, Any]) -> str:
-    page_range = str(source.get("page_range") or source.get("page_number") or "?")
-    label = "Pages" if "-" in page_range else "Page"
-    return f"{label} {page_range}"
-
-
-def render_evidence_chunk_modal(source: dict[str, Any] | None, target: str, chunk_id: str) -> None:
-    source_section = get_query_param("from_section")
-    if source_section not in NAV_SECTIONS:
-        source_section = DEFAULT_NAV_SECTION
-    close_href = f"?section={quote(source_section, safe='')}"
-    document_target = _source_document_target(source or {}) or target
-    document_href = (
-        f"?view_doc={quote(document_target, safe='')}&from_section={quote(source_section, safe='')}"
-        if document_target
-        else close_href
-    )
-
-    if not source:
-        message = (
-            "Chunk not found in the current chat session. Open the full document instead, "
-            "or reselect the answer whose evidence you want to inspect."
-        )
-        modal_html = f"""
-<div class="pdf-modal-overlay evidence-chunk-modal-overlay">
-  <div class="evidence-chunk-dialog">
-    <div class="evidence-chunk-header">
-      <div>
-        <div class="evidence-chunk-kicker">Selected evidence chunk</div>
-        <div class="evidence-chunk-title">Chunk not found</div>
-      </div>
-      <a class="pdf-modal-close" href="{html.escape(close_href, quote=True)}" target="_self" aria-label="Close">&times;</a>
-    </div>
-    <div class="evidence-chunk-empty">{html.escape(message)}</div>
-    <div class="evidence-chunk-actions">
-      <a class="evidence-action-link is-primary" href="{html.escape(document_href, quote=True)}" target="_self">View full document</a>
-    </div>
-  </div>
-</div>
-"""
-        st.markdown(modal_html, unsafe_allow_html=True)
-        return
-
-    filename = str(source.get("source", "") or "Unknown source")
-    page_label = _source_page_label(source)
-    resolved_chunk_id = str(source.get("chunk_id", "") or chunk_id or "n/a")
-    similarity = format_source_score(source.get("similarity"))
-    rerank = format_source_score(source.get("rerank_score"))
-    chunk_text = str(source.get("text", "") or "").strip() or "No chunk text is available for this source."
-    metadata = (
-        f"{filename} · {page_label} · Chunk {resolved_chunk_id} · "
-        f"Similarity {similarity} · Rerank {rerank}"
-    )
-    modal_html = f"""
-<div class="pdf-modal-overlay evidence-chunk-modal-overlay">
-  <div class="evidence-chunk-dialog">
-    <div class="evidence-chunk-header">
-      <div>
-        <div class="evidence-chunk-kicker">Selected evidence chunk</div>
-        <div class="evidence-chunk-title">{html.escape(filename)}</div>
-      </div>
-      <a class="pdf-modal-close" href="{html.escape(close_href, quote=True)}" target="_self" aria-label="Close">&times;</a>
-    </div>
-    <div class="evidence-chunk-meta">{html.escape(metadata)}</div>
-    <div class="evidence-chunk-copy">{html.escape(chunk_text)}</div>
-    <div class="evidence-chunk-actions">
-      <a class="evidence-action-link is-primary" href="{html.escape(document_href, quote=True)}" target="_self">View full document</a>
-    </div>
-  </div>
-</div>
-"""
-    st.markdown(modal_html, unsafe_allow_html=True)
 
 
 def render_client_pdf_modal_controller() -> None:
@@ -3252,9 +3132,6 @@ def main() -> None:
         render_pdf_preview_dialog(selected_document)
     elif get_query_param("view_doc"):
         clear_modal_query_params(rerun=True)
-    elif get_query_param("view_chunk"):
-        selected_chunk, chunk_target, chunk_id = find_evidence_chunk_from_query()
-        render_evidence_chunk_modal(selected_chunk, chunk_target, chunk_id)
     elif section_changed:
         scroll_page_to_top()
 

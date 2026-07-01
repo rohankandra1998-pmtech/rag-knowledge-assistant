@@ -1596,9 +1596,15 @@ html, body, [class*="css"] {
   border-radius: 7px;
   background: #FFFFFF;
   color: var(--blue) !important;
+  cursor: pointer;
+  font-family: inherit;
   font-size: 0.76rem;
   font-weight: 900;
   text-decoration: none !important;
+}
+button.evidence-action-link {
+  width: 100%;
+  padding: 0;
 }
 .evidence-action-link.is-primary {
   background: #F6FAFF;
@@ -4548,14 +4554,18 @@ def _source_modal_href(source: dict[str, Any], source_section: str = "Chat / Ans
     return f"?view_doc={target}&from_section={section}"
 
 
-def _source_chunk_href(source: dict[str, Any], source_section: str = "Chat / Answer") -> str:
-    target = quote(_source_document_target(source), safe="")
-    chunk_id = quote(str(source.get("chunk_id", "") or ""), safe="")
-    section = quote(source_section, safe="")
-    return f"?view_chunk={target}&chunk_id={chunk_id}&from_section={section}"
+def _evidence_chunk_modal_id(source: dict[str, Any], index: int) -> str:
+    target = _source_document_target(source)
+    chunk_id = str(source.get("chunk_id", "") or "chunk")
+    slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", f"{target}-{chunk_id}-{index}").strip("-")
+    return f"evidence-chunk-{slug or index}"
 
 
-def build_evidence_source_card_html(source: dict[str, Any], source_section: str = "Chat / Answer") -> str:
+def build_evidence_source_card_html(
+    source: dict[str, Any],
+    source_section: str = "Chat / Answer",
+    index: int = 0,
+) -> str:
     filename = str(source.get("source", "") or "").strip() or "Unknown source"
     page_label = _source_page_label(source)
     chunk_id = str(source.get("chunk_id", "") or "n/a")
@@ -4563,11 +4573,16 @@ def build_evidence_source_card_html(source: dict[str, Any], source_section: str 
     rerank = source.get("rerank_score")
     snippet = _truncate_text(source.get("text"))
     document_href = _source_modal_href(source, source_section)
-    chunk_href = _source_chunk_href(source, source_section)
+    modal_id = _evidence_chunk_modal_id(source, index)
     similarity_width = _score_width(similarity)
     rerank_width = _score_width(rerank)
     similarity_label = _format_score(similarity)
     rerank_label = _format_score(rerank)
+    chunk_text = str(source.get("text", "") or "").strip() or "No chunk text is available for this source."
+    chunk_meta = (
+        f"{filename} · {page_label} · Chunk {chunk_id} · "
+        f"Similarity {similarity_label} · Rerank {rerank_label}"
+    )
     return f"""
 <details class="evidence-source-card">
   <summary class="evidence-source-summary">
@@ -4595,11 +4610,27 @@ def build_evidence_source_card_html(source: dict[str, Any], source_section: str 
     </div>
     <div class="evidence-snippet">{html.escape(snippet)}</div>
     <div class="evidence-source-actions">
-      <a class="evidence-action-link" href="{html.escape(chunk_href, quote=True)}" target="_self">Open Chunk</a>
+      <button class="evidence-action-link" type="button" data-open-evidence-chunk="{html.escape(modal_id, quote=True)}">Open Chunk</button>
       <a class="evidence-action-link is-primary" href="{html.escape(document_href, quote=True)}" target="_self">View document</a>
     </div>
   </div>
 </details>
+<div id="{html.escape(modal_id, quote=True)}" class="pdf-modal-overlay evidence-chunk-modal-overlay is-hidden" aria-hidden="true" data-evidence-chunk-modal>
+  <div class="evidence-chunk-dialog" role="dialog" aria-modal="true" aria-labelledby="{html.escape(modal_id, quote=True)}-title">
+    <div class="evidence-chunk-header">
+      <div>
+        <div class="evidence-chunk-kicker">Selected evidence chunk</div>
+        <div id="{html.escape(modal_id, quote=True)}-title" class="evidence-chunk-title">{html.escape(filename)}</div>
+      </div>
+      <button class="pdf-modal-close" type="button" data-close-evidence-chunk aria-label="Close">&times;</button>
+    </div>
+    <div class="evidence-chunk-meta">{html.escape(chunk_meta)}</div>
+    <div class="evidence-chunk-copy">{html.escape(chunk_text)}</div>
+    <div class="evidence-chunk-actions">
+      <a class="evidence-action-link is-primary" href="{html.escape(document_href, quote=True)}" target="_self">View full document</a>
+    </div>
+  </div>
+</div>
 """
 
 
@@ -4661,8 +4692,85 @@ def render_evidence_sources(sources: list[dict[str, Any]], source_section: str =
             unsafe_allow_html=True,
         )
         return
-    cards = "".join(build_evidence_source_card_html(source, source_section) for source in sources)
+    cards = "".join(
+        build_evidence_source_card_html(source, source_section, index)
+        for index, source in enumerate(sources)
+    )
     st.markdown(cards, unsafe_allow_html=True)
+    st.iframe(
+        """
+<script>
+(() => {
+  const parentDocument = window.parent.document;
+  const VERSION = "evidence-chunk-modal-v2";
+
+  const closeModal = (modal) => {
+    if (!modal) return;
+    modal.classList.add("is-hidden");
+    modal.setAttribute("aria-hidden", "true");
+    parentDocument.body.classList.remove("pdf-modal-open");
+  };
+
+  const openModal = (modalId) => {
+    const modal = parentDocument.getElementById(modalId);
+    if (!modal) return;
+    parentDocument.querySelectorAll("[data-evidence-chunk-modal]").forEach(closeModal);
+    modal.classList.remove("is-hidden");
+    modal.setAttribute("aria-hidden", "false");
+    parentDocument.body.classList.add("pdf-modal-open");
+    const closeButton = modal.querySelector("[data-close-evidence-chunk]");
+    if (closeButton && typeof closeButton.focus === "function") {
+      window.setTimeout(() => closeButton.focus({ preventScroll: true }), 20);
+    }
+  };
+
+  const handleClick = (event) => {
+    const openButton = event.target.closest("[data-open-evidence-chunk]");
+    if (openButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      openModal(openButton.getAttribute("data-open-evidence-chunk"));
+      return;
+    }
+
+    const closeButton = event.target.closest("[data-close-evidence-chunk]");
+    if (closeButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      closeModal(closeButton.closest("[data-evidence-chunk-modal]"));
+      return;
+    }
+
+    const modal = event.target.matches("[data-evidence-chunk-modal]") ? event.target : null;
+    if (modal) {
+      event.preventDefault();
+      event.stopPropagation();
+      closeModal(modal);
+    }
+  };
+
+  const handleKeydown = (event) => {
+    if (event.key !== "Escape") return;
+    const modal = parentDocument.querySelector("[data-evidence-chunk-modal]:not(.is-hidden)");
+    if (!modal) return;
+    event.preventDefault();
+    closeModal(modal);
+  };
+
+  if (parentDocument.__ragEvidenceChunkModalController) {
+    parentDocument.removeEventListener("click", parentDocument.__ragEvidenceChunkModalController.click, true);
+    parentDocument.removeEventListener("keydown", parentDocument.__ragEvidenceChunkModalController.keydown);
+  }
+  parentDocument.__ragEvidenceChunkModalController = { click: handleClick, keydown: handleKeydown, version: VERSION };
+  parentDocument.addEventListener("click", handleClick, true);
+  parentDocument.addEventListener("keydown", handleKeydown);
+  parentDocument.documentElement.dataset.evidenceChunkModalControllerVersion = VERSION;
+})();
+</script>
+""",
+        height=1,
+        width=1,
+    )
 
 
 def render_evidence_debug(debug: dict[str, Any] | None) -> None:
