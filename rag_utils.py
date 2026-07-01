@@ -4,7 +4,9 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -21,10 +23,16 @@ CHROMA_DB_DIR = "chroma_db"
 COLLECTION_NAME = "rag_docs"
 DOCS_DIR = "docs"
 UPLOADED_DOCS_DIR = "uploaded_docs"
+RUNTIME_SESSIONS_DIR = "runtime_sessions"
 EMBEDDING_MODEL = "text-embedding-3-large"
 CHAT_MODEL = "gpt-4.1-mini"
 CROSS_PAGE_CONTEXT_MODE = "full_adjacent_pages"
 MAX_ADJACENT_PAGE_CONTEXT_CHARS = 4000
+SESSION_STORAGE_MODE = "session"
+LOCAL_STORAGE_MODE = "local"
+SESSION_TTL_SECONDS = 24 * 60 * 60
+
+_CLI_SESSION_ID = ""
 
 
 def load_env() -> None:
@@ -47,17 +55,122 @@ def load_env() -> None:
         os.environ.setdefault(key, value)
 
 
+def get_runtime_secret(name: str, default: str = "") -> str:
+    """Read a secret from env first, then Streamlit secrets when available."""
+    load_env()
+    value = os.getenv(name)
+    if value:
+        return value
+
+    try:
+        import streamlit as st
+
+        secret_value = st.secrets.get(name, default)
+        return str(secret_value) if secret_value else default
+    except Exception:
+        return default
+
+
+def get_storage_mode() -> str:
+    mode = get_runtime_secret("RAG_STORAGE_MODE", LOCAL_STORAGE_MODE).strip().lower()
+    return SESSION_STORAGE_MODE if mode == SESSION_STORAGE_MODE else LOCAL_STORAGE_MODE
+
+
+def is_session_storage_mode() -> bool:
+    return get_storage_mode() == SESSION_STORAGE_MODE
+
+
+def get_session_id() -> str:
+    global _CLI_SESSION_ID
+    if not is_session_storage_mode():
+        return ""
+
+    try:
+        import streamlit as st
+
+        session_id = str(st.session_state.get("rag_session_id", "") or "").strip()
+        if not session_id:
+            session_id = uuid.uuid4().hex
+            st.session_state["rag_session_id"] = session_id
+        return session_id
+    except Exception:
+        if not _CLI_SESSION_ID:
+            _CLI_SESSION_ID = uuid.uuid4().hex
+        return _CLI_SESSION_ID
+
+
+def get_active_docs_dir() -> Path:
+    return Path(DOCS_DIR)
+
+
+def get_session_root_dir(session_id: str | None = None) -> Path:
+    active_session_id = session_id or get_session_id()
+    return Path(RUNTIME_SESSIONS_DIR) / active_session_id
+
+
+def get_active_uploaded_docs_dir() -> Path:
+    if is_session_storage_mode():
+        return get_session_root_dir() / UPLOADED_DOCS_DIR
+    return Path(UPLOADED_DOCS_DIR)
+
+
+def get_active_chroma_db_dir() -> Path:
+    if is_session_storage_mode():
+        return get_session_root_dir() / CHROMA_DB_DIR
+    return Path(CHROMA_DB_DIR)
+
+
+def get_active_collection_name() -> str:
+    return COLLECTION_NAME
+
+
 def ensure_project_dirs() -> None:
-    for folder in (DOCS_DIR, UPLOADED_DOCS_DIR, CHROMA_DB_DIR):
-        Path(folder).mkdir(parents=True, exist_ok=True)
+    for folder in (get_active_docs_dir(), get_active_uploaded_docs_dir(), get_active_chroma_db_dir()):
+        folder.mkdir(parents=True, exist_ok=True)
+
+
+def cleanup_old_session_folders(
+    *,
+    current_session_id: str | None = None,
+    max_age_seconds: int = SESSION_TTL_SECONDS,
+) -> list[Path]:
+    if not is_session_storage_mode():
+        return []
+
+    root = Path(RUNTIME_SESSIONS_DIR)
+    if not root.exists():
+        return []
+
+    active_session_id = current_session_id or get_session_id()
+    cutoff = time.time() - max_age_seconds
+    deleted: list[Path] = []
+    protected_roots = {
+        Path(DOCS_DIR).resolve(),
+        Path(UPLOADED_DOCS_DIR).resolve(),
+        Path(CHROMA_DB_DIR).resolve(),
+    }
+
+    for candidate in root.iterdir():
+        if not candidate.is_dir() or candidate.name == active_session_id:
+            continue
+        try:
+            resolved = candidate.resolve()
+            if resolved in protected_roots or root.resolve() not in resolved.parents:
+                continue
+            if candidate.stat().st_mtime >= cutoff:
+                continue
+            shutil.rmtree(candidate)
+            deleted.append(candidate)
+        except Exception:
+            continue
+    return deleted
 
 
 def get_openai_client():
-    load_env()
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = get_runtime_secret("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError(
-            "OPENAI_API_KEY is not set. Create a .env file from .env.example and add your key."
+            "OPENAI_API_KEY is not set. Add it to .env locally or Streamlit Cloud secrets."
         )
     try:
         from openai import OpenAI
@@ -71,9 +184,9 @@ def get_openai_client():
 
 def get_chroma_collection():
     ensure_project_dirs()
-    client = chromadb.PersistentClient(path=CHROMA_DB_DIR)
+    client = chromadb.PersistentClient(path=str(get_active_chroma_db_dir()))
     return client.get_or_create_collection(
-        name=COLLECTION_NAME,
+        name=get_active_collection_name(),
         metadata={"hnsw:space": "cosine"},
     )
 
@@ -959,12 +1072,12 @@ def get_collection_stats(collection=None) -> dict[str, Any]:
 
 def reset_vector_db():
     ensure_project_dirs()
-    client = chromadb.PersistentClient(path=CHROMA_DB_DIR)
+    client = chromadb.PersistentClient(path=str(get_active_chroma_db_dir()))
     try:
-        client.delete_collection(COLLECTION_NAME)
+        client.delete_collection(get_active_collection_name())
     except Exception:
         pass
     return client.get_or_create_collection(
-        name=COLLECTION_NAME,
+        name=get_active_collection_name(),
         metadata={"hnsw:space": "cosine"},
     )

@@ -113,6 +113,23 @@ The app loads the existing `rag_docs` collection from `chroma_db/`, so documents
 
 Because the embedding model changed, the local ChromaDB index should be reset and documents re-ingested.
 
+## Deploy on Streamlit Community Cloud
+
+Use `app.py` as the Streamlit main file path. Select Python `3.12` if it is available.
+
+Add these required Streamlit Cloud secrets:
+
+```toml
+OPENAI_API_KEY="your_openai_api_key_here"
+RAG_STORAGE_MODE="session"
+```
+
+Do not commit `.env` or `.streamlit/secrets.toml`. The OpenAI key is used server-side and should never be shown in the UI.
+
+Public Streamlit deployment uses temporary session-isolated uploaded docs and ChromaDB storage. Each visitor uploads and ingests their own PDFs, and documents are not intended to persist permanently in Streamlit Community Cloud demo mode.
+
+Local development remains unchanged by default: it uses persistent local `chroma_db/`, `uploaded_docs/`, `docs/`, and the `rag_docs` collection. For production-grade persistence later, add authentication plus hosted file storage and a hosted vector database.
+
 ## Terminal Chat
 
 After ingestion:

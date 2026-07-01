@@ -4,6 +4,7 @@ chromadb
 python-dotenv
 pypdf
 pymupdf>=1.24.0
+pillow
 langchain
 langchain-openai
 langchain-experimental
