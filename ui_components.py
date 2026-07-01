@@ -4554,6 +4554,11 @@ def _source_modal_href(source: dict[str, Any], source_section: str = "Chat / Ans
     return f"?view_doc={target}&from_section={section}"
 
 
+def _source_pdf_modal_id(source: dict[str, Any]) -> str:
+    target = quote(_source_document_target(source), safe="")
+    return f"pdf-modal-{target}"
+
+
 def _evidence_chunk_modal_id(source: dict[str, Any], index: int) -> str:
     target = _source_document_target(source)
     chunk_id = str(source.get("chunk_id", "") or "chunk")
@@ -4573,6 +4578,7 @@ def build_evidence_source_card_html(
     rerank = source.get("rerank_score")
     snippet = _truncate_text(source.get("text"))
     document_href = _source_modal_href(source, source_section)
+    pdf_modal_id = _source_pdf_modal_id(source)
     modal_id = _evidence_chunk_modal_id(source, index)
     similarity_width = _score_width(similarity)
     rerank_width = _score_width(rerank)
@@ -4611,7 +4617,7 @@ def build_evidence_source_card_html(
     <div class="evidence-snippet">{html.escape(snippet)}</div>
     <div class="evidence-source-actions">
       <button class="evidence-action-link" type="button" data-open-evidence-chunk="{html.escape(modal_id, quote=True)}">Open Chunk</button>
-      <a class="evidence-action-link is-primary" href="{html.escape(document_href, quote=True)}" target="_self">View document</a>
+      <a class="evidence-action-link is-primary" href="{html.escape(document_href, quote=True)}" target="_self" data-pdf-modal-target="{html.escape(pdf_modal_id, quote=True)}" data-pdf-modal-fallback="{html.escape(document_href, quote=True)}">View document</a>
     </div>
   </div>
 </details>
@@ -4627,7 +4633,7 @@ def build_evidence_source_card_html(
     <div class="evidence-chunk-meta">{html.escape(chunk_meta)}</div>
     <div class="evidence-chunk-copy">{html.escape(chunk_text)}</div>
     <div class="evidence-chunk-actions">
-      <a class="evidence-action-link is-primary" href="{html.escape(document_href, quote=True)}" target="_self">View full document</a>
+      <a class="evidence-action-link is-primary" href="{html.escape(document_href, quote=True)}" target="_self" data-pdf-modal-target="{html.escape(pdf_modal_id, quote=True)}" data-pdf-modal-fallback="{html.escape(document_href, quote=True)}" data-evidence-view-document>View full document</a>
     </div>
   </div>
 </div>
@@ -4730,6 +4736,12 @@ def render_evidence_sources(sources: list[dict[str, Any]], source_section: str =
       event.preventDefault();
       event.stopPropagation();
       openModal(openButton.getAttribute("data-open-evidence-chunk"));
+      return;
+    }
+
+    const documentLink = event.target.closest("[data-evidence-view-document]");
+    if (documentLink) {
+      closeModal(documentLink.closest("[data-evidence-chunk-modal]"));
       return;
     }
 

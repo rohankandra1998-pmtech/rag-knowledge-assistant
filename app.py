@@ -2239,6 +2239,43 @@ def render_chat_composer() -> str | None:
     return None
 
 
+def documents_for_evidence_sources(stats: dict[str, Any], message: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not message:
+        return []
+
+    sources = message.get("sources", []) or []
+    if not sources:
+        return []
+
+    documents = stats.get("documents", []) or []
+    by_hash = {
+        str(document.get("document_hash", "") or "").strip(): document
+        for document in documents
+        if str(document.get("document_hash", "") or "").strip()
+    }
+    by_filename = {
+        str(document.get("filename", "") or "").strip(): document
+        for document in documents
+        if str(document.get("filename", "") or "").strip()
+    }
+
+    matched: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for source in sources:
+        document_hash = str(source.get("document_hash", "") or "").strip()
+        filename = str(source.get("source", "") or "").strip()
+        document = by_hash.get(document_hash) or by_filename.get(filename)
+        if not document:
+            continue
+        key = str(document.get("document_hash", "") or document.get("filename", "") or "")
+        if key in seen:
+            continue
+        seen.add(key)
+        matched.append(document)
+
+    return matched
+
+
 def render_chat_screen(stats: dict[str, Any]) -> None:
     st.markdown(
         '<div class="chat-section-head"><div class="section-title">Chat / Answer</div><div class="chat-section-rule"></div></div>',
@@ -2276,6 +2313,8 @@ def render_chat_screen(stats: dict[str, Any]) -> None:
     with evidence_col:
         with st.container(key="chat_evidence_panel_shell"):
             render_chat_evidence_panel(selected_message, selected_mode)
+
+    render_client_pdf_modals(documents_for_evidence_sources(stats, selected_message), "Chat / Answer")
 
 
 def format_storage_estimate(value_mb: Any) -> str:

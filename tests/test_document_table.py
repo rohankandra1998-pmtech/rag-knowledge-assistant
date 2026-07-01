@@ -65,7 +65,10 @@ class EvidenceSourceCardMarkupTest(unittest.TestCase):
         )
 
         self.assertIn("?view_doc=hash-source&amp;from_section=Chat%20%2F%20Answer", markup)
+        self.assertIn('data-pdf-modal-target="pdf-modal-hash-source"', markup)
+        self.assertIn('data-pdf-modal-fallback="?view_doc=hash-source&amp;from_section=Chat%20%2F%20Answer"', markup)
         self.assertIn('type="button" data-open-evidence-chunk=', markup)
+        self.assertIn("data-evidence-view-document", markup)
         self.assertIn("Selected evidence chunk", markup)
         self.assertIn("Evidence snippet", markup)
         self.assertNotIn("?view_chunk=", markup)
