@@ -4178,7 +4178,7 @@ def render_sidebar(stats: dict[str, Any]) -> str:
 <div class="side-card">
   <div class="side-card-title">Models</div>
   <div class="side-row"><span>LLM</span><span class="side-pill">{CHAT_MODEL}</span></div>
-  <div class="side-row"><span>Embeddings</span><span class="side-pill">3-small</span></div>
+  <div class="side-row"><span>Embeddings</span><span class="side-pill">{_embedding_model_short_label()}</span></div>
 </div>
 <div class="side-card">
   <div class="side-card-title">Ingestion status</div>
@@ -4410,6 +4410,22 @@ def _format_score(value: Any) -> str:
     return "n/a" if score is None else f"{score:.2f}"
 
 
+def _embedding_model_short_label() -> str:
+    return EMBEDDING_MODEL.replace("text-embedding-", "")
+
+
+def _source_page_label(source: dict[str, Any]) -> str:
+    page_range = str(source.get("page_range") or source.get("page_number") or "?")
+    label = "Pages" if "-" in page_range else "Page"
+    return f"{label} {page_range}"
+
+
+def _source_page_caption(source: dict[str, Any]) -> str:
+    page_range = str(source.get("page_range") or source.get("page_number") or "?")
+    prefix = "pp." if "-" in page_range else "p."
+    return f"{prefix}{page_range}"
+
+
 def _score_width(value: Any) -> int:
     score = _coerce_score(value)
     return 0 if score is None else int(score * 100)
@@ -4449,7 +4465,7 @@ def _source_modal_href(source: dict[str, Any], source_section: str = "Chat / Ans
 
 def build_evidence_source_card_html(source: dict[str, Any], source_section: str = "Chat / Answer") -> str:
     filename = str(source.get("source", "") or "").strip() or "Unknown source"
-    page = str(source.get("page_number", "") or "?")
+    page_label = _source_page_label(source)
     chunk_id = str(source.get("chunk_id", "") or "n/a")
     similarity = source.get("similarity")
     rerank = source.get("rerank_score")
@@ -4465,7 +4481,7 @@ def build_evidence_source_card_html(source: dict[str, Any], source_section: str 
     <div class="evidence-pdf-badge">PDF</div>
     <div class="evidence-source-title-wrap">
       <div class="evidence-source-name" title="{html.escape(filename)}">{html.escape(filename)}</div>
-      <div class="evidence-source-meta">Page {html.escape(page)} &middot; Chunk {html.escape(chunk_id)}</div>
+      <div class="evidence-source-meta">{html.escape(page_label)} &middot; Chunk {html.escape(chunk_id)}</div>
       <div class="evidence-source-compact-meta">
         <span class="evidence-compact-score">Similarity <strong>{html.escape(similarity_label)}</strong></span>
         <span class="evidence-compact-score">Rerank <strong>{html.escape(rerank_label)}</strong></span>
@@ -4813,7 +4829,7 @@ def render_sources_panel(sources: list[dict[str, Any]], title: str = "Sources us
                 f"""
 <div class="source-card">
   <div class="source-title">{html.escape(str(source.get("source", "Unknown source")))}</div>
-  <div class="source-meta">Page {html.escape(str(source.get("page_number", "?")))} · Chunk {html.escape(str(source.get("chunk_id", "")))}</div>
+  <div class="source-meta">{html.escape(_source_page_label(source))} · Chunk {html.escape(str(source.get("chunk_id", "")))}</div>
   <div class="source-meta">Similarity: {similarity if similarity is not None else "n/a"} · Rerank: {rerank if rerank is not None else "n/a"}</div>
   <div class="score-bar"><span style="width:{score_pct}%"></span></div>
   <p>{html.escape(snippet)}</p>
@@ -4862,14 +4878,14 @@ def render_debug_panel(debug: dict[str, Any]) -> None:
             st.markdown("**Top retrieved chunks**")
             for chunk in debug.get("retrieved_chunks", [])[:10]:
                 st.caption(
-                    f'{chunk.get("source")} p.{chunk.get("page_number")} · '
+                    f'{chunk.get("source")} {_source_page_caption(chunk)} · '
                     f'similarity {chunk.get("similarity")}'
                 )
         with col2:
             st.markdown("**Reranked chunks sent to model**")
             for chunk in debug.get("reranked_chunks", [])[:5]:
                 st.caption(
-                    f'{chunk.get("source")} p.{chunk.get("page_number")} · '
+                    f'{chunk.get("source")} {_source_page_caption(chunk)} · '
                     f'rerank {chunk.get("rerank_score")}'
                 )
         st.caption(
