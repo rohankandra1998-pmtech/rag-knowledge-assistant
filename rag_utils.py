@@ -30,7 +30,12 @@ CROSS_PAGE_CONTEXT_MODE = "full_adjacent_pages"
 MAX_ADJACENT_PAGE_CONTEXT_CHARS = 4000
 SESSION_STORAGE_MODE = "session"
 LOCAL_STORAGE_MODE = "local"
-SESSION_TTL_SECONDS = 24 * 60 * 60
+SESSION_TTL_DAYS = 7
+SESSION_TTL_SECONDS = SESSION_TTL_DAYS * 24 * 60 * 60
+BROWSER_SESSION_QUERY_PARAM = "rag_browser_session"
+_SESSION_ID_PATTERN = re.compile(
+    r"^(?:[a-f0-9]{32,64}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$"
+)
 
 _CLI_SESSION_ID = ""
 
@@ -80,6 +85,38 @@ def is_session_storage_mode() -> bool:
     return get_storage_mode() == SESSION_STORAGE_MODE
 
 
+def is_valid_session_id(value: str) -> bool:
+    return bool(_SESSION_ID_PATTERN.fullmatch(str(value or "").strip().lower()))
+
+
+def get_browser_session_query_param() -> str:
+    try:
+        import streamlit as st
+
+        value = st.query_params.get(BROWSER_SESSION_QUERY_PARAM, "")
+        if isinstance(value, list):
+            value = value[0] if value else ""
+        value = str(value or "").strip().lower()
+        return value if is_valid_session_id(value) else ""
+    except Exception:
+        return ""
+
+
+def set_session_id(value: str) -> str:
+    session_id = str(value or "").strip().lower()
+    if not is_valid_session_id(session_id):
+        return ""
+
+    try:
+        import streamlit as st
+
+        st.session_state["rag_session_id"] = session_id
+    except Exception:
+        global _CLI_SESSION_ID
+        _CLI_SESSION_ID = session_id
+    return session_id
+
+
 def get_session_id() -> str:
     global _CLI_SESSION_ID
     if not is_session_storage_mode():
@@ -89,9 +126,13 @@ def get_session_id() -> str:
         import streamlit as st
 
         session_id = str(st.session_state.get("rag_session_id", "") or "").strip()
+        if session_id and is_valid_session_id(session_id):
+            return session_id
+
+        session_id = get_browser_session_query_param()
         if not session_id:
             session_id = uuid.uuid4().hex
-            st.session_state["rag_session_id"] = session_id
+        st.session_state["rag_session_id"] = session_id
         return session_id
     except Exception:
         if not _CLI_SESSION_ID:
@@ -104,7 +145,9 @@ def get_active_docs_dir() -> Path:
 
 
 def get_session_root_dir(session_id: str | None = None) -> Path:
-    active_session_id = session_id or get_session_id()
+    active_session_id = str(session_id or get_session_id()).strip().lower()
+    if not is_valid_session_id(active_session_id):
+        active_session_id = uuid.uuid4().hex
     return Path(RUNTIME_SESSIONS_DIR) / active_session_id
 
 

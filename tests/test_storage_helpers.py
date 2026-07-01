@@ -42,6 +42,42 @@ class StorageHelperTest(unittest.TestCase):
         self.assertNotEqual(rag_utils.get_active_uploaded_docs_dir().as_posix(), "uploaded_docs")
         self.assertNotEqual(rag_utils.get_active_chroma_db_dir().as_posix(), "chroma_db")
 
+    def test_valid_session_ids_pass_validation(self) -> None:
+        self.assertTrue(rag_utils.is_valid_session_id("a" * 32))
+        self.assertTrue(rag_utils.is_valid_session_id("01234567-89ab-cdef-0123-456789abcdef"))
+        self.assertTrue(rag_utils.is_valid_session_id("F" * 64))
+
+    def test_invalid_session_ids_fail_validation(self) -> None:
+        invalid_values = [
+            "",
+            "../chroma_db",
+            "runtime_sessions/abc",
+            "abc.def",
+            "abc def",
+            "abc123",
+            "g" * 32,
+            "01234567-89ab-cdef-0123-456789abcdeg",
+        ]
+        for value in invalid_values:
+            with self.subTest(value=value):
+                self.assertFalse(rag_utils.is_valid_session_id(value))
+
+    @patch("rag_utils.load_env", lambda: None)
+    @patch("rag_utils.get_session_id", lambda: "b" * 32)
+    @patch.dict(os.environ, {"RAG_STORAGE_MODE": "session"}, clear=True)
+    def test_session_mode_paths_use_validated_runtime_session_id(self) -> None:
+        self.assertEqual(
+            rag_utils.get_active_uploaded_docs_dir().as_posix(),
+            f"runtime_sessions/{'b' * 32}/uploaded_docs",
+        )
+        self.assertEqual(
+            rag_utils.get_active_chroma_db_dir().as_posix(),
+            f"runtime_sessions/{'b' * 32}/chroma_db",
+        )
+
+    def test_cleanup_ttl_is_seven_days(self) -> None:
+        self.assertEqual(rag_utils.SESSION_TTL_SECONDS, 7 * 24 * 60 * 60)
+
 
 if __name__ == "__main__":
     unittest.main()

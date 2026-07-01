@@ -9,8 +9,10 @@ from typing import Any
 from urllib.parse import quote, unquote
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from rag_utils import (
+    BROWSER_SESSION_QUERY_PARAM,
     CHAT_MODEL,
     EMBEDDING_MODEL,
     build_token_usage_summary,
@@ -21,6 +23,7 @@ from rag_utils import (
     get_active_collection_name,
     get_active_docs_dir,
     get_active_uploaded_docs_dir,
+    get_browser_session_query_param,
     get_chroma_collection,
     get_collection_stats,
     get_document_hash,
@@ -28,6 +31,8 @@ from rag_utils import (
     ingest_folder,
     ingest_pdf,
     is_session_storage_mode,
+    is_valid_session_id,
+    set_session_id,
     retrieve_context_with_usage,
     rerank_chunks_with_usage,
     rewrite_query_result,
@@ -70,6 +75,9 @@ REMOVED_NAV_SECTIONS = {
 CLIENT_MODAL_RENDERED_PREVIEW_LIMIT = 4
 MAX_UPLOAD_BATCH_PDFS = 5
 APP_PAGE_ICON_PATH = Path(__file__).parent / "assets" / "rag-app-icon-tight.png"
+BROWSER_SESSION_STORAGE_KEY = "rag_knowledge_assistant_session"
+BROWSER_SESSION_TTL_DAYS = 7
+BROWSER_SESSION_TTL_MS = BROWSER_SESSION_TTL_DAYS * 24 * 60 * 60 * 1000
 
 
 def load_app_page_icon() -> Any:
@@ -84,6 +92,99 @@ def load_app_page_icon() -> Any:
         return str(APP_PAGE_ICON_PATH)
 
 
+def render_browser_session_bridge() -> None:
+    if not is_session_storage_mode():
+        return
+
+    server_session_id = str(st.session_state.get("rag_session_id", "") or "").strip().lower()
+    if not is_valid_session_id(server_session_id):
+        server_session_id = ""
+
+    components.html(
+        f"""
+<script>
+(() => {{
+  const storageKey = {BROWSER_SESSION_STORAGE_KEY!r};
+  const queryParam = {BROWSER_SESSION_QUERY_PARAM!r};
+  const ttlMs = {BROWSER_SESSION_TTL_MS};
+  const serverSessionId = {server_session_id!r};
+  const validPattern = /^(?:[a-f0-9]{{32,64}}|[a-f0-9]{{8}}-[a-f0-9]{{4}}-[a-f0-9]{{4}}-[a-f0-9]{{4}}-[a-f0-9]{{12}})$/;
+  const now = Date.now();
+  const parentWindow = window.parent;
+
+  const isValidSessionId = (value) => validPattern.test(String(value || "").trim().toLowerCase());
+  const setStoredSession = (sessionId) => {{
+    try {{
+      parentWindow.localStorage.setItem(storageKey, JSON.stringify({{
+        session_id: sessionId,
+        expires_at: now + ttlMs,
+      }}));
+    }} catch (error) {{}}
+  }};
+  const readStoredSession = () => {{
+    try {{
+      const payload = JSON.parse(parentWindow.localStorage.getItem(storageKey) || "{{}}");
+      const sessionId = String(payload.session_id || "").trim().toLowerCase();
+      const expiresAt = Number(payload.expires_at || 0);
+      if (isValidSessionId(sessionId) && expiresAt > now) return sessionId;
+      parentWindow.localStorage.removeItem(storageKey);
+    }} catch (error) {{
+      try {{ parentWindow.localStorage.removeItem(storageKey); }} catch (innerError) {{}}
+    }}
+    return "";
+  }};
+  const generateSessionId = () => {{
+    try {{
+      const bytes = new Uint8Array(16);
+      parentWindow.crypto.getRandomValues(bytes);
+      return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    }} catch (error) {{
+      return Array.from({{ length: 32 }}, () => Math.floor(Math.random() * 16).toString(16)).join("");
+    }}
+  }};
+  const replaceVisibleUrl = (url) => {{
+    try {{
+      parentWindow.history.replaceState(null, "", `${{url.pathname}}${{url.search}}${{url.hash}}`);
+    }} catch (error) {{}}
+  }};
+  const reloadWithSession = (url, sessionId) => {{
+    url.searchParams.set(queryParam, sessionId);
+    parentWindow.location.replace(`${{url.pathname}}${{url.search}}${{url.hash}}`);
+  }};
+
+  const url = new URL(parentWindow.location.href);
+  const urlSessionId = String(url.searchParams.get(queryParam) || "").trim().toLowerCase();
+  if (isValidSessionId(urlSessionId)) {{
+    setStoredSession(urlSessionId);
+    url.searchParams.delete(queryParam);
+    replaceVisibleUrl(url);
+    return;
+  }}
+  if (urlSessionId) {{
+    url.searchParams.delete(queryParam);
+    replaceVisibleUrl(url);
+  }}
+  if (isValidSessionId(serverSessionId)) {{
+    setStoredSession(serverSessionId);
+    return;
+  }}
+
+  let sessionId = readStoredSession();
+  if (!sessionId) {{
+    sessionId = generateSessionId();
+    setStoredSession(sessionId);
+  }}
+  if (isValidSessionId(sessionId)) {{
+    reloadWithSession(url, sessionId);
+  }}
+}})();
+</script>
+""",
+        height=0,
+        width=0,
+    )
+
+
 st.set_page_config(
     page_title="RAG Knowledge Assistant",
     page_icon=load_app_page_icon(),
@@ -93,6 +194,9 @@ st.set_page_config(
 
 
 def init_state() -> None:
+    browser_session_id = get_browser_session_query_param()
+    if browser_session_id:
+        set_session_id(browser_session_id)
     ensure_project_dirs()
     if is_session_storage_mode():
         get_session_id()
@@ -3195,6 +3299,7 @@ def render_models_screen() -> None:
 
 
 def main() -> None:
+    render_browser_session_bridge()
     init_state()
     inject_custom_css()
 
