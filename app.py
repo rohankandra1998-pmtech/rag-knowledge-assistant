@@ -69,10 +69,24 @@ REMOVED_NAV_SECTIONS = {
 
 CLIENT_MODAL_RENDERED_PREVIEW_LIMIT = 4
 MAX_UPLOAD_BATCH_PDFS = 5
+APP_PAGE_ICON_PATH = Path(__file__).parent / "assets" / "rag-app-icon-tight.png"
+
+
+def load_app_page_icon() -> Any:
+    if not APP_PAGE_ICON_PATH.exists():
+        return "🔎"
+    try:
+        from PIL import Image
+
+        with Image.open(APP_PAGE_ICON_PATH) as image:
+            return image.copy()
+    except Exception:
+        return str(APP_PAGE_ICON_PATH)
+
 
 st.set_page_config(
     page_title="RAG Knowledge Assistant",
-    page_icon="AI",
+    page_icon=load_app_page_icon(),
     layout="wide",
     initial_sidebar_state="expanded",
 )

@@ -4291,16 +4291,6 @@ def render_sidebar(stats: dict[str, Any]) -> str:
                 unsafe_allow_html=True,
             )
 
-        st.markdown(
-            """
-<div class="side-card">
-  <div class="side-row"><strong>Admin</strong><span class="side-pill">Local</span></div>
-  <div class="side-row"><span>portfolio-ready build</span></div>
-</div>
-""",
-            unsafe_allow_html=True,
-        )
-
     return section
 
 
