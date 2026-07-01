@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import html
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -385,6 +386,31 @@ def format_file_size(size_bytes: Any) -> str:
     if size_mb >= 1:
         return f"{size_mb:.1f} MB"
     return f"{max(1, round(size / 1024)):,} KB"
+
+
+def format_chunking_strategy_label(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return "Semantic"
+
+    normalized = re.sub(r"([a-z])([A-Z])", r"\1 \2", raw)
+    normalized = re.sub(r"[_-]+", " ", normalized)
+    normalized = " ".join(normalized.split()).lower()
+    if not normalized:
+        return "Semantic"
+
+    known_labels = {
+        "semantic": "Semantic",
+        "recursive": "Recursive",
+        "semantic full adjacent page overlap": "Semantic full adjacent-page overlap",
+        "recursive full adjacent page overlap": "Recursive full adjacent-page overlap",
+    }
+    if normalized in known_labels:
+        return known_labels[normalized]
+
+    words = normalized.split()
+    words[0] = words[0].capitalize()
+    return " ".join(words)
 
 
 def format_ingested_timestamp(timestamp: Any) -> str:
@@ -1357,7 +1383,7 @@ def render_pdf_modal_shell(
     short_hash = document_hash[:12] if document_hash != "n/a" else "n/a"
     file_size = format_file_size(document.get("file_size") or (pdf_path.stat().st_size if pdf_path else 0))
     last_ingested = format_ingested_timestamp(document.get("last_ingested"))
-    chunking_strategy = str(document.get("chunking_strategy", "semantic") or "semantic").title()
+    chunking_strategy = format_chunking_strategy_label(document.get("chunking_strategy", "semantic"))
     page_label = f"{pages:,} page" if pages == 1 else f"{pages:,} pages"
     chunk_label = f"{chunks:,} chunk" if chunks == 1 else f"{chunks:,} chunks"
     pdf_uri = pdf_data_uri(pdf_path) if pdf_path else ""
@@ -2593,7 +2619,7 @@ def selected_document_panel_markup(document: dict[str, Any] | None) -> str:
     last_ingested = format_ingested_timestamp(document.get("last_ingested"))
     document_hash = str(document.get("document_hash", "") or "")
     short_hash = document_hash[:12] if document_hash else "n/a"
-    chunking = str(document.get("chunking_strategy", "Semantic") or "Semantic").title()
+    chunking = format_chunking_strategy_label(document.get("chunking_strategy", "Semantic"))
     location = get_document_location_label(document)
     target = quote(document_hash or filename, safe="")
     delete_href = f"?section=Documents&delete_doc={target}&selected_doc={target}"

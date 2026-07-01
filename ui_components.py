@@ -2709,7 +2709,7 @@ body.pdf-modal-open {
 }
 .pdf-detail-row {
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr) minmax(88px, auto);
+  grid-template-columns: 20px minmax(118px, max-content) minmax(0, 1fr);
   gap: 0.48rem 0.65rem;
   align-items: center;
   padding: 0.43rem 0;
@@ -2728,12 +2728,16 @@ body.pdf-modal-open {
 .pdf-detail-label {
   color: #405072;
   font-weight: 750;
+  white-space: nowrap;
 }
 .pdf-detail-value {
   color: var(--navy);
   font-weight: 800;
+  min-width: 0;
   text-align: right;
-  word-break: break-word;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 .pdf-detail-value.is-yes {
   color: #1D7F3B;
