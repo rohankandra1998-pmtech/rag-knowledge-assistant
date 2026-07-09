@@ -10,3 +10,4 @@ langchain-openai
 langchain-experimental
 langchain-text-splitters
 tiktoken
+reportlab
