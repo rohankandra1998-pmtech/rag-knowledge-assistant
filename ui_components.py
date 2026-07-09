@@ -312,7 +312,59 @@ html, body, [class*="css"] {
   filter: none !important;
 }
 
-#MainMenu, footer, header { visibility: hidden; }
+#MainMenu, footer { visibility: hidden; }
+[data-testid="stHeader"] {
+  background: transparent;
+}
+.stApp:has([data-testid="stSidebar"][aria-expanded="false"]) [data-testid="stHeader"] [data-testid="stToolbar"] {
+  visibility: visible !important;
+}
+[data-testid="stHeader"] [data-testid="stToolbarActions"] {
+  visibility: hidden;
+}
+.stApp:has([data-testid="stSidebar"][aria-expanded="false"]) [data-testid="stExpandSidebarButton"] {
+  visibility: visible !important;
+  position: fixed !important;
+  top: 0.85rem !important;
+  left: 0.65rem !important;
+  z-index: 1000000 !important;
+  width: 42px !important;
+  height: 42px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff !important;
+  background: linear-gradient(180deg, rgba(65,42,30,0.98) 0%, #24170F 100%) !important;
+  border: 1px solid rgba(248, 222, 60, 0.24) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 22px rgba(11, 48, 117, 0.22) !important;
+  transition: transform 150ms ease, background 150ms ease, box-shadow 150ms ease;
+}
+.stApp:has([data-testid="stSidebar"][aria-expanded="false"]) [data-testid="stExpandSidebarButton"]:hover {
+  background: #0B3075 !important;
+  box-shadow: 0 10px 26px rgba(11, 48, 117, 0.30) !important;
+  transform: translateY(-1px);
+}
+.stApp:has([data-testid="stSidebar"][aria-expanded="false"]) [data-testid="stExpandSidebarButton"]:focus-visible {
+  outline: 3px solid rgba(88, 172, 244, 0.55);
+  outline-offset: 2px;
+}
+.stApp:has([data-testid="stSidebar"][aria-expanded="false"]) [data-testid="stExpandSidebarButton"] svg,
+.stApp:has([data-testid="stSidebar"][aria-expanded="false"]) [data-testid="stExpandSidebarButton"] svg *,
+.stApp:has([data-testid="stSidebar"][aria-expanded="false"]) [data-testid="stExpandSidebarButton"] span,
+.stApp:has([data-testid="stSidebar"][aria-expanded="false"]) [data-testid="stExpandSidebarButton"] [data-testid="stIconMaterial"] {
+  color: #fff !important;
+  fill: #fff !important;
+  stroke: #fff !important;
+}
+@media (max-width: 640px) {
+  .stApp:has([data-testid="stSidebar"][aria-expanded="false"]) [data-testid="stExpandSidebarButton"] {
+    top: 0.55rem !important;
+    left: 0.4rem !important;
+    width: 38px !important;
+    height: 38px !important;
+  }
+}
 .block-container { padding: 1.35rem 1.75rem 3rem; max-width: 1440px; }
 
 [data-testid="stSidebar"] {
