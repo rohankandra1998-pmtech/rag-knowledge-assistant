@@ -349,6 +349,14 @@ html, body, [class*="css"] {
   outline: 3px solid rgba(88, 172, 244, 0.55);
   outline-offset: 2px;
 }
+.stApp:has([data-testid="stSidebar"][aria-expanded="false"]) [data-testid="stExpandSidebarButton"] svg,
+.stApp:has([data-testid="stSidebar"][aria-expanded="false"]) [data-testid="stExpandSidebarButton"] svg *,
+.stApp:has([data-testid="stSidebar"][aria-expanded="false"]) [data-testid="stExpandSidebarButton"] span,
+.stApp:has([data-testid="stSidebar"][aria-expanded="false"]) [data-testid="stExpandSidebarButton"] [data-testid="stIconMaterial"] {
+  color: #fff !important;
+  fill: #fff !important;
+  stroke: #fff !important;
+}
 @media (max-width: 640px) {
   .stApp:has([data-testid="stSidebar"][aria-expanded="false"]) [data-testid="stExpandSidebarButton"] {
     top: 0.55rem !important;
