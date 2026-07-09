@@ -9,25 +9,33 @@ from typing import Any
 from urllib.parse import quote, unquote
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from rag_utils import (
+    BROWSER_SESSION_QUERY_PARAM,
     CHAT_MODEL,
-    COLLECTION_NAME,
-    DOCS_DIR,
     EMBEDDING_MODEL,
-    UPLOADED_DOCS_DIR,
     build_token_usage_summary,
+    cleanup_old_session_folders,
     delete_document_by_hash,
+    ensure_project_dirs,
     generate_answer,
+    get_active_collection_name,
+    get_active_docs_dir,
+    get_active_uploaded_docs_dir,
+    get_browser_session_query_param,
     get_chroma_collection,
     get_collection_stats,
     get_document_hash,
+    get_session_id,
     ingest_folder,
     ingest_pdf,
+    is_session_storage_mode,
+    is_valid_session_id,
+    set_session_id,
     retrieve_context_with_usage,
     rerank_chunks_with_usage,
     rewrite_query_result,
-    ensure_project_dirs,
 )
 from ui_components import (
     get_status_card_icon_svg,
@@ -65,17 +73,136 @@ REMOVED_NAV_SECTIONS = {
 }
 
 CLIENT_MODAL_RENDERED_PREVIEW_LIMIT = 4
+MAX_UPLOAD_BATCH_PDFS = 5
+APP_PAGE_ICON_PATH = Path(__file__).parent / "assets" / "rag-app-icon-tight.png"
+BROWSER_SESSION_STORAGE_KEY = "rag_knowledge_assistant_session"
+BROWSER_SESSION_TTL_DAYS = 7
+BROWSER_SESSION_TTL_MS = BROWSER_SESSION_TTL_DAYS * 24 * 60 * 60 * 1000
+
+
+def load_app_page_icon() -> Any:
+    if not APP_PAGE_ICON_PATH.exists():
+        return "🔎"
+    try:
+        from PIL import Image
+
+        with Image.open(APP_PAGE_ICON_PATH) as image:
+            return image.copy()
+    except Exception:
+        return str(APP_PAGE_ICON_PATH)
+
+
+def render_browser_session_bridge() -> None:
+    if not is_session_storage_mode():
+        return
+
+    server_session_id = str(st.session_state.get("rag_session_id", "") or "").strip().lower()
+    if not is_valid_session_id(server_session_id):
+        server_session_id = ""
+
+    components.html(
+        f"""
+<script>
+(() => {{
+  const storageKey = {BROWSER_SESSION_STORAGE_KEY!r};
+  const queryParam = {BROWSER_SESSION_QUERY_PARAM!r};
+  const ttlMs = {BROWSER_SESSION_TTL_MS};
+  const serverSessionId = {server_session_id!r};
+  const validPattern = /^(?:[a-f0-9]{{32,64}}|[a-f0-9]{{8}}-[a-f0-9]{{4}}-[a-f0-9]{{4}}-[a-f0-9]{{4}}-[a-f0-9]{{12}})$/;
+  const now = Date.now();
+  const parentWindow = window.parent;
+
+  const isValidSessionId = (value) => validPattern.test(String(value || "").trim().toLowerCase());
+  const setStoredSession = (sessionId) => {{
+    try {{
+      parentWindow.localStorage.setItem(storageKey, JSON.stringify({{
+        session_id: sessionId,
+        expires_at: now + ttlMs,
+      }}));
+    }} catch (error) {{}}
+  }};
+  const readStoredSession = () => {{
+    try {{
+      const payload = JSON.parse(parentWindow.localStorage.getItem(storageKey) || "{{}}");
+      const sessionId = String(payload.session_id || "").trim().toLowerCase();
+      const expiresAt = Number(payload.expires_at || 0);
+      if (isValidSessionId(sessionId) && expiresAt > now) return sessionId;
+      parentWindow.localStorage.removeItem(storageKey);
+    }} catch (error) {{
+      try {{ parentWindow.localStorage.removeItem(storageKey); }} catch (innerError) {{}}
+    }}
+    return "";
+  }};
+  const generateSessionId = () => {{
+    try {{
+      const bytes = new Uint8Array(16);
+      parentWindow.crypto.getRandomValues(bytes);
+      return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    }} catch (error) {{
+      return Array.from({{ length: 32 }}, () => Math.floor(Math.random() * 16).toString(16)).join("");
+    }}
+  }};
+  const replaceVisibleUrl = (url) => {{
+    try {{
+      parentWindow.history.replaceState(null, "", `${{url.pathname}}${{url.search}}${{url.hash}}`);
+    }} catch (error) {{}}
+  }};
+  const reloadWithSession = (url, sessionId) => {{
+    url.searchParams.set(queryParam, sessionId);
+    parentWindow.location.replace(`${{url.pathname}}${{url.search}}${{url.hash}}`);
+  }};
+
+  const url = new URL(parentWindow.location.href);
+  const urlSessionId = String(url.searchParams.get(queryParam) || "").trim().toLowerCase();
+  if (isValidSessionId(urlSessionId)) {{
+    setStoredSession(urlSessionId);
+    url.searchParams.delete(queryParam);
+    replaceVisibleUrl(url);
+    return;
+  }}
+  if (urlSessionId) {{
+    url.searchParams.delete(queryParam);
+    replaceVisibleUrl(url);
+  }}
+  if (isValidSessionId(serverSessionId)) {{
+    setStoredSession(serverSessionId);
+    return;
+  }}
+
+  let sessionId = readStoredSession();
+  if (!sessionId) {{
+    sessionId = generateSessionId();
+    setStoredSession(sessionId);
+  }}
+  if (isValidSessionId(sessionId)) {{
+    reloadWithSession(url, sessionId);
+  }}
+}})();
+</script>
+""",
+        height=0,
+        width=0,
+    )
+
 
 st.set_page_config(
     page_title="RAG Knowledge Assistant",
-    page_icon="AI",
+    page_icon=load_app_page_icon(),
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 
 def init_state() -> None:
+    browser_session_id = get_browser_session_query_param()
+    if browser_session_id:
+        set_session_id(browser_session_id)
     ensure_project_dirs()
+    if is_session_storage_mode():
+        get_session_id()
+        if not st.session_state.get("rag_session_cleanup_done"):
+            cleanup_old_session_folders(current_session_id=get_session_id())
+            st.session_state.rag_session_cleanup_done = True
     defaults: dict[str, Any] = {
         "messages": [],
         "ingestion_events": [],
@@ -200,8 +327,8 @@ def ingest_all_known_pdfs() -> None:
     results = []
     try:
         with st.spinner("Indexing PDFs into ChromaDB..."):
-            results.extend(ingest_folder(DOCS_DIR, collection=collection, status_callback=status))
-            results.extend(ingest_folder(UPLOADED_DOCS_DIR, collection=collection, status_callback=status))
+            results.extend(ingest_folder(get_active_docs_dir(), collection=collection, status_callback=status))
+            results.extend(ingest_folder(get_active_uploaded_docs_dir(), collection=collection, status_callback=status))
         st.session_state.last_ingestion_results = results
         indexed = len([result for result in results if result.get("status") == "indexed"])
         skipped = len([result for result in results if result.get("status") == "skipped"])
@@ -215,12 +342,39 @@ def ingest_all_known_pdfs() -> None:
         render_error_state("Ingestion failed", str(exc))
 
 
+def sanitize_uploaded_pdf_name(filename: str) -> str:
+    original_name = Path(str(filename or "document.pdf")).name
+    stem = Path(original_name).stem.strip() or "document"
+    safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "_", stem).strip("._-") or "document"
+    return f"{safe_stem}.pdf"
+
+
+def unique_destination_path(target_dir: Path, filename: str) -> Path:
+    destination = target_dir / filename
+    if not destination.exists():
+        return destination
+
+    stem = destination.stem
+    suffix = destination.suffix
+    index = 2
+    while True:
+        candidate = target_dir / f"{stem}_{index}{suffix}"
+        if not candidate.exists():
+            return candidate
+        index += 1
+
+
 def save_uploaded_files(uploaded_files) -> list[Path]:
     saved_paths: list[Path] = []
-    target_dir = Path(UPLOADED_DOCS_DIR)
+    target_dir = get_active_uploaded_docs_dir()
     target_dir.mkdir(parents=True, exist_ok=True)
     for uploaded_file in uploaded_files or []:
-        destination = target_dir / uploaded_file.name
+        original_name = str(getattr(uploaded_file, "name", "document.pdf") or "document.pdf")
+        if Path(original_name).suffix.lower() != ".pdf":
+            st.warning(f"{original_name} was skipped because only PDF files are supported.")
+            continue
+        safe_name = sanitize_uploaded_pdf_name(original_name)
+        destination = unique_destination_path(target_dir, safe_name)
         destination.write_bytes(uploaded_file.getbuffer())
         saved_paths.append(destination)
     return saved_paths
@@ -280,6 +434,9 @@ def get_upload_notice_level(results: list[dict[str, Any]]) -> str:
 def upload_and_ingest_files(uploaded_files, progress_placeholder=None) -> list[dict[str, Any]]:
     clear_document_delete_result_state()
     if st.session_state.get("ingestion_active"):
+        return []
+    if len(uploaded_files or []) > MAX_UPLOAD_BATCH_PDFS:
+        st.error(f"Please upload up to {MAX_UPLOAD_BATCH_PDFS} PDFs at a time.")
         return []
 
     st.session_state.ingestion_active = True
@@ -430,7 +587,7 @@ def format_chat_timestamp(dt: datetime | None = None) -> str:
 def resolve_source_pdf_path(document: dict[str, Any]) -> Path | None:
     filename = str(document.get("filename", "") or "")
     document_hash = str(document.get("document_hash", "") or "")
-    search_dirs = [Path(DOCS_DIR), Path(UPLOADED_DOCS_DIR)]
+    search_dirs = [get_active_docs_dir(), get_active_uploaded_docs_dir()]
     filename_matches = [directory / filename for directory in search_dirs if filename and (directory / filename).exists()]
 
     if document_hash:
@@ -458,8 +615,8 @@ def get_document_location_label(document: dict[str, Any]) -> str:
 
     try:
         resolved_path = pdf_path.resolve()
-        uploaded_root = Path(UPLOADED_DOCS_DIR).resolve()
-        docs_root = Path(DOCS_DIR).resolve()
+        uploaded_root = get_active_uploaded_docs_dir().resolve()
+        docs_root = get_active_docs_dir().resolve()
         if resolved_path.is_relative_to(uploaded_root):
             return "uploaded_docs/"
         if resolved_path.is_relative_to(docs_root):
@@ -475,7 +632,7 @@ def find_uploaded_pdfs_by_hash(document_hash: str) -> list[Path]:
         return []
 
     matches: list[Path] = []
-    uploaded_dir = Path(UPLOADED_DOCS_DIR)
+    uploaded_dir = get_active_uploaded_docs_dir()
     if not uploaded_dir.exists():
         return matches
 
@@ -1458,7 +1615,7 @@ def render_pdf_modal_shell(
     details = [
         ("Document hash", short_hash),
         ("Chunking strategy", chunking_strategy),
-        ("Source collection", COLLECTION_NAME),
+        ("Source collection", get_active_collection_name()),
         ("File type", extension),
         ("File size", file_size),
         ("Pages", f"{pages:,}"),
@@ -2408,13 +2565,25 @@ def render_documents_upload_card(progress_placeholder=None) -> None:
                 unsafe_allow_html=True,
             )
             if uploaded:
+                upload_errors = []
+                if len(uploaded) > MAX_UPLOAD_BATCH_PDFS:
+                    upload_errors.append(f"Please upload up to {MAX_UPLOAD_BATCH_PDFS} PDFs at a time.")
+                invalid_uploads = [
+                    str(getattr(file, "name", "Selected file") or "Selected file")
+                    for file in uploaded
+                    if Path(str(getattr(file, "name", ""))).suffix.lower() != ".pdf"
+                ]
+                if invalid_uploads:
+                    upload_errors.append("Only PDF files can be uploaded.")
+                for message in upload_errors:
+                    st.error(message)
                 action_col, cancel_col = st.columns([1, 0.18], gap="small")
                 with action_col:
                     if st.button(
                         "Upload PDFs",
                         key="documents_upload_submit",
                         use_container_width=True,
-                        disabled=ingestion_active,
+                        disabled=ingestion_active or bool(upload_errors),
                     ):
                         if not uploaded:
                             st.warning("No PDF selected. Please choose a PDF first.")
@@ -3130,6 +3299,7 @@ def render_models_screen() -> None:
 
 
 def main() -> None:
+    render_browser_session_bridge()
     init_state()
     inject_custom_css()
 

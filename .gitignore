@@ -4,6 +4,7 @@
 .tmp/
 chroma_db/
 uploaded_docs/
+runtime_sessions/
 __pycache__/
 **/__pycache__/
 *.pyc

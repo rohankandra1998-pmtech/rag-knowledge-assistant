@@ -359,7 +359,8 @@ html, body, [class*="css"] {
   min-height: 50px;
   align-items: center;
   width: 100%;
-  transition: background 140ms ease, box-shadow 140ms ease;
+  cursor: pointer;
+  transition: background 160ms ease, box-shadow 160ms ease, transform 160ms ease, color 160ms ease, opacity 160ms ease;
 }
 [data-testid="stSidebar"] [data-testid="stRadio"] label > div:first-child,
 [data-testid="stSidebar"] [role="radio"] > div:first-child {
@@ -389,6 +390,27 @@ html, body, [class*="css"] {
   display: inline-block;
   background: transparent !important;
   vertical-align: middle;
+  transition: filter 160ms ease, opacity 160ms ease, transform 160ms ease;
+}
+[data-testid="stSidebar"] [data-testid="stRadio"] label:not(:has(input[type="radio"]:checked)):hover,
+[data-testid="stSidebar"] [role="radio"][aria-checked="false"]:hover {
+  background: rgba(255,255,255,0.085);
+  box-shadow: 0 10px 22px rgba(0,0,0,0.13), inset 3px 0 0 rgba(248,222,60,0.62);
+  transform: translateX(2px);
+}
+[data-testid="stSidebar"] [data-testid="stRadio"] label:not(:has(input[type="radio"]:checked)):hover [data-testid="stMarkdownContainer"] p,
+[data-testid="stSidebar"] [role="radio"][aria-checked="false"]:hover [data-testid="stMarkdownContainer"] p {
+  color: rgba(255,255,255,0.98) !important;
+}
+[data-testid="stSidebar"] [data-testid="stRadio"] label:not(:has(input[type="radio"]:checked)):hover img,
+[data-testid="stSidebar"] [role="radio"][aria-checked="false"]:hover img {
+  filter: brightness(1.14);
+  opacity: 1;
+}
+[data-testid="stSidebar"] [data-testid="stRadio"] label:focus-within,
+[data-testid="stSidebar"] [role="radio"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(248,222,60,0.58), 0 10px 22px rgba(0,0,0,0.12);
 }
 [data-testid="stSidebar"] [data-testid="stRadio"] label:has(input[type="radio"]:checked),
 [data-testid="stSidebar"] [aria-checked="true"] {
@@ -4290,16 +4312,6 @@ def render_sidebar(stats: dict[str, Any]) -> str:
                 f'<div class="side-card"><div class="side-card-title">Recent documents</div>{doc_rows}</div>',
                 unsafe_allow_html=True,
             )
-
-        st.markdown(
-            """
-<div class="side-card">
-  <div class="side-row"><strong>Admin</strong><span class="side-pill">Local</span></div>
-  <div class="side-row"><span>portfolio-ready build</span></div>
-</div>
-""",
-            unsafe_allow_html=True,
-        )
 
     return section
 
